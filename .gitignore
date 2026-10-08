@@ -1,0 +1,13 @@
+/bin/
+/dist/
+*.test
+*.out
+coverage.txt
+
+# Toolchain caches. The justfile and CI both keep them inside the workspace.
+/.tmp/
+/.gocache/
+
+# IDE project files.
+/.idea/
+*.iml
