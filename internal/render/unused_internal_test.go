@@ -45,9 +45,9 @@ func TestWriteUnusedReportsWriteFailure(t *testing.T) {
 	}
 }
 
-// TestCompareKey pins the comparison key the report uses: a quoted key and its
-// dot spelling must compare equal, an index keeps its brackets, and a spelling the
-// grammar rejects compares as itself.
+// TestCompareKey pins the comparison key the report uses: it is the canonical
+// spelling, so a literal dotted key stays distinct from the nested path, an index
+// keeps its brackets, and a spelling the grammar rejects compares as itself.
 func TestCompareKey(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct{ in, want string }{

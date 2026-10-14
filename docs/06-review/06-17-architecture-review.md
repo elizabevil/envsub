@@ -105,11 +105,13 @@ cmd/envsub/main.go
 
 ### A4｜路径语法知识有两份：`values` 与 `engine` ★★
 
-- 事实：`values` 拥有完整文法（`ParsePath`/`Segment`/`Namespace`/`Canonical`），
-  但 `engine.Options.matchesPattern`（`engine.go:101-113`）自己用 `strings.Cut(path, ".")` +
-  `IndexByte(root, '[')` 解析"根段"，并自带 `pathSeparator`/`indexOpen` 常量。`[FACT]`
+- 事实（问题描述）：`values` 拥有完整文法（`ParsePath`/`Segment`/`Namespace`/`CanonicalPath`），
+  而 `engine.Options.matchesPattern` 当时自己用 `strings.Cut(path, ".")` + `IndexByte(root, '[')`
+  解析"根段"，并自带 `pathSeparator`/`indexOpen` 常量。`[FACT]`
 - 危害：`${@process.NAME}` 的根段被算成 `@process`；`${["a.b"].k}` 的根段被算成 `["a`。
-  这是**同一个语法的第二份实现**，随语法演进必然分叉（本轮刚给语法加了 `@` 与引导索引）。
+  这是**同一个语法的第二份实现**，随语法演进必然分叉。
+- **现状**：已按 D4 收敛——engine 不再自行拆分，`matchesPattern` 把两侧都交给
+  `internal/values` 解析成段后逐段精确比较。
 - 候选：
   - **P1（推荐）** `values` 导出 `RootKey(path)`（或 `Selector(path)`），`engine` 改调它，
     删除本地常量与手写解析。
@@ -170,7 +172,7 @@ cmd/envsub/main.go
 | # | 决策 | 结果 | 证据 |
 |---|------|------|------|
 | D3 | 未接线扩展点 | ✅ **已执行**：删除 `engine.Capabilities` 与 `engine.ErrNotImplemented`；`Registry`/`NewRegistry`/`Register` 整体删除，装配改为 `cli` 接收一个引擎；`source.HTTPInput`/`RPCInput` 占位类型与 `hasScheme` 删除（`TemplateInput` 只认 file/stdin）；`internal/engine` 175→174 行但删掉整个注册表与能力面 | `TestExtendedEngineImplementsPipelineInterfaces`；`internal/source/input_test.go` 改为"非 stdio 一律当路径"；`03-07` §4、`03-09` §2 同步 |
-| D4 | 路径语法单一来源 | ✅ **已执行**：新增 `values.RootKey`，`engine.matchesPattern` 改调它并删除本地 `pathSeparator`/`indexOpen` 手写拆分；带 `.` 的 pattern 用 `filterKey`（根路径不带引号、命名空间保留 `@`）比较（该函数后来在"结构键"改造中删除，改为段精确匹配，见 `04-cli` §6.4） | `TestRootKey`（9 例）、`TestReplacesMatchesGrammarRoots`（8 例）；`04-cli` §6.4 新增匹配规则表 |
+| D4 | 路径语法单一来源 | ✅ **已执行**：`values.RootKey` 提供根段，`engine.matchesPattern` 把 pattern 与路径都交给 `internal/values` 解析成段并**逐段精确比较**（裸名按根段名匹配，命名空间保留 `@`），engine 不再自带 `pathSeparator`/`indexOpen` | `TestRootKey`（9 例）、`TestReplacesMatchesGrammarRoots`（10 例）；`04-cli` §6.4 匹配规则表 |
 | D2 | explain 退出核心循环 | ✅ **已执行**：`--explain` 变为循环**之前**的 `reportSources` 一次扫描，模板文本只读一次并存入 `template.Text`；`renderOne` 不含 explain 分支与 `explainRun` 参数 | e2e 42 个 fixture 全绿（stdout/stderr 断言均不改）；`13-materialization` §15 记录先后顺序调整 |
 | D1 | engine 去 schema 依赖 | ✅ **已执行**：`types.TypeResolver` + `types.TypeResolverFuncs` + `types.SchemaTypeToDeclared`；`engine.Input.Schema` 改为该接口；`extended` 的 `applyType/zeroValue/schemaCompatibleMembers/normalizeBySchemaMembers` 改收接口。**`internal/engine` 与 `internal/engine/extended` 的依赖里已无 `internal/schema`** | `go list` 依赖核对；`TestSchemaTypeToDeclared`、`TestTypeResolverFuncs` |
 | D6 | app 装配职责 | ✅ **已执行（方式调整，见 §2.1）**：`cli` 不再调用 `render.Run`，改为接收注入的 `cli.Runner`；`app.runRender` 是唯一的执行点 | `TestRunnerReceivesAssembledRequest` 钉住 flag→Request 装配；`03-07` §4 同步 |

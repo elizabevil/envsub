@@ -34,23 +34,6 @@
 现在解析出的集合与内联写法的集合走同一套后续处理。用例
 `TestMaterializeConvertsElementsOfParsedArray`（`go test ./internal/schema/`）。
 
-### 原始记录（留档）
-
-> 下文符号是当时的实现名，与当前代码的对应：`sortedKeys` → `utils.SortedKeys`，`joinPath` → `values.AppendSegment`。
-
-
-`applyDefaults` / `materializeNode` 各自实现"按 `sortedKeys(properties)` 遍历 + `joinPath` +
-（物化侧）env 回退"；`applyDefaultsToItems` / `materializeItems` 亦然。G12 已让它们统一读
-`s.walk`（数据源统一），但**遍历骨架**仍未共享。可抽一个 `walkSchema(node, path, visit func(...))`
-供两侧调用；要求：现有 `TestApplyDefaults*`、`TestMaterialize*`、G12/G14 用例全绿 +
-新增"默认值与物化遍历同一路径集合"的对拍用例。
-
-
-`schema.convertDeclared` 与 `engine.normalizeBySchemaMembers` 是同一算法（SI11）的两份实现。
-改法：schema 导出 `NormalizeString(path, text) (any, bool, error)`，引擎字符串分支改为调用它、
-删除重复循环；非字符串仍走 `normalizeBySchemaType`。要求：现有 union 测试全绿 +
-新增"引擎与 schema 结果一致"对拍用例。
-
 ## 8. 待办 G：测试面补齐 —— ✅ 已完成
 
 | 缺口 | 现状 | 建议 |

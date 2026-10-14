@@ -134,8 +134,8 @@ func TestExplainNameAndLookupKeys(t *testing.T) {
 		{path: "hosts[0]", wantName: "hosts[0]", wantRootKey: "hosts[0]"},
 		{path: `["a.b"].k`, wantName: `["a.b"].k`, wantRootKey: `["a.b"].k`},
 		{path: `app["my key"]`, wantName: `app["my key"]`, wantRootKey: `app["my key"]`},
-		// The report uses the canonical spelling, so a filter written the same way
-		// matches even when the template used a different but equivalent form.
+		// The report names the canonical spelling, and --explain compares against it,
+		// so surrounding whitespace in the reference does not change the lookup key.
 		{path: `  app.port  `, wantName: "app.port", wantRootKey: "app.port"},
 	}
 	for _, tt := range tests {

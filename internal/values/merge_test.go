@@ -227,9 +227,9 @@ func TestCanonicalSpellingIsTheIdentity(t *testing.T) {
 	}
 }
 
-// TestMetaDistinguishesLiteralAndNestedKeys pins the bug the structural metadata
-// removed: a literal dotted key and the nested path spelled the same way kept one
-// origin, so --explain named the wrong file.
+// TestMetaDistinguishesLiteralAndNestedKeys pins that a literal dotted key and the
+// nested path spelled the same way keep separate origins, so --explain names the
+// file each value actually came from.
 func TestMetaDistinguishesLiteralAndNestedKeys(t *testing.T) {
 	t.Parallel()
 	tree := values.NewTree()
