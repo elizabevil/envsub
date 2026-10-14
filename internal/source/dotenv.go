@@ -60,7 +60,7 @@ func (Environ) Load(data []byte) (*values.Tree, error) {
 	tree := values.NewTree()
 	for key, entry := range env {
 		tree.Root[key] = entry.Value
-		tree.RecordEncodedMeta(key, values.Meta{
+		tree.RecordMeta(values.Key(key), values.Meta{
 			Line: entry.Line,
 			Kind: DotenvName,
 		})

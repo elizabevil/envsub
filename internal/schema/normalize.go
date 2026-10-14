@@ -70,7 +70,7 @@ var knownKeywords = map[string]bool{
 // normalizeSchema rewrites Go-style type aliases into JSON Schema standard
 // types. It returns the sorted list of unknown non x-* keywords and fails when
 // a type name cannot be normalized.
-func normalizeSchema(node any, path string) (unknown []string, err error) {
+func normalizeSchema(node any, path values.Key) (unknown []string, err error) {
 	switch typed := node.(type) {
 	case map[string]any:
 		if err := normalizeTypeField(typed, path); err != nil {
@@ -88,7 +88,8 @@ func normalizeSchema(node any, path string) (unknown []string, err error) {
 				continue
 			}
 			if !knownKeywords[key] && !strings.HasPrefix(key, extensionPrefix) {
-				unknown = append(unknown, childPath)
+				// The list is diagnostic text, so the address is flattened here.
+				unknown = append(unknown, string(childPath))
 			}
 			childUnknown, err := normalizeSchema(typed[key], childPath)
 			if err != nil {
@@ -111,7 +112,7 @@ func normalizeSchema(node any, path string) (unknown []string, err error) {
 
 // normalizeNameMap normalizes the schemas stored under a name-valued keyword
 // such as properties, where each child key is a user-chosen name.
-func normalizeNameMap(node any, path string) ([]string, error) {
+func normalizeNameMap(node any, path values.Key) ([]string, error) {
 	object, ok := node.(map[string]any)
 	if !ok {
 		return nil, nil
@@ -128,7 +129,7 @@ func normalizeNameMap(node any, path string) ([]string, error) {
 }
 
 // normalizeTypeField rewrites the type keyword of one schema object.
-func normalizeTypeField(object map[string]any, path string) error {
+func normalizeTypeField(object map[string]any, path values.Key) error {
 	raw, ok := object[keywordType]
 	if !ok {
 		return nil

@@ -23,7 +23,7 @@ func (s *Schema) Materialize(tree *values.Tree) error {
 // materializeVisitor converts string values declared by the schema.
 type materializeVisitor struct{}
 
-func (materializeVisitor) missing(tree *values.Tree, path string, childSchema map[string]any) (any, bool, error) {
+func (materializeVisitor) missing(tree *values.Tree, path values.Key, childSchema map[string]any) (any, bool, error) {
 	if !isObjectSchema(childSchema) {
 		return nil, false, nil
 	}
@@ -40,7 +40,7 @@ func (materializeVisitor) missing(tree *values.Tree, path string, childSchema ma
 	return stub, true, nil
 }
 
-func (materializeVisitor) text(tree *values.Tree, path string, childSchema map[string]any, value string) (any, bool, error) {
+func (materializeVisitor) text(tree *values.Tree, path values.Key, childSchema map[string]any, value string) (any, bool, error) {
 	converted, changed, err := convertDeclared(value, childSchema)
 	if err != nil {
 		return nil, false, diag.Wrap(diag.KindType, materializeError(tree, path, value, err))
@@ -49,7 +49,7 @@ func (materializeVisitor) text(tree *values.Tree, path string, childSchema map[s
 }
 
 // materializeNode converts string values according to the schema.
-func materializeNode(tree *values.Tree, schemaNode any, node map[string]any, prefix string) error {
+func materializeNode(tree *values.Tree, schemaNode any, node map[string]any, prefix values.Key) error {
 	return walkProperties(tree, schemaNode, node, prefix, materializeVisitor{})
 }
 
@@ -67,8 +67,8 @@ func isScalarType(declared string) bool {
 // materializeError attaches the origin of the offending value. The value itself
 // is deliberately left out: it may come from a .env file or --set-file and be a
 // secret, and diagnostics are the one place a value can leak.
-func materializeError(tree *values.Tree, path, _ string, err error) error {
-	location := values.DescribeMeta(tree.MetaFor(path))
+func materializeError(tree *values.Tree, path values.Key, _ string, err error) error {
+	location := values.DescribeMeta(tree.MetaForKey(path))
 	if location == "" {
 		location = "unknown source"
 	}

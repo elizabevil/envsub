@@ -109,7 +109,7 @@ func (t *Tree) SetPath(rawPath, value string, mode SetMode, origin Origin) error
 		return fmt.Errorf("set %s: %w", rawPath, err)
 	}
 	if origin.Kind != "" || origin.File != "" {
-		t.RecordMeta(rawPath, Meta{File: origin.File, Line: origin.Line, Kind: string(origin.Kind)}, -1)
+		t.RecordMeta(EncodeSegments(segments), Meta{File: origin.File, Line: origin.Line, Kind: string(origin.Kind)})
 	}
 	return nil
 }
@@ -130,7 +130,7 @@ func (t *Tree) Store(rawPath string, value any, origin Origin) error {
 	if err := assignPath(t.Root, segments, CloneValue(value)); err != nil {
 		return fmt.Errorf("assign %s: %w", rawPath, err)
 	}
-	t.RecordEncodedMeta(EncodeSegments(segments), Meta{
+	t.RecordMeta(EncodeSegments(segments), Meta{
 		Kind:   string(origin.Kind),
 		Method: string(origin.Method),
 		Source: origin.Source,

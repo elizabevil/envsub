@@ -81,7 +81,7 @@ func (l Loader) ReadFile(path string) (*values.Tree, error) {
 		if meta.Kind == "" {
 			meta.Kind = l.Name
 		}
-		tree.RecordEncodedMeta(key, meta)
+		tree.RecordMeta(key, meta)
 	}
 	return tree, nil
 }

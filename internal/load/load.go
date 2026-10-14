@@ -50,8 +50,8 @@ type Result struct {
 type Observer interface {
 	// AddEnv reports a process environment variable.
 	AddEnv(name string)
-	// AddRoot reports a root path and the source it came from.
-	AddRoot(path string, origin Origin)
+	// AddRoot reports an encoded root key and the source it came from.
+	AddRoot(path values.Key, origin Origin)
 }
 
 // Origin is where a contributed value came from: the layering stage, how the
@@ -155,7 +155,7 @@ func Load(ctx context.Context, spec Spec, observer Observer) (*Result, error) {
 			observer.AddRoot(applied.Key, Origin{
 				Kind:   values.SourceSet,
 				Method: applied.Method,
-				Source: applied.Key,
+				Source: string(applied.Key),
 				File:   applied.File,
 			})
 		}
@@ -228,7 +228,7 @@ func mapToAny(root map[string]any) any {
 // used and, for --set-file, the file it read.
 type setApplied struct {
 	// Key is the encoded root path the assignment wrote.
-	Key string
+	Key values.Key
 	// Method is flag, json or file.
 	Method values.SourceMethod
 	// File is the file --set-file read, empty for the other two.
@@ -267,7 +267,7 @@ func applySets(tree *values.Tree, spec Spec) ([]setApplied, error) {
 // a string. One trailing newline is dropped, because a file created by an editor
 // or a secret store ends with one; any other byte is kept, so a multi-line value
 // survives intact.
-func setOneFile(tree *values.Tree, assignment string) (string, string, error) {
+func setOneFile(tree *values.Tree, assignment string) (values.Key, string, error) {
 	key, path, err := values.ParseAssignment(assignment)
 	if err != nil {
 		return "", "", diag.Wrap(diag.KindUsage, err)
@@ -289,7 +289,7 @@ func setOneFile(tree *values.Tree, assignment string) (string, string, error) {
 }
 
 // setOne writes one --set assignment into the root and returns its encoded path.
-func setOne(tree *values.Tree, assignment string, mode values.SetMode) (string, error) {
+func setOne(tree *values.Tree, assignment string, mode values.SetMode) (values.Key, error) {
 	key, value, err := values.ParseAssignment(assignment)
 	if err != nil {
 		return "", diag.Wrap(diag.KindUsage, err)

@@ -98,7 +98,7 @@ func filterKey(path string) string {
 	if values.Namespace(segments) != "" {
 		return values.CanonicalPath(segments)
 	}
-	return values.EncodeSegments(segments)
+	return string(values.EncodeSegments(segments))
 }
 
 // Input is one render: the template, the values it resolves against and the

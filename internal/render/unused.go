@@ -101,7 +101,7 @@ func compareKey(path string) string {
 	if err != nil {
 		return path
 	}
-	return encoded
+	return string(encoded)
 }
 
 // writeUnused writes one path per line, already sorted, so the report can be

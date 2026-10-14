@@ -223,7 +223,7 @@ func TestExplainerSource(t *testing.T) {
 func TestExplainerSourceFallsBackToTreeMeta(t *testing.T) {
 	t.Parallel()
 	tree := values.NewTree()
-	tree.RecordEncodedMeta("K", values.Meta{Kind: "envfile", File: ".env", Line: 4})
+	tree.RecordMeta("K", values.Meta{Kind: "envfile", File: ".env", Line: 4})
 
 	origin, shadowed := (explainer{}).source("K", tree)
 	if origin.kind != "envfile" || origin.file != ".env" || origin.line != 4 {

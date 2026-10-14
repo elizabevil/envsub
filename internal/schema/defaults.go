@@ -24,21 +24,21 @@ func (s *Schema) ApplyDefaults(tree *values.Tree) {
 // defaultsVisitor fills a missing key with the default its schema declares.
 type defaultsVisitor struct{}
 
-func (defaultsVisitor) missing(tree *values.Tree, path string, childSchema map[string]any) (any, bool, error) {
+func (defaultsVisitor) missing(tree *values.Tree, path values.Key, childSchema map[string]any) (any, bool, error) {
 	defaultValue, hasDefault := childSchema[keywordDefault]
 	if !hasDefault {
 		return nil, false, nil
 	}
-	tree.RecordEncodedMeta(path, values.Meta{Kind: string(values.SourceSchema)})
+	tree.RecordMeta(path, values.Meta{Kind: string(values.SourceSchema)})
 	return values.CloneValue(defaultValue), true, nil
 }
 
-func (defaultsVisitor) text(*values.Tree, string, map[string]any, string) (any, bool, error) {
+func (defaultsVisitor) text(*values.Tree, values.Key, map[string]any, string) (any, bool, error) {
 	return nil, false, nil
 }
 
 // applyDefaults walks the schema and fills missing keys in the value tree.
-func applyDefaults(tree *values.Tree, schemaNode any, node map[string]any, prefix string) {
+func applyDefaults(tree *values.Tree, schemaNode any, node map[string]any, prefix values.Key) {
 	_ = walkProperties(tree, schemaNode, node, prefix, defaultsVisitor{})
 }
 
@@ -65,7 +65,7 @@ func (s *Schema) DefaultOrigins() []DefaultOrigin {
 // DefaultOrigin is one declared schema default.
 type DefaultOrigin struct {
 	// Path is the encoded value path the default applies to.
-	Path string
+	Path values.Key
 	// Pointer is the JSON pointer of the declaration inside the schema document.
 	Pointer string
 	// Schema is the schema file, empty when the schema was not loaded from one.
@@ -76,18 +76,18 @@ type DefaultOrigin struct {
 // by the encoded value path the walkers use. The pointer locates the declaration
 // inside the schema document, so --explain can name where a default came from
 // even after a later layer covered it.
-func (s *Schema) DefaultDecls() map[string]string {
+func (s *Schema) DefaultDecls() map[values.Key]string {
 	if s == nil {
 		return nil
 	}
-	decls := map[string]string{}
+	decls := map[values.Key]string{}
 	collectDefaultDecls(s.effective(), "", pointerPrefix, decls)
 	return decls
 }
 
 // collectDefaultDecls walks properties and items the way the walkers do, so the
 // keys it reports match the keys those walkers record metadata for.
-func collectDefaultDecls(schemaNode any, encodedPath, pointer string, decls map[string]string) {
+func collectDefaultDecls(schemaNode any, encodedPath values.Key, pointer string, decls map[values.Key]string) {
 	object, ok := schemaNode.(map[string]any)
 	if !ok {
 		return

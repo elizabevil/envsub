@@ -396,18 +396,22 @@ func CanonicalPath(segments []Segment) string {
 	return b.String()
 }
 
-// JoinPath appends a named key to a dotted path. The result is the same grammar
-// ParsePath reads, so callers that build a path never need the separator itself.
-func JoinPath(prefix, key string) string {
+// Key is the encoded address of a value: dots between named segments, [i] for an
+// index, no @ sigil and no quotes. Metadata is keyed by Key, so a raw template
+// path and an encoded key cannot be passed for one another by mistake.
+type Key string
+
+// JoinPath appends a named key to an encoded path.
+func JoinPath(prefix Key, key string) Key {
 	if prefix == "" {
-		return key
+		return Key(key)
 	}
-	return prefix + string(PathSeparator) + key
+	return prefix + Key(PathSeparator) + Key(key)
 }
 
-// JoinIndex appends an array index to a path, as in extra[0].
-func JoinIndex(prefix string, index int) string {
-	return fmt.Sprintf(indexPathFormat, prefix, index)
+// JoinIndex appends an array index to an encoded path, as in extra[0].
+func JoinIndex(prefix Key, index int) Key {
+	return Key(fmt.Sprintf(indexPathFormat, prefix, index))
 }
 
 // ParentPath drops the last segment of a path, returning "" for a root path or a

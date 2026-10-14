@@ -10,15 +10,15 @@ import (
 type propertyVisitor interface {
 	// missing handles a key the value tree does not have yet. stored reports
 	// whether the returned value belongs in the tree.
-	missing(tree *values.Tree, path string, childSchema map[string]any) (value any, stored bool, err error)
+	missing(tree *values.Tree, path values.Key, childSchema map[string]any) (value any, stored bool, err error)
 	// text converts a present string value. changed reports whether the value
 	// was replaced.
-	text(tree *values.Tree, path string, childSchema map[string]any, value string) (converted any, changed bool, err error)
+	text(tree *values.Tree, path values.Key, childSchema map[string]any, value string) (converted any, changed bool, err error)
 }
 
 // walkProperties applies visitor to every declared property in sorted order and
 // recurses into objects and arrays through this single skeleton.
-func walkProperties(tree *values.Tree, schemaNode any, node map[string]any, prefix string, visitor propertyVisitor) error {
+func walkProperties(tree *values.Tree, schemaNode any, node map[string]any, prefix values.Key, visitor propertyVisitor) error {
 	object, ok := schemaNode.(map[string]any)
 	if !ok {
 		return nil
@@ -65,7 +65,7 @@ func walkProperties(tree *values.Tree, schemaNode any, node map[string]any, pref
 }
 
 // walkItems applies visitor to the elements of an array value.
-func walkItems(tree *values.Tree, schemaNode any, items []any, prefix string, visitor propertyVisitor) error {
+func walkItems(tree *values.Tree, schemaNode any, items []any, prefix values.Key, visitor propertyVisitor) error {
 	object, ok := schemaNode.(map[string]any)
 	if !ok {
 		return nil
@@ -95,7 +95,7 @@ func walkItems(tree *values.Tree, schemaNode any, items []any, prefix string, vi
 }
 
 // walkValue descends into the containers a value may hold.
-func walkValue(tree *values.Tree, schemaNode map[string]any, value any, path string, visitor propertyVisitor) error {
+func walkValue(tree *values.Tree, schemaNode map[string]any, value any, path values.Key, visitor propertyVisitor) error {
 	switch typed := value.(type) {
 	case map[string]any:
 		return walkProperties(tree, schemaNode, typed, path, visitor)

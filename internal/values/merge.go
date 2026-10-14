@@ -15,7 +15,7 @@ func MergeInto(dst, src *Tree, meta Meta) {
 		dst.Root = map[string]any{}
 	}
 	if dst.meta == nil {
-		dst.meta = map[string]Meta{}
+		dst.meta = map[Key]Meta{}
 	}
 	mergeMap(dst, src, dst.Root, src.Root, "", meta)
 	// The process environment namespace is flat, so a plain overlay copy is the
@@ -26,7 +26,7 @@ func MergeInto(dst, src *Tree, meta Meta) {
 // mergeMap merges incoming into target, recording an origin for every encoded
 // path it defines. src is the tree the incoming values came from; it supplies the
 // per-key origins (a dotenv key keeps its own line number).
-func mergeMap(dst, src *Tree, target, incoming map[string]any, prefix string, meta Meta) {
+func mergeMap(dst, src *Tree, target, incoming map[string]any, prefix Key, meta Meta) {
 	for key, value := range incoming {
 		child := JoinPath(prefix, key)
 		dst.meta[child] = srcMeta(src, child, meta)
@@ -49,7 +49,7 @@ func mergeMap(dst, src *Tree, target, incoming map[string]any, prefix string, me
 // the uniform origin the caller passed for the fields the key did not record. The
 // two are combined because a dotenv key records its own line number but not the
 // file name, which only the caller knows.
-func srcMeta(src *Tree, key string, fallback Meta) Meta {
+func srcMeta(src *Tree, key Key, fallback Meta) Meta {
 	recorded, ok := src.MetaAt(key)
 	if !ok {
 		return fallback
@@ -92,15 +92,15 @@ func (t *Tree) SeedOrigins() {
 		return
 	}
 	if t.meta == nil {
-		t.meta = map[string]Meta{}
+		t.meta = map[Key]Meta{}
 	}
-	collectMetaKeys(t.Root, "", func(key string) {
+	collectMetaKeys(t.Root, "", func(key Key) {
 		t.meta[key] = Meta{}
 	})
 }
 
 // collectMetaKeys walks a JSON-compatible value and reports every encoded path.
-func collectMetaKeys(value any, prefix string, visit func(key string)) {
+func collectMetaKeys(value any, prefix Key, visit func(key Key)) {
 	switch typed := value.(type) {
 	case map[string]any:
 		for _, key := range sortedKeys(typed) {

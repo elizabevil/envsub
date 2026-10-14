@@ -22,7 +22,7 @@ type Tree struct {
 	Env map[string]string
 
 	// meta records where each value came from, keyed by encoded path.
-	meta map[string]Meta
+	meta map[Key]Meta
 	// paths caches compiled paths: a template repeats the same handful of paths
 	// hundreds of thousands of times.
 	paths map[string]CompiledPath
@@ -71,7 +71,7 @@ func NewTree() *Tree {
 	return &Tree{
 		Root: map[string]any{},
 		Env:  map[string]string{},
-		meta: map[string]Meta{},
+		meta: map[Key]Meta{},
 	}
 }
 
@@ -199,20 +199,15 @@ func (t *Tree) MarkMutated() {
 	t.mutated = true
 }
 
-// RecordMeta remembers where the value at rawPath came from.
-func (t *Tree) RecordMeta(rawPath string, meta Meta, index int) {
-	if rawPath == "" {
+// RecordMeta remembers where the value at key came from. The caller supplies the
+// encoded key, so a path with an array element is addressed by JoinIndex and no
+// separate index argument is needed.
+func (t *Tree) RecordMeta(key Key, meta Meta) {
+	if key == "" {
 		return
 	}
 	if t.meta == nil {
-		t.meta = map[string]Meta{}
-	}
-	key, err := EncodePath(rawPath)
-	if err != nil {
-		return
-	}
-	if index >= 0 {
-		key = JoinIndex(key, index)
+		t.meta = map[Key]Meta{}
 	}
 	t.meta[key] = meta
 }
@@ -221,11 +216,11 @@ func (t *Tree) RecordMeta(rawPath string, meta Meta, index int) {
 //
 // Preallocating and sorting beats slices.Sorted(maps.Keys(...)): the iterator form
 // cannot size the slice and allocates 7 times more for 8 keys (measured).
-func (t *Tree) MetaKeys() []string {
+func (t *Tree) MetaKeys() []Key {
 	if len(t.meta) == 0 {
 		return nil
 	}
-	keys := make([]string, 0, len(t.meta))
+	keys := make([]Key, 0, len(t.meta))
 	for key := range t.meta {
 		keys = append(keys, key)
 	}
@@ -234,30 +229,24 @@ func (t *Tree) MetaKeys() []string {
 }
 
 // MetaAt returns the recorded origin for an encoded key.
-func (t *Tree) MetaAt(key string) (Meta, bool) {
+func (t *Tree) MetaAt(key Key) (Meta, bool) {
 	meta, ok := t.meta[key]
 	return meta, ok
 }
 
-// RecordEncodedMeta records an origin using an already encoded key.
-func (t *Tree) RecordEncodedMeta(key string, meta Meta) {
-	if key == "" {
-		return
-	}
-	if t.meta == nil {
-		t.meta = map[string]Meta{}
-	}
-	t.meta[key] = meta
-}
-
-// MetaFor returns the closest recorded origin for rawPath, walking from the most
-// specific path prefix to the least specific one.
+// MetaFor returns the closest recorded origin for a raw template path.
 func (t *Tree) MetaFor(rawPath string) MetaRef {
-	if len(t.meta) == 0 {
-		return MetaRef{}
-	}
 	key, err := EncodePath(rawPath)
 	if err != nil {
+		return MetaRef{}
+	}
+	return t.MetaForKey(key)
+}
+
+// MetaForKey returns the closest recorded origin for an encoded key, walking from
+// the most specific path prefix to the least specific one.
+func (t *Tree) MetaForKey(key Key) MetaRef {
+	if len(t.meta) == 0 {
 		return MetaRef{}
 	}
 	for {
@@ -284,7 +273,7 @@ type Loader interface {
 // named segments, [i] for an index, no @ sigil and no quotes. It is the spelling
 // metadata is keyed by and the spelling --only-vars filters compare, so a quoted
 // key and its dot spelling agree.
-func EncodePath(rawPath string) (string, error) {
+func EncodePath(rawPath string) (Key, error) {
 	segments, err := ParsePath(rawPath)
 	if err != nil {
 		return "", err
@@ -296,7 +285,7 @@ func EncodePath(rawPath string) (string, error) {
 // segments, [i] for an index, and no quotes. Callers that already hold segments
 // (the --explain lookup) avoid re-parsing. Use CanonicalPath for a spelling a reader
 // can paste back into a template.
-func EncodeSegments(segments []Segment) string {
+func EncodeSegments(segments []Segment) Key {
 	var b strings.Builder
 	for _, segment := range segments {
 		if segment.IsIndex {
@@ -308,16 +297,16 @@ func EncodeSegments(segments []Segment) string {
 		}
 		b.WriteString(segment.Key)
 	}
-	return b.String()
+	return Key(b.String())
 }
 
 // trimMetaKey removes the last path segment of an encoded key.
-func trimMetaKey(key string) (string, bool) {
+func trimMetaKey(key Key) (Key, bool) {
 	if key == "" {
 		return "", false
 	}
-	last := strings.LastIndexByte(key, PathSeparator)
-	open := strings.LastIndexByte(key, indexOpen)
+	last := strings.LastIndexByte(string(key), PathSeparator)
+	open := strings.LastIndexByte(string(key), indexOpen)
 	switch {
 	case last < 0 && open < 0:
 		return "", false

@@ -14,16 +14,16 @@ import (
 // recordingObserver captures the layering the loader reports.
 type recordingObserver struct {
 	env  []string
-	root map[string][]load.Origin
+	root map[values.Key][]load.Origin
 }
 
 func newRecordingObserver() *recordingObserver {
-	return &recordingObserver{root: map[string][]load.Origin{}}
+	return &recordingObserver{root: map[values.Key][]load.Origin{}}
 }
 
 func (o *recordingObserver) AddEnv(name string) { o.env = append(o.env, name) }
 
-func (o *recordingObserver) AddRoot(path string, origin load.Origin) {
+func (o *recordingObserver) AddRoot(path values.Key, origin load.Origin) {
 	o.root[path] = append(o.root[path], origin)
 }
 
@@ -124,7 +124,7 @@ func TestLoadReportsOrigins(t *testing.T) {
 		t.Fatalf("process env origins = %v, want ENVSUB_LOAD_TEST", observer.env)
 	}
 	tests := []struct {
-		path string
+		path values.Key
 		kind values.SourceKind
 		file string
 		line int

@@ -62,7 +62,7 @@ func TestMergeIntoDoesNotAlias(t *testing.T) {
 func TestMetaForWalksParents(t *testing.T) {
 	t.Parallel()
 	tree := values.NewTree()
-	tree.RecordEncodedMeta("app", values.Meta{File: "v.yaml", Kind: "values"})
+	tree.RecordMeta("app", values.Meta{File: "v.yaml", Kind: "values"})
 
 	meta := tree.MetaFor("app.port.deep")
 	if !meta.Found || meta.Meta.File != "v.yaml" {
@@ -186,7 +186,7 @@ func TestEncodePath(t *testing.T) {
 			if err != nil {
 				t.Fatalf("EncodePath(%q) error = %v", tt.raw, err)
 			}
-			if got != tt.want {
+			if string(got) != tt.want {
 				t.Fatalf("EncodePath(%q) = %q, want %q", tt.raw, got, tt.want)
 			}
 		})

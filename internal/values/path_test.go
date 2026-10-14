@@ -309,7 +309,11 @@ func TestRootKey(t *testing.T) {
 // caller never has to special-case the root.
 func TestJoinPath(t *testing.T) {
 	t.Parallel()
-	for _, tc := range []struct{ prefix, key, want string }{
+	for _, tc := range []struct {
+		prefix values.Key
+		key    string
+		want   values.Key
+	}{
 		{prefix: "", key: "app", want: "app"},
 		{prefix: "app", key: "port", want: "app.port"},
 		{prefix: "app.labels", key: "my-key", want: "app.labels.my-key"},
@@ -324,9 +328,9 @@ func TestJoinPath(t *testing.T) {
 func TestJoinIndex(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
-		prefix string
+		prefix values.Key
 		index  int
-		want   string
+		want   values.Key
 	}{
 		{prefix: "extra", index: 0, want: "extra[0]"},
 		{prefix: "app.hosts", index: 12, want: "app.hosts[12]"},
@@ -335,7 +339,7 @@ func TestJoinIndex(t *testing.T) {
 		if got != tc.want {
 			t.Errorf("JoinIndex(%q, %d) = %q, want %q", tc.prefix, tc.index, got, tc.want)
 		}
-		segments, err := values.ParsePath(got)
+		segments, err := values.ParsePath(string(got))
 		if err != nil {
 			t.Fatalf("ParsePath(%q) error = %v", got, err)
 		}

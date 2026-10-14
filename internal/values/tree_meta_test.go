@@ -14,15 +14,15 @@ import (
 func TestMetaKeysIsSortedAndComplete(t *testing.T) {
 	t.Parallel()
 	tree := values.NewTree()
-	for path, meta := range map[string]values.Meta{
+	for path, meta := range map[values.Key]values.Meta{
 		"b":    {File: "f.yaml", Line: 2, Kind: "yaml"},
 		"a[0]": {File: "f.yaml", Line: 3, Kind: "yaml"},
 		"a":    {File: "f.yaml", Line: 1, Kind: "yaml"},
 	} {
-		tree.RecordEncodedMeta(path, meta)
+		tree.RecordMeta(path, meta)
 	}
 	got := tree.MetaKeys()
-	want := []string{"a", "a[0]", "b"}
+	want := []values.Key{"a", "a[0]", "b"}
 	if len(got) != len(want) {
 		t.Fatalf("MetaKeys() = %v, want %v", got, want)
 	}
@@ -36,14 +36,16 @@ func TestMetaKeysIsSortedAndComplete(t *testing.T) {
 	}
 }
 
-// TestRecordMetaIndexesIntoTheParentKey pins RecordMeta's index handling: the
-// origin of hosts[0] is reachable through the element path.
-func TestRecordMetaIndexesIntoTheParentKey(t *testing.T) {
+// TestRecordMetaAddressesAnElement pins the recording contract: an array element
+// is addressed by its full encoded key (JoinIndex), so no separate index argument
+// is needed and the origin is reachable from the element path.
+func TestRecordMetaAddressesAnElement(t *testing.T) {
 	t.Parallel()
 	tree := values.NewTree()
-	tree.RecordMeta("hosts", values.Meta{File: "f.yaml", Line: 4, Kind: "yaml"}, 0)
+	element := values.JoinIndex("hosts", 0)
+	tree.RecordMeta(element, values.Meta{File: "f.yaml", Line: 4, Kind: "yaml"})
 
-	meta, ok := tree.MetaAt("hosts[0]")
+	meta, ok := tree.MetaAt(element)
 	if !ok {
 		t.Fatal("MetaAt(hosts[0]) not found")
 	}
