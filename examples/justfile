@@ -188,10 +188,11 @@ on-empty: ensure-binary
 # One case per exit code: 6 missing, 3 template, 4 type, 4 schema, 5 io, 2 usage, 7 check.
 failures: ensure-binary
     @mkdir -p {{ work }}
-    @for case in missing syntax type schema io usage; do \
+    @for case in missing syntax type schema io usage outdated check_missing; do \
         dir={{ justfile_directory() }}/cases/errors/$case; \
         want=$(cat "$dir/expect.exit"); fragment=$(cat "$dir/expect.err"); \
         extra="--set string_type_root=ok"; \
+        if [ -f "$dir/args" ]; then extra=$(sed "s|\${CASE_DIR}|$dir|g" "$dir/args" | paste -sd' ' -); fi; \
         if [ "$case" = "schema" ]; then extra="--set string_type_root=!"; fi; \
         if [ "$case" = "io" ]; then extra="--set-file string_setfile_from_file={{ justfile_directory() }}/secrets/absent.key"; fi; \
         if [ "$case" = "usage" ]; then extra="--on-missing=bogus"; fi; \

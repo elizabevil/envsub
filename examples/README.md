@@ -91,6 +91,8 @@ Rule of thumb: **`data/` is input, `templates/*.tmpl` is what runs, `*.golden` i
 | `cases/errors/<name>/input.tmpl` | the failing template | `failures` recipe, `test/examples` |
 | `cases/errors/<name>/expect.exit` | required exit code | same |
 | `cases/errors/<name>/expect.err` | required stderr fragment | same |
+| `cases/errors/<name>/args` | optional extra flags for that case, one per line (`${CASE_DIR}` expands to the case directory) | same |
+| `cases/errors/<name>/values.yaml`, `current.txt` | extra inputs that case references | same |
 | `out/**` | the checked-in output tree | `acceptance` (`--expect out --got .tmp/...`) |
 | `tools/digest/` | tree compare + format parse, cross-platform | the recipes (never `diff`/`cmp`/`wc` for trees) |
 | `justfile` | the recipes; flags are defined once at the top | you, and `just check` |
@@ -129,7 +131,7 @@ whole difference: data is what the flags read, templates are what the command re
 | `auxiliary-explain` | where every value came from |
 | `auxiliary-stdin` | stdin read exactly once with two reports active |
 | `auxiliary-error-json` | the machine-readable error shape |
-| `failures` | one case per exit code: 6, 3, 4, 4, 5, 2 |
+| `failures` | one case per exit code: 6, 3, 4, 4, 5, 2, 7 (outdated) and 7 (missing target) |
 | `acceptance` | the whole tree rendered and compared file by file |
 | `digest-update` | regenerate `templates/*.golden` and `out/` after an intended change |
 

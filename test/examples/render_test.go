@@ -236,7 +236,7 @@ func TestExampleFailureCasesMatchTheirExitCodes(t *testing.T) {
 				t.Fatalf("%s/expect.exit = %q, want a number", name, wantExit)
 			}
 			fragment := strings.TrimSpace(readFile(t, filepath.Join(dir, "expect.err")))
-			extra := failureCaseExtra(root, name)
+			extra := caseArguments(t, root, dir, name)
 
 			stdout, stderr, code := renderExample(t, root, append(extra, filepath.Join(dir, "input.tmpl"))...)
 			if code != atoi(t, wantExit) {
@@ -252,9 +252,27 @@ func TestExampleFailureCasesMatchTheirExitCodes(t *testing.T) {
 	}
 }
 
-// failureCaseExtra returns the flags a failure case needs beyond the shared set,
-// mirroring the `failures` recipe.
-func failureCaseExtra(root, name string) []string {
+// caseArguments returns the flags a failure case needs beyond the shared set.
+// A case may carry an `args` file (one argument per line, `${CASE_DIR}` expands to
+// the case directory) when it needs a shape the shared set cannot express, such as
+// `--check -o FILE`. Cases without one use the flags the `failures` recipe uses.
+func caseArguments(t *testing.T, root, dir, name string) []string {
+	t.Helper()
+	if body, ok := readOptionalFile(filepath.Join(dir, "args")); ok {
+		var args []string
+		for _, line := range strings.Split(body, "\n") {
+			line = strings.TrimSpace(line)
+			if line == "" || strings.HasPrefix(line, "#") {
+				continue
+			}
+			flag, value, hasValue := strings.Cut(line, "\t")
+			args = append(args, flag)
+			if hasValue {
+				args = append(args, strings.ReplaceAll(value, "${CASE_DIR}", dir))
+			}
+		}
+		return args
+	}
 	switch name {
 	case "missing":
 		// The shared flag set tolerates a missing value; this case needs the
@@ -271,6 +289,15 @@ func failureCaseExtra(root, name string) []string {
 	default:
 		return []string{"--set", "string_type_root=ok"}
 	}
+}
+
+// readOptionalFile returns the file body and whether it exists.
+func readOptionalFile(path string) (string, bool) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", false
+	}
+	return string(data), true
 }
 
 // atoi parses the expected exit code.
