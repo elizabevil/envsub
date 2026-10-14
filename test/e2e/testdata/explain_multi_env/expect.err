@@ -1,0 +1,1 @@
+{"template":"input.tmpl","variable":"K","source":"debug.env:2","kind":"dotenv","file":"debug.env","line":2,"shadowed":["base.env:1"]}

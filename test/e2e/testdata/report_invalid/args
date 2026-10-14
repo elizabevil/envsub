@@ -1,0 +1,5 @@
+render
+-f
+values.yaml
+--report=path
+input.tmpl

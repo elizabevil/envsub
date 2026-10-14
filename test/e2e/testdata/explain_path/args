@@ -1,0 +1,8 @@
+render
+--explain=app.port
+--no-process-env
+--dotenv-file
+.env
+--values-file
+values.yaml
+input.tmpl

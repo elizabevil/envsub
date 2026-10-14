@@ -1,0 +1,9 @@
+render
+--explain
+--no-process-env
+--dotenv-file
+.env
+--output-dir
+result
+a.tmpl
+b.tmpl

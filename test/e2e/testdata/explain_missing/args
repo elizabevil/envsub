@@ -1,0 +1,6 @@
+render
+--explain
+--no-process-env
+--on-missing
+keep
+input.tmpl
