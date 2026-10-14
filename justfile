@@ -129,6 +129,16 @@ test-examples:
         || { echo "just $current is older than the supported minimum {{ minJust }}"; exit 1; }
     just --justfile examples/justfile demo
 
+# Decode-entry contract: leading-BOM handling plus the common scalar/format forms
+# across JSON, YAML and .env (dates, tags, booleans, integers, floats, BOM). The
+# full suite covers the same cases, so this is the focused rerun while changing a
+# decoder; the second line repeats the JSON cases on the sonic backend.
+decodeTests := 'TestTrimBOM|TestScalarFormsStayInTheValueGrammar|TestNonFiniteScalarsAreRejected|TestUnmarshalValueAcceptsLeadingBOM|TestDecodeAcceptsLeadingBOM|TestParseDotenvStripsLeadingBOM|TestSetFileReadsTheFilesBytes|TestTypeMatrixDecode'
+
+test-decode: caches
+    go test -count=1 -run '{{ decodeTests }}' ./internal/utils/ ./internal/yamlx/ ./internal/jsonx/ ./internal/source/ ./internal/load/ ./test/encoding/
+    go test -count=1 -tags=sonic -run '{{ decodeTests }}' ./internal/jsonx/ ./test/encoding/
+
 # Performance gate (TASK-023): renders the REF-04 baseline template with GNU
 # envsubst and with envsub and enforces the ratios from docs/reference/REF-04.
 # Needs GNU envsubst in PATH (Debian/Ubuntu: gettext-base). Tune with

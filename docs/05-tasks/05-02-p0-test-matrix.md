@@ -69,6 +69,9 @@ last-updated: 2026-10-08
     - `just test-race`：并发检测。
     - `just test-e2e`：运行真实 CLI E2E。
     - `just e2e-list`：列出 E2E case。
+    - `just test-decode`：解码入口契约的聚焦回归（BOM 统一剥离、常见标量/格式形式，
+      含 YAML/JSON/`.env`/`--set-file` 与 sonic 后端）。全量 `test` 已覆盖同样用例，
+      该 recipe 用于改动解码器时的快速复跑。
 
 ## 4. Fixture 约定
 

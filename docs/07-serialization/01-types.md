@@ -127,7 +127,7 @@ Windows 编辑器保存文件时默认写入 UTF-8 BOM（`EF BB BF`）。**所�
 按非法 UTF-8 拒绝）；模板文件不属于"解码入口"，其字节原样参与渲染。测试：
 `utils.TestTrimBOM`、`jsonx.TestUnmarshalValueAcceptsLeadingBOM`、`yamlx.TestDecodeAcceptsLeadingBOM`、
 `source.TestParseDotenvStripsLeadingBOM`、`load` 的 `--set-file` BOM 行、`test/encoding` 的 BOM 矩阵行；
-gap 见 `09-gaps` G25。
+复现：`just test-decode`（聚焦，含 sonic 后端）；gap 见 `09-gaps` G25。
 
 ### 3.4 int
 
