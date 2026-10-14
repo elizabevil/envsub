@@ -9,15 +9,13 @@ set shell := ["bash", "-uc"]
 
 # --- settings ---------------------------------------------------------------
 
-# Some shared toolchains mount the default caches read-only; keep them inside the
-# workspace. Override the variables in the environment to use other locations.
-export GOCACHE := env("GOCACHE", justfile_directory() / ".tmp/gocache")
-export GOTMPDIR := env("GOTMPDIR", justfile_directory() / ".tmp/gotmp")
-export GOLANGCI_LINT_CACHE := env("GOLANGCI_LINT_CACHE", justfile_directory() / ".tmp/golangci-cache")
+# Go's caches are left at their defaults ($GOCACHE, $GOTMPDIR, the module cache);
+# recipes use whatever the environment provides. Only the linter is special.
+# A restricted runner whose default caches are read-only must point them somewhere
+# writable, for example: GOCACHE=/tmp/gocache GOTMPDIR=/tmp/gotmp just check
 
-# The linter is built from source into .tmp/lint because a prebuilt release is
-# compiled with an older Go than this repository uses, and this environment has no
-# other writable place that persists (see the script).
+# The linter is built from source because a prebuilt release is compiled with an
+# older Go than this repository uses (see the script for where it lives).
 lintPin := "v2.14.0"
 lintTool := "bash " + (justfile_directory() / "tools" / "lint" / "golangci-lint.sh")
 
@@ -25,11 +23,10 @@ lintTool := "bash " + (justfile_directory() / "tools" / "lint" / "golangci-lint.
 exe := "dist/envsub"
 ldflags := "-s -w"
 
-# Go fails when GOTMPDIR points at a missing directory (and a fresh clone has no
-# .tmp), so every go-invoking recipe depends on this.
+# Scratch directory for recipes that write intermediate files (.tmp is ignored).
 [private]
 caches:
-    @mkdir -p {{ justfile_directory() }}/.tmp/gocache {{ justfile_directory() }}/.tmp/gotmp {{ justfile_directory() }}/.tmp/golangci-cache
+    @mkdir -p {{ justfile_directory() }}/.tmp
 
 # --- build ------------------------------------------------------------------
 
@@ -173,12 +170,11 @@ sbom: caches
 run *args: caches
     go run ./cmd/envsub {{ args }}
 
-# Remove the workspace build cache created by the settings above. The next build
-# recompiles from scratch; Go's own cache in $HOME is left alone.
+# Remove the scratch directory (intermediate files, cached lint tool). Go's own
+# caches live in the environment's default locations and are left alone.
 clean-cache:
-    rm -rf {{ justfile_directory() }}/.tmp/gocache {{ justfile_directory() }}/.tmp/golangci-cache {{ justfile_directory() }}/.tmp/gotmp
-    @mkdir -p {{ justfile_directory() }}/.tmp/gocache {{ justfile_directory() }}/.tmp/gotmp {{ justfile_directory() }}/.tmp/golangci-cache
-    @echo "removed .tmp/{gocache,golangci-cache,gotmp}"
+    rm -rf {{ justfile_directory() }}/.tmp
+    @echo "removed .tmp"
 
 # Remove every scratch artifact (.tmp plus dist and coverage output).
 clean: clean-cache

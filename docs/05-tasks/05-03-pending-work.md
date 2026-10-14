@@ -160,7 +160,13 @@ cannot decode "internal/goarch", export data version 5 is greater than maximum s
 
 - 版本已就位时**零下载、零重建**；版本不符才构建一次（首次约 45s）；
 - 工具家目录在 `.tmp` 时，Go 的构建缓存与临时目录随之落到工作区
-  （`.tmp/gocache`、`.tmp/gotmp`），与项目其余配方共用；用用户缓存时不覆盖它们；
+  （`.tmp/lint` 内），用用户缓存时不覆盖它们；
+- **`justfile` 不再强制任何缓存变量**（原先把 `GOCACHE`/`GOTMPDIR`/`GOLANGCI_LINT_CACHE`
+  指到 `.tmp`，现改为走环境默认）；因此**受限运行器**（默认缓存只读的沙箱）需要自行提供可写位置：
+
+  ```bash
+  GOCACHE=/tmp/gocache GOTMPDIR=/tmp/gotmp just check
+  ```
 - 版本号两处同步：`justfile` 的 `lintPin`（`v2.14.0`）与脚本内的 `version`。
 
 **lint 已进入静态测试**：`just check` 现在是
