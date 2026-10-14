@@ -56,6 +56,48 @@ render → parse the output with `tools/digest` → `diff` against the golden.
 `examples/justfile` is **not** part of `just check` (it builds the binary first); the guards in
 step 1 are, so a broken example is caught by `just check` even without running the recipes.
 
+## Glossary: what each kind of file means
+
+| Term | Meaning |
+|------|---------|
+| **golden** | The **final expected output** of a template, checked in and compared **byte for byte**. A golden is not a sample: it is the contract. `digest-update` rewrites it, and `git diff` is how you review that rewrite. |
+| `.parse` | The format the golden claims to be (`json` or `yaml`). The recipe proves it with a real parser, so "valid JSON" is enforced, not assumed. |
+| `.unused` | The expected `--report=unused` output for that template (the report goes to stderr). |
+| `expect.out` | Expected stdout of a **failure case** (`cases/errors/`), byte for byte. |
+| `expect.err` | A fragment that **must appear** in stderr (substring, not the whole text: messages may carry paths). |
+| `expect.exit` | The exit code that case must produce. |
+| `expect.dir` | Expected tree of an output directory, compared file by file. |
+| `args` | In `test/e2e`, the argv of one case (e2e only; `examples/` uses recipes instead). |
+| `.tmpl` | A template containing `${...}` placeholders; it is the **input**. |
+| dataset | `data/`, which holds values only and never a placeholder; it is what the flags read. |
+
+Rule of thumb: **`data/` is input, `templates/*.tmpl` is what runs, `*.golden` is what must come out.**
+
+## Every file, and who reads it
+
+| Path | What it holds | Read by |
+|------|---------------|---------|
+| `data/values-*.{yaml,json}` | layered values (`-f`, in order) | every recipe via `{{ sources }}` |
+| `data/app.env`, `data/extra.env` | `.env` layer, and a second one that must win | `--dotenv-file` |
+| `data/schema.yaml` | JSON Schema: defaults, materialization, validation | `--schema` |
+| `data/schema-invalid-data.yaml`, `data/invalid-syntax.yaml` | inputs that must fail | failure cases |
+| `secrets/tls.key` | the value for `--set-file` | the `sets` group |
+| `templates/*.tmpl` | templates with placeholders | the matching recipe |
+| `templates/*.golden` | exact expected stdout for that template | `diff -u` in the recipe, and `test/examples` |
+| `templates/*.parse` | `json`/`yaml` the golden must parse as | `tools/digest --parse` |
+| `templates/unused.unused` | expected `--report=unused` report | `test/examples` |
+| `templates/batch/*.tmpl` | inputs for `--output-dir` | `auxiliary-batch` |
+| `templates/stdin.tmpl` | template delivered on stdin | `auxiliary-stdin` |
+| `cases/errors/<name>/input.tmpl` | the failing template | `failures` recipe, `test/examples` |
+| `cases/errors/<name>/expect.exit` | required exit code | same |
+| `cases/errors/<name>/expect.err` | required stderr fragment | same |
+| `out/**` | the checked-in output tree | `acceptance` (`--expect out --got .tmp/...`) |
+| `tools/digest/` | tree compare + format parse, cross-platform | the recipes (never `diff`/`cmp`/`wc` for trees) |
+| `justfile` | the recipes; flags are defined once at the top | you, and `just check` |
+
+Per-directory READMEs carry the details: [`data/`](data/README.md), [`templates/`](templates/README.md),
+[`cases/errors/`](cases/errors/README.md).
+
 ## Layout
 
 | Path | Holds | Why it is separate |
