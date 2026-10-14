@@ -137,7 +137,7 @@
 | REQ-TPL-05 | 受限条件/循环 | P1 | 保持"受限"的边界（无递归、无函数定义）与确定性 fixture |
 | REQ-OUT-03/04/05 | `--dry-run`/`--diff`/`--check` | P1 | 三者与 `--validate-only` 的差异；diff 是否内置实现 |
 
-## 待办 J：`just lint` 的工具链版本（已诊断，待环境侧处理）
+## 待办 O：`just lint` 的工具链版本（已诊断，待环境侧处理）
 
 **现象**：`just lint` 报
 
