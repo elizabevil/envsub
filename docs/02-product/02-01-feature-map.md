@@ -114,14 +114,14 @@ last-updated: 2026-09-29
 - Docker scratch/distroless 多架构镜像。`[INFERENCE]`
 - Homebrew/Scoop/Winget/APT/RPM等包管理器渠道。`[INFERENCE]`
 - 离线安装、版本固定与 latest 下载路径。`[INFERENCE]`
-- Go 多平台构建链与常规二进制优化细节。`[TODO]` owner：技术负责人。
+- Go 多平台构建链与二进制优化：发布矩阵、checksums 与 SBOM 见 `.github/workflows/release.yml`，体积归因见 `04-04` §8 与 `06-07`。`[FACT]`
 
 ### 3.9 扩展性
 
 - 自定义 provider/function 机制；优先考虑独立进程/WASM等隔离方案。`[ASSUMPTION]` 验证：确认是否进入 v1/v2 范围；owner：待指定。
 - 远程 secret/datasource：Vault、SOPS、云密钥服务等，P2 预留设计，默认关闭、显式启用，不得违背默认不访问网络的 Non-Goal。
   `[ASSUMPTION]` 验证：P2 前确认安全与依赖约束；owner：待指定。
-- 插件 API 稳定性与版本管理。`[TODO]` owner：技术负责人。
+- 插件 API：首版不做插件市场（§5 非目标）；扩展与兼容边界见 `03-09-extension-and-compat-architecture.md`。`[FACT]`
 
 ## 4. 建议优先级
 
@@ -147,8 +147,8 @@ last-updated: 2026-09-29
 
 ## 6. 待确认信息
 
-- P0/P1/P2 范围是否与需求提出者预期一致。`[TODO]` owner：需求提出者。
-- 条件/循环/include 的 P1 验收标准与严格性细节。`[TODO]` owner：需求提出者/技术负责人。
-- 是否需要远程 secret/datasource；若需要，安全模型如何定义。`[TODO]` owner：技术负责人。
-- Windows、TOML、包管理器等平台/格式覆盖范围。`[TODO]` owner：产品/技术负责人。
-- 性能、体积、启动时间、内存等非功能指标。`[TODO]` owner：技术负责人。
+- P0/P1/P2 范围：以 `02-05` 需求台账为准（逐条含优先级与实现状态），任务拆分见 `05-01`/`05-04`。`[FACT]`
+- 条件/循环/include 的验收标准见 `05-04` TASK-115/TASK-114 的"验收"列；需求状态见 `02-05` REQ-TPL-04/05。`[FACT]`
+- 远程密钥：`02-05` REQ-SRC-13 定为 P2，且只做**本地可解密**形态（SOPS 类），网络型按 K1 排除；HTTP 值来源见 REQ-SRC-11（须 `--allow-remote` 显式开启）。`[FACT]`
+- 平台/格式覆盖：Windows 见 `02-05` REQ-DIS-04、TOML 见 REQ-SRC-06（P1，待决策）、包管理器渠道见 REQ-DIS-03；任务见 `05-04` TASK-204/TASK-205。`[FACT]`
+- 非功能指标已定：10MB/200k 变量模板耗时与峰值内存 ≤ GNU envsubst 基线 5 倍、空输入启动 ≤100ms（`reference/REF-04`，由 `test/perf` 门禁执行）。`[FACT]`
