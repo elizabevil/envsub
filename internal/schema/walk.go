@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"github.com/elizabevil/envsub/internal/utils"
 	"github.com/elizabevil/envsub/internal/values"
 )
 
@@ -27,7 +28,7 @@ func walkProperties(tree *values.Tree, schemaNode any, node map[string]any, pref
 	if !ok {
 		return nil
 	}
-	for _, key := range sortedKeys(properties) {
+	for _, key := range utils.SortedKeys(properties) {
 		childSchema, ok := properties[key].(map[string]any)
 		if !ok {
 			continue

@@ -39,6 +39,22 @@ func TestNormalizeNumbersKeepsIntegersExact(t *testing.T) {
 	}
 }
 
+// TestNormalizeNumbersNarrowsDecoderTypes pins the whole-number narrowing: a
+// decoder that yields a fixed-width Go integer must still reach the canonical
+// types, and a float32 widens losslessly to float64.
+func TestNormalizeNumbersNarrowsDecoderTypes(t *testing.T) {
+	t.Parallel()
+	got := values.NormalizeNumbers(map[string]any{
+		"i64": int64(8080),
+		"i32": int32(-7),
+		"f32": float32(1.5),
+	})
+	want := map[string]any{"i64": 8080, "i32": -7, "f32": 1.5}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("NormalizeNumbers() = %#v, want %#v", got, want)
+	}
+}
+
 // TestNormalizeNumbersWalksContainers checks that nested values are normalized
 // too, which is what a JSON document or --set-json produces.
 func TestNormalizeNumbersWalksContainers(t *testing.T) {

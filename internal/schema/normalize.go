@@ -3,6 +3,7 @@ package schema
 import (
 	"errors"
 	"fmt"
+	"github.com/elizabevil/envsub/internal/utils"
 	"math"
 	"slices"
 	"strconv"
@@ -92,7 +93,7 @@ func normalizeSchema(node any, path string) (unknown []string, err error) {
 		if err := normalizeTypeField(typed, path); err != nil {
 			return nil, err
 		}
-		for _, key := range sortedKeys(typed) {
+		for _, key := range utils.SortedKeys(typed) {
 			childPath := keywordPath(path, key)
 			if nameValuedKeywords[key] {
 				// Descend into the name map without judging its keys.
@@ -133,7 +134,7 @@ func normalizeNameMap(node any, path string) ([]string, error) {
 		return nil, nil
 	}
 	var unknown []string
-	for _, key := range sortedKeys(object) {
+	for _, key := range utils.SortedKeys(object) {
 		childUnknown, err := normalizeSchema(object[key], keywordPath(path, key))
 		if err != nil {
 			return nil, err

@@ -3,7 +3,8 @@ package values
 import (
 	"fmt"
 	"maps"
-	"slices"
+
+	"github.com/elizabevil/envsub/internal/utils"
 )
 
 // MergeInto merges src into dst, recording meta as the fallback origin of every
@@ -103,7 +104,7 @@ func (t *Tree) SeedOrigins() {
 func collectMetaKeys(value any, prefix Key, visit func(key Key)) {
 	switch typed := value.(type) {
 	case map[string]any:
-		for _, key := range sortedKeys(typed) {
+		for _, key := range utils.SortedKeys(typed) {
 			child := JoinPath(prefix, key)
 			visit(child)
 			collectMetaKeys(typed[key], child, visit)
@@ -115,20 +116,6 @@ func collectMetaKeys(value any, prefix Key, visit func(key Key)) {
 			collectMetaKeys(child, childKey, visit)
 		}
 	}
-}
-
-// sortedKeys returns the keys of a decoded object in a deterministic order.
-//
-// The slice is preallocated to len(object) and sorted with slices.Sort, which
-// keeps it to one allocation; slices.Sorted(maps.Keys(object)) cannot size the
-// slice up front and needs 7 allocations for 8 keys and 10 for 64 (measured).
-func sortedKeys(object map[string]any) []string {
-	keys := make([]string, 0, len(object))
-	for key := range object {
-		keys = append(keys, key)
-	}
-	slices.Sort(keys)
-	return keys
 }
 
 // DescribeMeta formats an origin for error messages.

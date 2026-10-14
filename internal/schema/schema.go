@@ -2,8 +2,6 @@
 package schema
 
 import (
-	"slices"
-
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
 	"github.com/elizabevil/envsub/internal/diag"
@@ -59,18 +57,4 @@ func ParseUnknownPolicy(raw string) (UnknownPolicy, error) {
 		return "", diag.New(diag.KindUsage,
 			"invalid --unknown-keywords value %q: want ignore, warn or error", raw)
 	}
-}
-
-// sortedKeys returns the keys of a decoded object in a deterministic order.
-//
-// The slice is preallocated to len(object) and sorted with slices.Sort, which
-// keeps it to one allocation; slices.Sorted(maps.Keys(object)) cannot size the
-// slice up front and needs 7 allocations for 8 keys and 10 for 64 (measured).
-func sortedKeys(object map[string]any) []string {
-	keys := make([]string, 0, len(object))
-	for key := range object {
-		keys = append(keys, key)
-	}
-	slices.Sort(keys)
-	return keys
 }

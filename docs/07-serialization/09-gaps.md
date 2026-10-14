@@ -33,6 +33,7 @@ _列：ID | 现状（file:line / 实测） | 规则要求 | 是否需统一 | �
 | G20 | 结构体字段标签 `omitempty` 对**数值 0** 的处理两后端不一致：`encoding/json/v2` **保留**（`{"whole":0}`），`sonic` **省略**（`{}`） | Q3b：两后端输出等价 | 是 | **已按编码侧约束统一**：需要"数字可省略"的字段一律用 `*int` + `omitempty`（本轮 `--explain` 的 `line` 即如此）；指针/字符串/切片两后端行为一致，无需改后端。测试：`TestMarshalOptionalFieldsAgree`（共享）、`TestJSONv2MarshalKeepsOmitemptyZeroInt`、`TestSonicMarshalOmitsOmitemptyZeroInt`（各后端一条） |
 | G21 | schema `default` 落在**根命名空间**，于是压过 `.env` 与进程环境（早期实现）；与 `03-03` §3.5"default 最低"的建议相反 | 「**显式指定 > 隐式包含**」＋「`default` 只是 schema 兜底」 | 是 | **已修正**：该 key 有任何来源时不填 default —— `default` 由"一层来源"降为**兜底**。**v0.11 定稿顺序**：`--set`/`--set-json` > `--dotenv-file` > `-f/--values-file` > `default`（进程环境退出层序）。测试 `TestApplyDefaultsDefersToEnvironment`、fixture `schema_default_is_fallback`；规则见 `04-cli.md` §6.2 |
 | G22 | `.env` 键归根后进入 schema 校验面：`.env` 里的宿主变量（`PATH`/`HOME`/`CI`）在 `additionalProperties:false` 下会被拒收（实测：`.env PORT=8080\\nPATH=/usr/bin` + 只声明 `PORT` 的严格 schema → 现状 exit 0，归根后 exit 4） | **已决（O1=(a)）**：照常纳入校验 | 是 | **已定案**：`.env` 与值文件同源、同规则（"根里的键都要过 schema"）；代价写入迁移说明。e2e fixture `dotenv_schema_strict`（未声明键 → exit 4）。见 `06-15` §6 O1、§7 R7 |
+| G23 | `Key`（encoded 地址）**不是单射**：`@process.NAME` 与根键 `process.NAME` 的 `values.EncodeSegments` 结果相同（实测 `process.NAME`） | 地址应能唯一标识取值位置 | **待决** | **未处理（已登记）**：今天无害——命名空间值不记元数据，进程环境是独立命名空间（`Tree.Env`）；一旦命名空间值要元数据、或新增第二个命名空间就会撞键。候选 ①encoded key 保留 `@` sigil；②命名空间元数据单独一张表（沿用 `Tree.Env` 独立的思路）。来源：本仓路径/元数据改造讨论（D 分支） |
 
 ### 13.2 已决事项索引（T 系列）
 

@@ -1,6 +1,7 @@
 package source_test
 
 import (
+	"github.com/elizabevil/envsub/internal/codec"
 	"os"
 	"path/filepath"
 	"strings"
@@ -100,6 +101,14 @@ func TestLoadPreservesTypes(t *testing.T) {
 		{name: "yaml bool", file: "v.yaml", data: "a: true\n", path: "a", want: true},
 		{name: "json string", file: "v.json", data: `{"a":"x"}`, path: "a", want: "x"},
 		{name: "yaml array", file: "v.yaml", data: "a: [1, 2]\n", path: "a[1]", want: 2},
+		// Exactness must survive both loaders: a whole number above 2^53 and a
+		// spelling the source wrote must not be rounded or rewritten.
+		{name: "yaml big int", file: "v.yaml", data: "a: 12345678901234567890\n", path: "a", want: uint64(12345678901234567890)},
+		{name: "yaml literal", file: "v.yaml", data: "a: 1.50\n", path: "a", want: codec.LiteralNumber("1.50")},
+		{name: "yaml beyond int64", file: "v.yaml", data: "a: -9223372036854775809\n", path: "a", want: codec.ExactInt("-9223372036854775809")},
+		{name: "json big int", file: "v.json", data: `{"a":12345678901234567890}`, path: "a", want: uint64(12345678901234567890)},
+		{name: "json beyond uint64", file: "v.json", data: `{"a":123456789012345678901234567890}`, path: "a", want: codec.ExactInt("123456789012345678901234567890")},
+		{name: "json literal", file: "v.json", data: `{"a":1.50}`, path: "a", want: codec.LiteralNumber("1.50")},
 	}
 	for _, tt := range tests {
 

@@ -68,10 +68,6 @@ func (l Loader) ReadFile(path string) (*values.Tree, error) {
 	if err != nil {
 		return nil, diag.Wrap(diag.KindType, fmt.Errorf("parse %s: %w", path, err))
 	}
-	normalized, _ := normalizeValues(tree.Root).(map[string]any)
-	if normalized != nil {
-		tree.Root = normalized
-	}
 	// Attach the file name to every value the loader produced. A dotenv file
 	// records one entry per key (so each key keeps its line number); structured
 	// value files record one entry per defined path.

@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"github.com/elizabevil/envsub/internal/utils"
 	"sort"
 	"strings"
 
@@ -93,7 +94,7 @@ func collectDefaultDecls(schemaNode any, encodedPath values.Key, pointer string,
 		return
 	}
 	if properties, ok := object[keywordProperties].(map[string]any); ok {
-		for _, key := range sortedKeys(properties) {
+		for _, key := range utils.SortedKeys(properties) {
 			childSchema, ok := properties[key].(map[string]any)
 			if !ok {
 				continue

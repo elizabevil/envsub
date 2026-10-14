@@ -8,6 +8,7 @@ import (
 
 	"github.com/elizabevil/envsub/internal/diag"
 	"github.com/elizabevil/envsub/internal/source"
+	"github.com/elizabevil/envsub/internal/utils"
 	"github.com/elizabevil/envsub/internal/values"
 )
 
@@ -26,7 +27,7 @@ func collectUnused(tree *values.Tree, references map[string]bool) []string {
 	walk = func(value any, segments []values.Segment) {
 		switch typed := value.(type) {
 		case map[string]any:
-			for _, key := range sortedKeys(typed) {
+			for _, key := range utils.SortedKeys(typed) {
 				walk(typed[key], append(segments, values.Segment{Key: key}))
 			}
 		case []any:
@@ -69,16 +70,6 @@ func collectUnused(tree *values.Tree, references map[string]bool) []string {
 	}
 	slices.Sort(out)
 	return out
-}
-
-// sortedKeys returns the map keys in deterministic order.
-func sortedKeys(object map[string]any) []string {
-	keys := make([]string, 0, len(object))
-	for key := range object {
-		keys = append(keys, key)
-	}
-	slices.Sort(keys)
-	return keys
 }
 
 // closeOverPrefixes returns the normalized spellings of every path and of every

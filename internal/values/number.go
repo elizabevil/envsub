@@ -7,10 +7,14 @@ import (
 	"github.com/elizabevil/envsub/internal/codec"
 )
 
-// normalizeNumbers converts every json.Number in a decoded document into the value
-// tree's canonical Go number. Nothing widens to float64, which would silently
-// round: an integer becomes int, then uint64, then codec.ExactInt for the exact
-// decimal text, and a fractional or exponent literal stays codec.LiteralNumber.
+// normalizeNumbers converts the numbers a decoder produced into the value tree's
+// canonical Go number: int for a whole number that fits, uint64 above that,
+// codec.ExactInt for exact decimal text, codec.LiteralNumber for a spelling that
+// must survive (1.50), and float64 for the rest. Nothing widens to float64, which
+// would silently round.
+//
+// It is the only number normalization in the project: a loader that decodes YAML
+// or JSON feeds its document here, so no source owns a variant of this rule.
 func normalizeNumbers(value any) any {
 	switch typed := value.(type) {
 	case map[string]any:
@@ -25,9 +29,28 @@ func normalizeNumbers(value any) any {
 		return typed
 	case json.Number:
 		return normalizeJSONNumber(typed)
+	case int64:
+		return normalizeInt64(typed)
+	case int32:
+		return int(typed)
+	case float32:
+		// Widening is lossless, and float64 is the canonical float.
+		return float64(typed)
 	default:
 		return value
 	}
+}
+
+// normalizeInt64 narrows a whole number to int, keeping exact text when the value
+// does not fit (a 32-bit target, where int is 32 bits wide).
+func normalizeInt64(value int64) any {
+	if int64(int(value)) == value {
+		return int(value)
+	}
+	if exact, ok := codec.New(strconv.FormatInt(value, 10)); ok {
+		return exact
+	}
+	return value
 }
 
 func normalizeJSONNumber(number json.Number) any {
