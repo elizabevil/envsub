@@ -167,3 +167,19 @@ func TestDotenvLoaderDeclaresItsKind(t *testing.T) {
 		t.Fatalf("DotenvLoader().Kind = %q, want %q", loader.Kind, values.SourceEnvFile)
 	}
 }
+
+// TestParseDotenvStripsLeadingBOM pins the .env entry: a file saved with a UTF-8
+// byte order mark defines A, not "\ufeffA".
+func TestParseDotenvStripsLeadingBOM(t *testing.T) {
+	t.Parallel()
+	env, err := source.ParseDotenv([]byte("\ufeffA=1\nB=2\n"))
+	if err != nil {
+		t.Fatalf("ParseDotenv(BOM) error = %v", err)
+	}
+	if got, ok := env["A"]; !ok || got.Value != "1" {
+		t.Fatalf("ParseDotenv(BOM) = %#v, want the key A with value 1", env)
+	}
+	if len(env) != 2 {
+		t.Fatalf("ParseDotenv(BOM) defined %d keys, want 2 (%#v)", len(env), env)
+	}
+}

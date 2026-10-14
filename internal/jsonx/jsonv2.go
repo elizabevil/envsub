@@ -9,6 +9,7 @@ import (
 	jsonv2 "encoding/json/v2"
 	"fmt"
 	"github.com/elizabevil/envsub/internal/codec"
+	"github.com/elizabevil/envsub/internal/utils"
 )
 
 // Unmarshal decodes data into target.
@@ -24,6 +25,7 @@ import (
 // See docs/06-review/06-06-json-number-precision.md for the measurements; the
 // alternative single-pass token walker is kept runnable in test/jsonx.
 func Unmarshal(data []byte, target any) error {
+	data = utils.TrimBOM(data)
 	switch target.(type) {
 	case *any, *map[string]any, *[]any:
 		return tree.unmarshal(data, target)

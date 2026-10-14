@@ -131,3 +131,22 @@ func TestUnmarshalUsesYAMLSemantics(t *testing.T) {
 		t.Fatalf("Unmarshal() = %+v, want {error keep}", target)
 	}
 }
+
+// TestDecodeAcceptsLeadingBOM keeps the YAML entry aligned with JSON and .env: a
+// leading UTF-8 byte order mark is stripped before decoding.
+func TestDecodeAcceptsLeadingBOM(t *testing.T) {
+	t.Parallel()
+	for _, doc := range []string{"\ufeffa: 1\n", "\ufeffa: 2024-01-01\n"} {
+		value, err := yamlx.Decode([]byte(doc))
+		if err != nil {
+			t.Fatalf("Decode(%q) error = %v", doc, err)
+		}
+		object, ok := value.(map[string]any)
+		if !ok {
+			t.Fatalf("Decode(%q) = %T, want map[string]any", doc, value)
+		}
+		if _, ok := object["a"]; !ok {
+			t.Fatalf("Decode(%q) = %#v, want the key a", doc, object)
+		}
+	}
+}

@@ -1,7 +1,10 @@
 // Package utils provides stdio path checks and small collection helpers.
 package utils
 
-import "slices"
+import (
+	"bytes"
+	"slices"
+)
 
 // StdioPath is the conventional "-" path for stdin/stdout.
 const StdioPath = "-"
@@ -33,4 +36,15 @@ func SortedKeys(object map[string]any) []string {
 	}
 	slices.Sort(keys)
 	return keys
+}
+
+// bomPrefix is the UTF-8 byte order mark editors write at the start of a file.
+var bomPrefix = []byte{0xEF, 0xBB, 0xBF}
+
+// TrimBOM returns data without a leading UTF-8 byte order mark. Windows editors
+// write one by default and every decoder here rejects it, so the mark is removed
+// at the decode entry; the same bytes anywhere else are content and stay. UTF-16
+// marks are not handled: those files are not valid UTF-8 input.
+func TrimBOM(data []byte) []byte {
+	return bytes.TrimPrefix(data, bomPrefix)
 }

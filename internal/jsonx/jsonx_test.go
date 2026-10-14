@@ -353,3 +353,23 @@ func BenchmarkMarshal(b *testing.B) {
 		}
 	}
 }
+
+// TestUnmarshalValueAcceptsLeadingBOM pins the shared decode entry: a UTF-8 byte
+// order mark (what Windows editors write by default) must not fail the decode.
+func TestUnmarshalValueAcceptsLeadingBOM(t *testing.T) {
+	t.Parallel()
+	value, err := jsonx.UnmarshalValue([]byte("\ufeff{\"a\":1}"))
+	if err != nil {
+		t.Fatalf("UnmarshalValue(BOM) error = %v", err)
+	}
+	object, ok := value.(map[string]any)
+	if !ok {
+		t.Fatalf("UnmarshalValue(BOM) = %T, want map[string]any", value)
+	}
+	if len(object) != 1 {
+		t.Fatalf("UnmarshalValue(BOM) = %#v, want exactly one key", object)
+	}
+	if got, ok := object["a"]; !ok || got != json.Number("1") {
+		t.Fatalf("UnmarshalValue(BOM)[a] = %#v, want json.Number(1)", got)
+	}
+}

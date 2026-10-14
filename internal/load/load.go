@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/elizabevil/envsub/internal/utils"
 	"os"
 	"strings"
 
@@ -264,7 +265,7 @@ func setOneFile(tree *values.Tree, assignment string) (string, string, error) {
 	if err != nil {
 		return "", "", diag.Wrap(diag.KindIO, fmt.Errorf("read --set-file %s: %w", path, err))
 	}
-	text := strings.TrimSuffix(strings.TrimSuffix(string(data), "\n"), "\r")
+	text := strings.TrimSuffix(strings.TrimSuffix(string(utils.TrimBOM(data)), "\n"), "\r")
 	origin := values.Origin{Kind: values.SourceSet, Method: values.MethodFile, Source: key, File: path}
 	if err := tree.SetPath(key, text, values.SetString, origin); err != nil {
 		return "", "", diag.Wrap(diag.KindUsage, err)

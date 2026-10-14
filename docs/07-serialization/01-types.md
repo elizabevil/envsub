@@ -97,6 +97,38 @@ LiteralNumber/float64/array/object），因此这类标量**按字符串处理**
 | 规避 | 无需规避；如需强制字符串可写引号或 `!!str` |
 | 契约测试 | `TestScalarFormsStayInTheValueGrammar`（所有常见标量形式必须落在值文法类型内）、`TestTypeMatrixDecode` 的日期/时间行（YAML 与 JSON 同值同型）、`internal/render` 的 `TestRunRendersYAMLDateScalar`；gap 见 `09-gaps` G24 |
 
+### 3.3.2 其他 YAML 形态的归一化
+
+YAML 的部分写法会被解析成结构化或改写过的值。归一化后的类型必须仍落在 §3 的值类内：`[FACT]`
+
+| 写法 | 归一化结果 | 说明 |
+|------|------------|------|
+| `!!binary aGk=` | `string` = `hi` | **唯一会改写内容**的形态：按 base64 解码后作为字符串；需要原样文本请加引号或用 `!!str` |
+| `!!set {a, b}` | `object` = `{a: null, b: null}` | 集合语义用"成员存在 + null 值"表达 |
+| `!!omap` / `!!pairs` | `array`（元素为 object） | 有序映射退化为数组 |
+| 非字符串标量键（`1:`、`true:`） | 键**字符串化**（`"1"`、`"true"`） | JSON 对象键只能是字符串；不报错 |
+| 序列/映射做键（`? [a, b]`） | **拒绝**：`cannot unmarshal !!seq into string` | 非标量键无法表达 |
+| `<<` merge key | 合并进目标映射（`yamlx` 处理） | 与 YAML 1.1 语义一致 |
+| 日期/时间戳 | `string`（原始拼写） | 见 §3.3.1 |
+
+### 3.3.3 输入 BOM（字节序标记）
+
+Windows 编辑器保存文件时默认写入 UTF-8 BOM（`EF BB BF`）。**所有解码入口统一剥掉开头的 BOM**，
+不再出现"YAML 能读、JSON 报 `invalid character '\ufeff'`"这类按格式分叉的行为：`[FACT]`
+
+| 入口 | 位置 |
+|------|------|
+| JSON（两个后端） | `jsonx.Unmarshal` 漏斗 → `utils.TrimBOM` |
+| YAML | `yamlx.Decode` / `yamlx.Unmarshal` |
+| `.env` | `source.ParseDotenv` |
+| `--set-file` 的文件内容 | `load.setOneFile` |
+
+规则：**只剥开头**的 BOM（文件中间的同样字节是内容，保留）；UTF-16 BOM 不处理（该文件不是合法 UTF-8，
+按非法 UTF-8 拒绝）；模板文件不属于"解码入口"，其字节原样参与渲染。测试：
+`utils.TestTrimBOM`、`jsonx.TestUnmarshalValueAcceptsLeadingBOM`、`yamlx.TestDecodeAcceptsLeadingBOM`、
+`source.TestParseDotenvStripsLeadingBOM`、`load` 的 `--set-file` BOM 行、`test/encoding` 的 BOM 矩阵行；
+gap 见 `09-gaps` G25。
+
 ### 3.4 int
 
 | 维度 | 规则与现状 |

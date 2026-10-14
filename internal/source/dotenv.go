@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/elizabevil/envsub/internal/codec"
+	"github.com/elizabevil/envsub/internal/utils"
 	"github.com/elizabevil/envsub/internal/values"
 )
 
@@ -79,7 +80,7 @@ type DotenvEntry struct {
 // ParseDotenv parses .env content into string key/value pairs with line
 // numbers. Keys must be unique; a duplicate key is reported with its line.
 func ParseDotenv(data []byte) (map[string]DotenvEntry, error) {
-	scanner := bufio.NewScanner(bytes.NewReader(data))
+	scanner := bufio.NewScanner(bytes.NewReader(utils.TrimBOM(data)))
 	scanner.Buffer(make([]byte, 0, scanBufferSize), maxLineSize)
 	env := map[string]DotenvEntry{}
 	lineNo := 0

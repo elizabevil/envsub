@@ -20,6 +20,7 @@ func TestSetFileReadsTheFilesBytes(t *testing.T) {
 		{name: "crlf", content: "secret\r\n", want: "secret"},
 		{name: "no trailing newline", content: "secret", want: "secret"},
 		{name: "multi-line keeps inner newlines", content: "a\nb\n", want: "a\nb"},
+		{name: "leading BOM", content: "\ufeffsecret\n", want: "secret"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()

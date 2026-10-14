@@ -4,6 +4,7 @@ package jsonx
 
 import (
 	"errors"
+	"github.com/elizabevil/envsub/internal/utils"
 	"unicode/utf8"
 
 	"github.com/bytedance/sonic"
@@ -25,6 +26,7 @@ var api = sonic.Config{
 
 // Unmarshal decodes data into target.
 func Unmarshal(data []byte, target any) error {
+	data = utils.TrimBOM(data)
 	if err := api.Unmarshal(data, target); err != nil {
 		return err
 	}

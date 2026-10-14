@@ -2,6 +2,7 @@ package yamlx
 
 import (
 	"fmt"
+	"github.com/elizabevil/envsub/internal/utils"
 	"math"
 	"strconv"
 	"strings"
@@ -17,6 +18,7 @@ import (
 // stay integers. Duplicate mapping keys are rejected, which yaml.v3 only does
 // when decoding straight into a map.
 func Decode(data []byte) (any, error) {
+	data = utils.TrimBOM(data)
 	var document yaml.Node
 	if err := yaml.Unmarshal(data, &document); err != nil {
 		return nil, err
@@ -28,7 +30,7 @@ func Decode(data []byte) (any, error) {
 // the entry point for callers that want the library's own typing, such as the
 // fixture runner reading meta.yaml.
 func Unmarshal(data []byte, target any) error {
-	return yaml.Unmarshal(data, target)
+	return yaml.Unmarshal(utils.TrimBOM(data), target)
 }
 
 // nodeToValue converts a yaml.Node tree into JSON-compatible Go values.

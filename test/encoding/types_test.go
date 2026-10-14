@@ -77,6 +77,10 @@ func TestTypeMatrixDecode(t *testing.T) {
 		{name: "binary tag decodes to a string", yamlText: "x: !!binary aGk=\n", want: "hi"},
 		{name: "set tag decodes to an object of nulls", yamlText: "x: !!set {a, b}\n", want: map[string]any{"a": nil, "b": nil}},
 		{name: "omap tag decodes to an array", yamlText: "x: !!omap [{a: 1}]\n", want: []any{map[string]any{"a": 1}}},
+		// A UTF-8 byte order mark is what Windows editors write by default; every
+		// decode entry strips it, so all sources agree.
+		{name: "json with BOM", jsonText: "\ufeff{\"x\":1}", yamlText: "x: 1\n", want: 1},
+		{name: "yaml with BOM", yamlText: "\ufeffx: 1\n", want: 1},
 		{name: "array", jsonText: `{"x":[1,2]}`, yamlText: "x: [1, 2]\n", want: []any{1, 2}},
 		{name: "object", jsonText: `{"x":{"b":1,"a":2}}`, yamlText: "x: {b: 1, a: 2}\n", want: map[string]any{"a": 2, "b": 1}},
 	}
