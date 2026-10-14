@@ -16,6 +16,10 @@ import (
 type Loader struct {
 	// Name identifies the file format in diagnostics.
 	Name string
+	// Kind is the layering stage the loader feeds: values for a structured value
+	// file, envfile for a .env file. It is the origin category recorded for every
+	// value the loader reads.
+	Kind values.SourceKind
 	// Values is the underlying parser.
 	Values values.Loader
 	// Dotenv reports whether the loader parses dotenv content. Callers use it to
@@ -36,11 +40,11 @@ const (
 func ForFile(path string) (Loader, error) {
 	switch strings.ToLower(filepath.Ext(path)) {
 	case extDotenv:
-		return Loader{Name: DotenvName, Values: Environ{}, Dotenv: true}, nil
+		return Loader{Name: DotenvName, Kind: values.SourceEnvFile, Values: Environ{}, Dotenv: true}, nil
 	case extYAML, extYML:
-		return Loader{Name: YAMLName, Values: YAML{}}, nil
+		return Loader{Name: YAMLName, Kind: values.SourceValues, Values: YAML{}}, nil
 	case extJSON:
-		return Loader{Name: JSONName, Values: JSON{}}, nil
+		return Loader{Name: JSONName, Kind: values.SourceValues, Values: JSON{}}, nil
 	default:
 		return Loader{}, diag.New(diag.KindUsage,
 			"cannot determine value file format for %q: expected %s, %s, %s or %s",
@@ -52,7 +56,7 @@ func ForFile(path string) (Loader, error) {
 // explicitly, so the loader must not depend on the file name: `.env.local`,
 // `prod.env` and extensionless files all accept the same content.
 func DotenvLoader() Loader {
-	return Loader{Name: DotenvName, Values: Environ{}, Dotenv: true}
+	return Loader{Name: DotenvName, Kind: values.SourceEnvFile, Values: Environ{}, Dotenv: true}
 }
 
 // ReadFile loads one value file, recording path as the origin of its values.
@@ -75,17 +79,9 @@ func (l Loader) ReadFile(path string) (*values.Tree, error) {
 		meta, _ := tree.MetaAt(key)
 		meta.File = path
 		if meta.Kind == "" {
-			meta.Kind = l.Name
+			meta.Kind = l.Kind
 		}
 		tree.RecordMeta(key, meta)
 	}
 	return tree, nil
-}
-
-// IsValueFileKind reports whether a metadata kind names a value file: a
-// YAML/JSON document the user passes with --values-file. A .env file, a schema
-// default, a --set assignment and the process environment are configuration of
-// another layer, so they are not "dead configuration in a file".
-func IsValueFileKind(kind string) bool {
-	return kind == YAMLName || kind == JSONName
 }

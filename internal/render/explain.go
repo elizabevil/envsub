@@ -63,8 +63,8 @@ type explainRun struct {
 // AddEnv implements load.Observer.
 func (run *explainRun) AddEnv(name string) {
 	run.sources.addEnv(name, explainOrigin{
-		kind:   string(values.SourceProcess),
-		method: string(values.MethodEnv),
+		kind:   values.SourceProcess,
+		method: values.MethodEnv,
 		source: name,
 	})
 }
@@ -72,8 +72,8 @@ func (run *explainRun) AddEnv(name string) {
 // AddRoot implements load.Observer.
 func (run *explainRun) AddRoot(path values.Key, origin load.Origin) {
 	frame := explainOrigin{
-		kind:   string(origin.Kind),
-		method: string(origin.Method),
+		kind:   origin.Kind,
+		method: origin.Method,
 		source: origin.Source,
 		file:   origin.File,
 		line:   origin.Line,
@@ -86,12 +86,10 @@ func (run *explainRun) AddRoot(path values.Key, origin load.Origin) {
 
 // explainOrigin is one recorded step of a value's lineage.
 type explainOrigin struct {
-	// kind is the layering stage: schema, values, envfile, set, process or
-	// missing.
-	kind string
-	// method is how the value entered the stage: default, file, flag, json,
-	// env, assign or missing.
-	method string
+	// kind is the layering stage the value came from.
+	kind values.SourceKind
+	// method is how the value entered that stage.
+	method values.SourceMethod
 	// source is the address within the stage: a file path, a schema pointer, an
 	// environment variable name, or the key itself.
 	source string
@@ -109,8 +107,8 @@ func (o explainOrigin) valid() bool {
 // missingOrigin is the frame reported for a name that resolved to nothing.
 func missingOrigin() explainOrigin {
 	return explainOrigin{
-		kind:   string(values.SourceMissing),
-		method: string(values.MethodMissing),
+		kind:   values.SourceMissing,
+		method: values.MethodMissing,
 	}
 }
 
@@ -119,8 +117,8 @@ func missingOrigin() explainOrigin {
 // recording path, not something this layer should paper over.
 func (o explainOrigin) frame() explainFrame {
 	return explainFrame{
-		Kind:   o.kind,
-		Method: o.method,
+		Kind:   string(o.kind),
+		Method: string(o.method),
 		Source: o.source,
 		File:   o.file,
 		Line:   o.line,
@@ -273,13 +271,13 @@ func explainLookupKeys(path string) (envName, rootKey string) {
 // for values the layering did not report, for example a template assignment,
 // whose metadata carries the writing template and line.
 func metaOrigin(meta values.Meta) explainOrigin {
-	kind := values.SourceKind(meta.Kind)
+	kind := meta.Kind
 	if kind == "" {
 		kind = values.SourceMissing
 	}
 	// Prefer the method the writer recorded; only infer it when the metadata
 	// predates it (a set value written outside the loader).
-	method := values.SourceMethod(meta.Method)
+	method := meta.Method
 	if method == "" {
 		switch kind {
 		case values.SourceValues, values.SourceEnvFile:
@@ -299,8 +297,8 @@ func metaOrigin(meta values.Meta) explainOrigin {
 		source = meta.File
 	}
 	return explainOrigin{
-		kind:   string(kind),
-		method: string(method),
+		kind:   kind,
+		method: method,
 		source: source,
 		file:   meta.File,
 		line:   meta.Line,

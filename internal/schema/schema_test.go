@@ -142,7 +142,7 @@ func TestApplyDefaults(t *testing.T) {
 	if got, _, _ := tree.Resolve("app.name"); got != "x" {
 		t.Fatalf("app.name = %#v, want x", got)
 	}
-	if meta := tree.MetaFor("app.port"); !meta.Found || meta.Meta.Kind != string(values.SourceSchema) {
+	if meta := tree.MetaFor("app.port"); !meta.Found || meta.Meta.Kind != values.SourceSchema {
 		t.Fatalf("app.port origin = %#v, want schema", meta)
 	}
 }
@@ -204,7 +204,7 @@ func TestMaterialize(t *testing.T) {
 	tree.Root["hosts"] = `["a","b"]`
 	tree.Root["app"] = `{"port":1}`
 	tree.Root["name"] = `["not","parsed"]`
-	tree.RecordMeta("hosts", values.Meta{File: ".env", Line: 3, Kind: string(values.SourceEnvFile)})
+	tree.RecordMeta("hosts", values.Meta{File: ".env", Line: 3, Kind: values.SourceEnvFile})
 
 	if err := sch.Materialize(tree); err != nil {
 		t.Fatalf("Materialize() error = %v", err)
@@ -236,7 +236,7 @@ func TestMaterializeErrorMentionsOrigin(t *testing.T) {
 	}
 	tree := values.NewTree()
 	tree.Root["hosts"] = "not json"
-	tree.RecordMeta("hosts", values.Meta{File: ".env", Line: 7, Kind: string(values.SourceEnvFile)})
+	tree.RecordMeta("hosts", values.Meta{File: ".env", Line: 7, Kind: values.SourceEnvFile})
 
 	err = sch.Materialize(tree)
 	if err == nil {

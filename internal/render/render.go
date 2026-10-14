@@ -32,9 +32,6 @@ const (
 	logRenderBatch    = "render batch"
 
 	templateGlobChars = "*?["
-
-	// stdinTemplate is the template path that reads the standard input.
-	stdinTemplate = "-"
 )
 
 // Run loads the value sources, expands the template arguments and renders every
@@ -166,7 +163,7 @@ func (req Request) collectReferences(eng RenderEngine, templates []template, ref
 		if data == nil {
 			// A file template is read by the render itself; only stdin has to be
 			// consumed here, because it cannot be read twice.
-			if templates[i].Input != stdinTemplate {
+			if templates[i].Input != utils.StdioPath {
 				continue
 			}
 			read, err := readTemplate(templates[i].Input, req.stdin())

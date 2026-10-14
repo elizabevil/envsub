@@ -179,25 +179,25 @@ func TestExplainerSource(t *testing.T) {
 	tests := []struct {
 		path         string
 		wantSource   string
-		wantKind     string
+		wantKind     values.SourceKind
 		wantShadowed []string
 	}{
 		{
 			path:       "K",
 			wantSource: "K",
-			wantKind:   "set",
+			wantKind:   values.SourceSet,
 			// closest loser first: debug.env, base.env, values.yaml
 			wantShadowed: []string{"debug.env", "base.env", "values.yaml"},
 		},
 		{
 			path:       "@process.K",
 			wantSource: "K",
-			wantKind:   "process",
+			wantKind:   values.SourceProcess,
 		},
-		{path: "FROM_FILE", wantSource: "values.yaml", wantKind: "values"},
-		{path: "PROC", wantSource: "", wantKind: "missing"},
-		{path: "DFLT", wantSource: "#/properties/DFLT/default", wantKind: "schema"},
-		{path: "MISSING", wantSource: "", wantKind: "missing"},
+		{path: "FROM_FILE", wantSource: "values.yaml", wantKind: values.SourceValues},
+		{path: "PROC", wantSource: "", wantKind: values.SourceMissing},
+		{path: "DFLT", wantSource: "#/properties/DFLT/default", wantKind: values.SourceSchema},
+		{path: "MISSING", wantSource: "", wantKind: values.SourceMissing},
 	}
 	for _, tt := range tests {
 		t.Run(tt.path, func(t *testing.T) {
@@ -223,7 +223,7 @@ func TestExplainerSource(t *testing.T) {
 func TestExplainerSourceFallsBackToTreeMeta(t *testing.T) {
 	t.Parallel()
 	tree := values.NewTree()
-	tree.RecordMeta("K", values.Meta{Kind: "envfile", File: ".env", Line: 4})
+	tree.RecordMeta("K", values.Meta{Kind: values.SourceEnvFile, File: ".env", Line: 4})
 
 	origin, shadowed := (explainer{}).source("K", tree)
 	if origin.kind != "envfile" || origin.file != ".env" || origin.line != 4 {
@@ -240,14 +240,14 @@ func TestMetaOrigin(t *testing.T) {
 	tests := []struct {
 		name       string
 		meta       values.Meta
-		wantKind   string
+		wantKind   values.SourceKind
 		wantSource string
 	}{
-		{name: "dotenv keeps file and line", meta: values.Meta{Kind: "envfile", File: ".env", Line: 3}, wantKind: "envfile", wantSource: ".env"},
-		{name: "values file", meta: values.Meta{Kind: "values", File: "v.yaml"}, wantKind: "values", wantSource: "v.yaml"},
-		{name: "process", meta: values.Meta{Kind: "process", File: "ENVSUB_X"}, wantKind: "process", wantSource: "ENVSUB_X"},
-		{name: "set", meta: values.Meta{Kind: "set"}, wantKind: "set", wantSource: ""},
-		{name: "schema", meta: values.Meta{Kind: "schema", File: "schema.yaml"}, wantKind: "schema", wantSource: "schema.yaml"},
+		{name: "dotenv keeps file and line", meta: values.Meta{Kind: values.SourceEnvFile, File: ".env", Line: 3}, wantKind: values.SourceEnvFile, wantSource: ".env"},
+		{name: "values file", meta: values.Meta{Kind: values.SourceValues, File: "v.yaml"}, wantKind: values.SourceValues, wantSource: "v.yaml"},
+		{name: "process", meta: values.Meta{Kind: values.SourceProcess, File: "ENVSUB_X"}, wantKind: values.SourceProcess, wantSource: "ENVSUB_X"},
+		{name: "set", meta: values.Meta{Kind: values.SourceSet}, wantKind: values.SourceSet, wantSource: ""},
+		{name: "schema", meta: values.Meta{Kind: values.SourceSchema, File: "schema.yaml"}, wantKind: values.SourceSchema, wantSource: "schema.yaml"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -304,10 +304,10 @@ func TestObserverRecordsThroughTheInterface(t *testing.T) {
 	observer.AddRoot("K", load.Origin{Kind: values.SourceSet, Method: values.MethodFlag, Source: "K"})
 
 	winner, shadowed := run.sources.source("K", run.tree)
-	if winner.kind != string(values.SourceSet) {
+	if winner.kind != values.SourceSet {
 		t.Fatalf("winner = %+v, want the set origin", winner)
 	}
-	if len(shadowed) != 1 || shadowed[0].Kind != "envfile" || shadowed[0].File != ".env" || shadowed[0].Line != 1 {
+	if len(shadowed) != 1 || shadowed[0].Kind != string(values.SourceEnvFile) || shadowed[0].File != ".env" || shadowed[0].Line != 1 {
 		t.Fatalf("shadowed = %#v, want the envfile frame", shadowed)
 	}
 	if got := run.sources.env["FROM_PROCESS"]; len(got) != 1 {

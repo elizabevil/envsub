@@ -30,7 +30,7 @@ func (defaultsVisitor) missing(tree *values.Tree, path values.Key, childSchema m
 	if !hasDefault {
 		return nil, false, nil
 	}
-	tree.RecordMeta(path, values.Meta{Kind: string(values.SourceSchema)})
+	tree.RecordMeta(path, values.Meta{Kind: values.SourceSchema})
 	return values.CloneValue(defaultValue), true, nil
 }
 

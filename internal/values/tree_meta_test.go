@@ -78,7 +78,7 @@ func TestMergeIntoRecordsEveryRootKey(t *testing.T) {
 	}
 
 	tree := values.NewTree()
-	values.MergeInto(tree, loaded, values.Meta{File: path, Kind: loader.Name})
+	values.MergeInto(tree, loaded, values.Meta{File: path, Kind: loader.Kind})
 
 	for _, probe := range []string{"app.port", "hosts[0]"} {
 		meta := tree.MetaFor(probe)
@@ -86,8 +86,8 @@ func TestMergeIntoRecordsEveryRootKey(t *testing.T) {
 			t.Errorf("MetaFor(%q) not found", probe)
 			continue
 		}
-		if !source.IsValueFileKind(meta.Meta.Kind) {
-			t.Errorf("MetaFor(%q).Kind = %q, want a value-file kind", probe, meta.Meta.Kind)
+		if meta.Meta.Kind != values.SourceValues {
+			t.Errorf("MetaFor(%q).Kind = %q, want %q", probe, meta.Meta.Kind, values.SourceValues)
 		}
 		if meta.Meta.File != path {
 			t.Errorf("MetaFor(%q).File = %q, want %q", probe, meta.Meta.File, path)

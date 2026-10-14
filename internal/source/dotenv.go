@@ -62,7 +62,7 @@ func (Environ) Load(data []byte) (*values.Tree, error) {
 		tree.Root[key] = entry.Value
 		tree.RecordMeta(values.Key(key), values.Meta{
 			Line: entry.Line,
-			Kind: DotenvName,
+			Kind: values.SourceEnvFile,
 		})
 	}
 	return tree, nil

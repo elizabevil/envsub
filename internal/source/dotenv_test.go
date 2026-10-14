@@ -1,6 +1,7 @@
 package source_test
 
 import (
+	"github.com/elizabevil/envsub/internal/values"
 	"testing"
 
 	"github.com/elizabevil/envsub/internal/source"
@@ -111,8 +112,8 @@ func TestEnvironLoadsRootKeys(t *testing.T) {
 	if !ok {
 		t.Fatal("Load() did not record the A origin")
 	}
-	if meta.Kind != source.DotenvName || meta.Line != 1 {
-		t.Fatalf("Load() meta for A = %+v, want kind %q line 1", meta, source.DotenvName)
+	if meta.Kind != values.SourceEnvFile || meta.Line != 1 {
+		t.Fatalf("Load() meta for A = %+v, want kind %q line 1", meta, values.SourceEnvFile)
 	}
 }
 

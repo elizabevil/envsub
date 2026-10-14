@@ -265,9 +265,9 @@ _列：ID | 规则 | 证据。_
 | 编号 | 规则 | 证据 |
 |------|------|------|
 | C15 | 列出**值文件里**从未被任何模板引用的叶子，一行一个写到 stderr，按路径排序 | `internal/render/unused.go` |
-| C15 | 只统计 `--values-file` 的条目：schema `default`、`--set`/`--set-json`、`--dotenv-file`、`@process` 都不是"可删除的死配置"，不列出 | `source.IsValueFileKind` |
+| C15 | 只统计 `--values-file` 的条目：schema `default`、`--set`/`--set-json`、`--dotenv-file`、`@process` 都不是"可删除的死配置"，不列出 | `meta.Kind == values.SourceValues` |
 | C15 | 引用**子树**即使用其下全部值（`${extra \| toJson}` 使 `extra[0]`/`extra[1]` 为已用）；被 `--only-vars`/`--ignore-vars` 排除的引用**不算**使用 | 单测 `TestReportUnusedListsValueFileLeaves`、`TestReportUnusedHonoursVariableFilters` |
-| C15 | 拼写与 `--explain` 的 `variable` 一致（`values.Canonical`），需要引号的键写作 `["a.b"]` | `canonicalPath` |
+| C15 | 拼写与 `--explain` 的 `variable` 一致（`values.CanonicalPath`），需要引号的键写作 `["a.b"]` | `canonicalPath` |
 | C15 | 非法取值 → KindUsage exit 2 | fixture `report_invalid` |
 
 **案例（C15）**

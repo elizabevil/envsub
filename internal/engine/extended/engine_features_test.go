@@ -232,7 +232,7 @@ func TestOnlyAndIgnore(t *testing.T) {
 func TestMissingErrorMentionsOrigin(t *testing.T) {
 	t.Parallel()
 	tree := values.NewTree()
-	tree.RecordMeta("app", values.Meta{File: "values.yaml", Kind: string(values.SourceValues)})
+	tree.RecordMeta("app", values.Meta{File: "values.yaml", Kind: values.SourceValues})
 
 	_, err := render(t, "${app.port}", tree, nil, engine.Options{})
 	if err == nil {

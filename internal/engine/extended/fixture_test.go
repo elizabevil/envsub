@@ -194,7 +194,7 @@ func mergeFixtureValues(t *testing.T, dir, name string, tree *values.Tree) error
 	if err != nil {
 		return err
 	}
-	values.MergeInto(tree, loaded, values.Meta{File: name, Kind: string(values.SourceValues)})
+	values.MergeInto(tree, loaded, values.Meta{File: name, Kind: values.SourceValues})
 	return nil
 }
 

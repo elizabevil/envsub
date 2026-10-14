@@ -71,16 +71,6 @@ type Origin struct {
 	Line int
 }
 
-// sourceOrigin maps a value loader name to the stage and method it reports.
-// A .env file is its own stage because it has its own flag and its own failure
-// mode; YAML and JSON are both "values", distinguished by the file extension.
-func sourceOrigin(loaderName string) (values.SourceKind, values.SourceMethod) {
-	if loaderName == source.DotenvName {
-		return values.SourceEnvFile, values.MethodFile
-	}
-	return values.SourceValues, values.MethodFile
-}
-
 // Load reads every source in Spec and returns the tree the renderer resolves
 // against.
 //
@@ -179,18 +169,17 @@ func loadInto(tree *values.Tree, loader source.Loader, path string, observer Obs
 	if err != nil {
 		return err
 	}
-	values.MergeInto(tree, loaded, values.Meta{File: path, Kind: loader.Name})
+	values.MergeInto(tree, loaded, values.Meta{File: path, Kind: loader.Kind, Method: values.MethodFile})
 	if observer == nil {
 		return nil
 	}
 	// The entries carry the origin the loader recorded: a dotenv key keeps its own
 	// line number.
-	kind, method := sourceOrigin(loader.Name)
 	for _, key := range loaded.MetaKeys() {
 		meta, _ := loaded.MetaAt(key)
 		observer.AddRoot(key, Origin{
-			Kind:   kind,
-			Method: method,
+			Kind:   loader.Kind,
+			Method: values.MethodFile,
 			Source: path,
 			File:   meta.File,
 			Line:   meta.Line,

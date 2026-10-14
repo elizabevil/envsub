@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/elizabevil/envsub/internal/diag"
-	"github.com/elizabevil/envsub/internal/source"
 	"github.com/elizabevil/envsub/internal/utils"
 	"github.com/elizabevil/envsub/internal/values"
 )
@@ -60,7 +59,7 @@ func collectUnused(tree *values.Tree, references map[string]bool) []string {
 		if leaf == "" || referenced[compareKey(leaf)] {
 			continue
 		}
-		if meta := tree.MetaFor(leaf); !meta.Found || !source.IsValueFileKind(meta.Meta.Kind) {
+		if meta := tree.MetaFor(leaf); !meta.Found || meta.Meta.Kind != values.SourceValues {
 			// Only a value file can hold dead configuration the user deletes;
 			// a schema default, --set, --dotenv-file or the process namespace
 			// cannot be "unused" in that sense.
