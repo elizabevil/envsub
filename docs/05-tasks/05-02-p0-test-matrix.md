@@ -166,13 +166,13 @@ test/e2e/testdata/<case>/
 - 序列化规则一致性：`test/encoding/` 按 [序列化规则](../07-serialization/00-index.md)
   逐条测试（编码/解码/确定性/空值），未实现项以 `t.Skip` 标注为实施清单；
   `go test -v ./test/encoding/` 与 `go test -tags=sonic ./test/encoding/` 均可运行。`[FACT]`
-- **缺口 1**：Fuzz 目标为 0（第 1 节列出的扫描器/表达式/`.env` Fuzz 尚未实现）。`[TODO]`
-  owner：技术负责人
+- **缺口 1（已闭环）**：Fuzz 已落地——`test/fuzz/fuzz_test.go` 有 4 个 `func Fuzz` 目标
+  （扫描器/表达式/`.env`/数值），`just test-fuzz` 覆盖。`[FACT]`
 - **缺口 2（已解决）**：供应链检查已接入——CI job `security` 跑 govulncheck（本机实测
   `No vulnerabilities found.`），release job `supply-chain` 产出 SHA256SUMS 与 SPDX SBOM
   （见 05-01"供应链基础"）。`[FACT]`
-- **缺口 3**：`internal/app` 与 `cmd/envsub` 无单元测试，覆盖率统计为 0%，装配逻辑只由 E2E
-  间接覆盖；建议补最小装配测试或把 E2E 覆盖率纳入统计。`[TODO]` owner：技术负责人
+- **缺口 3（已闭环）**：`internal/app/app_test.go` 与 `cmd/envsub/main_test.go` 已补最小装配测试
+  （参数装配、输入/输出形态、`--validate-only`、`--explain`、退出码与诊断文案；覆盖率见 `05-03` §8）。`[FACT]`
 
 ## 8. 测试评审与去重（2026-10-13）
 
@@ -257,4 +257,4 @@ test/e2e/testdata/<case>/
 
 - 本矩阵不覆盖 P1/P2 功能。`[FACT]`
 - 不替代代码覆盖率与人工评审。`[INFERENCE]`
-- 不承诺所有 fixture 都能自动生成；复杂 case 需人工维护。`[TODO]`
+- 不承诺所有 fixture 都能自动生成；复杂 case 需人工维护。`[FACT]`

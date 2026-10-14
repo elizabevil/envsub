@@ -16,7 +16,8 @@ last-updated: 2026-09-29
 - StackOverflow API：检索 `q=envsubst`，按 votes 取前 100；并抓取其中高相关问题下的回答正文。`[FACT]`（来源：StackExchange
   API，2026-09-29）
 - Hacker News Algolia API：检索 `envsubst`，获得 4 条命中，相关性较低。`[FACT]`（来源：HN Algolia API，2026-09-29）
-- Reddit JSON 接口被反爬拦截，本轮未纳入。`[TODO]` 后续如需补充中文社区/Reddit 证据，建议 owner：研究助手。
+- Reddit JSON 接口被反爬拦截，本轮未纳入。`[TODO]` 触发条件：需要补充中文社区/Reddit 证据时；
+  owner：研究助手。`[FACT]` 记录该限制本身已确定。
 
 ## 2. 核心痛点证据
 
@@ -145,11 +146,17 @@ last-updated: 2026-09-29
 
 ## 5. 待补充信息
 
-- 需求提出者自身的实际使用痛点、场景、频率和优先级。`[TODO]` owner：需求提出者。
-- 目标平台/架构矩阵：Linux、macOS、Windows？amd64、arm64、armv7？`[TODO]` owner：需求提出者。
-- 兼容基线：GNU envsubst、a8m/envsubst、drone/envsubst 中哪些行为必须兼容，哪些可以破坏。`[TODO]` owner：技术负责人。
-- 大文件、大变量、并发、安全、审计等非功能要求。`[TODO]` owner：技术负责人。
-- 验收标准与发布方式：二进制、容器镜像、包管理器、校验与签名。`[TODO]` owner：产品/技术负责人。
+- 需求提出者的痛点与优先级：已由 `00-02-user-supplements-and-compatibility.md` §7 补充，
+  并落到 `02-05` 需求台账（逐条含优先级与状态）。`[FACT]`
+- 平台/架构矩阵：发布矩阵为 linux/darwin × amd64/arm64 + windows/amd64（5 个目标，
+  `.github/workflows/release.yml`；`04-04`）。`[FACT]`
+- 兼容基线：一期不做兼容模式（ADR-002），矩阵与边界作为 P2 任务 `05-04` TASK-201 的输入
+  （现状见 `reference/REF-02`）。`[FACT]`
+- 非功能要求：耗时/峰值内存 ≤ GNU envsubst 基线 5 倍、空输入启动 ≤100ms（`reference/REF-04`，
+  `test/perf` 门禁）；默认安全基线见 `02-05` REQ-SEC-01。`[FACT]`
+- 验收标准与发布方式：验收由 `just check`/`just test-all` 与 e2e fixture 承担；发布为 GitHub
+  Actions 矩阵构建 + `SHA256SUMS`/SPDX SBOM + draft release（`release.yml`）；包管理器渠道属
+  `05-04` TASK-204。`[FACT]`
 
 ## 6. 主要来源
 

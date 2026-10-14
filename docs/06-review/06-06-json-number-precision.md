@@ -117,5 +117,4 @@ BenchmarkUnmarshalValueWalker-10        3545097 ns/op  105.22 MB/s   2992755 B/o
 ## 8. 遗留
 
 - 默认后端的 JSON 吞吐相对 sonic 降低约 4.9×，这是自觉取舍；需要吞吐时用 `-tags=sonic`。`[INFERENCE]`
-- 备选 token 遍历若将来重新采纳（例如 JSON 吞吐成为瓶颈），需同步 ADR-004 §8.3 与本节。`[TODO]`
-  owner：技术负责人
+- 维护约定：备选 token 遍历若将来重新采纳（例如 JSON 吞吐成为瓶颈），需同步 ADR-004 §8.3 与本节。`[FACT]`

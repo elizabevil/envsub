@@ -27,4 +27,4 @@ last-updated: 2026-09-29
 
 - 不是最终 PRD 或设计文档。`[ASSUMPTION]`
 - 不替代原始来源的审阅。`[INFERENCE]`
-- 不承诺所有外部证据都被覆盖。`[TODO]` owner：研究助手。
+- 不承诺所有外部证据都被覆盖。`[FACT]`

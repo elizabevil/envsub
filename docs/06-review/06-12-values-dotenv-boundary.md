@@ -101,7 +101,7 @@ envsub render --values-file app.env i.tmpl   # exit 2
   dotenv，忽略文件名/扩展名**。`source.DotenvLoader()` 取代该路径上的 `ForFile`，于是 `.env`、
   `debug.env`、`.env.local`、`.env.production`、无扩展名的 `production` 全部可用。证据：单测
   `TestDotenvLoaderIgnoresFileName`、`TestRunEnvFileIgnoresExtension`，fixture `env_file_nonstandard`。`[FACT]`
-- `[TODO]` 是否要为 e2e fixture 提供统一的 `just test-update-e2e` 重生成入口（当前只有引擎 fixture 的
-  `just test-update`）。owner：技术负责人。
+- **仍待办**：是否为 e2e fixture 提供统一的 `just test-update-e2e` 重生成入口——当前重生成入口分散
+  （引擎 fixture 的 `just test-update`、examples 的 `digest-update`）。`[TODO]` owner：技术负责人。
 - `[ASSUMPTION]` 使用者不会依赖"用 `--values-file` 传 `.env`"这一未文档化行为。验证方式：若收到反馈，
   再回到方案 B/C 评估。owner：产品负责人。

@@ -51,6 +51,9 @@ last-updated: 2026-09-29
 | CLI                                  | 有                             | 有 `-i`、`-o`、`-no-unset`、`-no-empty`、`-fail-fast` | 主要作为库         | `[FACT]`            |
 | 跨平台静态单文件                     | 否，随 gettext 分发            | 可构建；历史发布覆盖不足                              | 无独立 CLI         | `[FACT]`            |
 
+> 表中标 `[TODO]` 的单元格＝该行为**尚未从对方文档或实测确证**（多集中在 a8m/drone 的 README 未声明项）。
+> 它们属 `05-04` TASK-201 开工前必须冻结的兼容矩阵（`02-05` REQ-CLI-06）；owner：技术负责人。
+
 ## 4. 关键冲突
 
 - GNU 默认不做默认值展开；a8m/drone 做。若默认模式严格跟随 GNU，高级模板会报错或保持原样。`[FACT]`（来源：本地 GNU
@@ -88,9 +91,11 @@ last-updated: 2026-09-29
 
 ## 7. 待补充
 
-- GNU / a8m / drone 的完整行为测试矩阵与 fixture。`[TODO]` owner：技术负责人。
-- `${VAR:?}`、`$1`、`$$`、drone 默认值等具体边界案例。`[TODO]` owner：技术负责人。
-- 是否保留 `envsubst` 命令名，以及多模式默认值策略。`[TODO]` owner：需求提出者/产品负责人。
+- GNU / a8m / drone 的完整行为测试矩阵与 fixture：**属 TASK-201 开工前工作**。
+  `[TODO]` 触发条件：P2 兼容模式立项；owner：技术负责人。
+- `${VAR:?}`、`$1`、`$$`、drone 默认值等边界案例：同上（`[TODO]`，owner：技术负责人）。
+- 命令名与多模式默认值：本工具命令为 `envsub`，不保留 `envsubst` 命令名；兼容模式为
+  `--compat`（P2，未实现，见 `02-05` REQ-CLI-06）。`[FACT]`
 
 ## 8. 分期决策（2026-09-29）
 

@@ -100,9 +100,10 @@ BenchmarkParseDotenv-10            164 µs/op (1000 行, 115 MB/s)
 3. `--unset=keep` 保留整个占位符原文，包括其内部的默认值词（如 `${X:-pre-${Y}-post}` 原样输出）。`[INFERENCE]`
 4. `--unset=zero` 必须有 schema 类型或内联 `| type`，否则按策略错误（exit 6）报错；required 字段不会自动填零。`[FACT]`
 5. 模板语法错误现在带模板名与行号（`config.tmpl:2: offset 9: ...`）；
-   YAML/JSON values 的来源只记录文件（`values.yaml`），不记录键的行号，因为 `yaml.v3` 节点行号尚未接入 loader 接口。`[TODO]`
-   owner：技术负责人
-6. TASK-023 的性能门禁（10MB 模板 ≤5x GNU 基线、空输入启动 ≤100ms）尚未在 CI 中自动化。`[TODO]`
+   YAML/JSON values 的来源只记录文件（`values.yaml`），**不记录键的行号**（`--explain` 的 `line` 为 0）：
+   `yamlx` 的解码结果尚未携带节点行号并接入 loader 接口。`[TODO]`
+   触发条件：`yamlx` 暴露节点行号后接入；owner：技术负责人。
+6. TASK-023 的性能门禁（10MB 模板 ≤5x GNU 基线、空输入启动 ≤100ms）：**已自动化**——`test/perf` + CI job `perf`（见 `reference/REF-04`）。`[FACT]`
 
 ## 6. 后续（TASK-022 ~ TASK-026）
 

@@ -120,6 +120,6 @@ cp <binary> /tmp/ref && strip --strip-all /tmp/ref && ls -l /tmp/ref
 
 ## 非目标（本部分）
 
-- 本文不决定是否放弃 schema 校验或 YAML 支持；那是产品决策，需 owner 确认。`[TODO]`
+- 本文不决定是否放弃 schema 校验或 YAML 支持。**已定**：两者都保留（schema 校验与 YAML/JSON 值文件均为已实现能力，见 `02-05`）。`[FACT]`
 - 不评估运行期内存与启动（见 REF-04 与 `just test-perf`）。`[FACT]`
 - 不承诺与对照物相同的体积，两者功能集不同。`[FACT]`

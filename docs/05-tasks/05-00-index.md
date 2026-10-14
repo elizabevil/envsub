@@ -20,4 +20,4 @@ last-updated: 2026-10-08
 
 - 本目录不重新定义需求。`[ASSUMPTION]`
 - 不替代开发评估。`[INFERENCE]`
-- 不承诺具体交付日期。`[TODO]`
+- 不承诺具体交付日期。`[FACT]`

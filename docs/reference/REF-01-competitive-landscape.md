@@ -89,7 +89,9 @@ last-updated: 2026-09-29
 - 类型/schema 和数组不能只是语法糖，要能解决真实校验与多环境配置问题。`[INFERENCE]`
 - 多文件合并、覆盖优先级、dry-run/diff 是现代化关键差异点。`[INFERENCE]`
 - 静态多架构、容器内零依赖、CI 友好是进入容器/GitOps 场景的门槛。`[INFERENCE]`
-- 应提供迁移指南：从 GNU envsubst、a8m/envsubst、renvsubst、Helm values 到本工具的对应关系。`[TODO]` owner：产品/技术负责人。
+- **仍待办**：迁移指南（文档）尚未编写——从 GNU envsubst、a8m/envsubst、renvsubst、Helm values
+  到本工具的对应关系。依赖 `05-04` TASK-201 的兼容矩阵（或先出"手工迁移对照表"）。
+  `[TODO]` 触发条件：P2 兼容/迁移立项；owner：产品/技术负责人。 owner：产品/技术负责人。
 
 ## 8. 非目标（Non-Goals）
 

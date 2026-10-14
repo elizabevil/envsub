@@ -28,10 +28,12 @@ last-updated: 2026-09-29
 - `[FACT]` YAML 是 JSON 的超集/可承载格式之一；大量工具使用 JSON Schema 校验 YAML 数据，例如 Helm 的 `values.schema.json`。
 - `[ASSUMPTION]` 本项目建议接受 `.json`、`.yaml`、`.yml` 三种 schema 文件扩展名，先解析为 JSON 兼容的 `any` 数据树，再交给
   JSON Schema 校验器。
-- `[TODO]` YAML 归一化边界需要明确：
-    - YAML 1.1 的 `yes/no/on/off`、日期、时间戳、binary tag、锚点/别名、重复 key 等。
-    - 建议限制为 YAML 1.2 Core Schema + JSON 兼容类型；非 JSON 类型直接报错或显式转换。
-    - owner：技术负责人。
+- YAML 归一化边界（现行实现）：
+    - 采用 YAML 1.2 Core 语义：`yes/no/on/off` 保持字符串；锚点/别名与 merge key 由 `yamlx` 处理
+      （`test/yamlx/` 有等价性与差异断言）；重复 key 拒绝；非有限数拒绝（G5）。
+    - **残留待定**：YAML **日期**标量被解码为 `time.Time`（实测 `d: 2024-01-01` → `time.Time`），
+      属非 JSON 兼容类型，目前无文档无测试。需决定转 RFC3339 字符串还是直接拒绝。
+      `[TODO]` owner：技术负责人。
 
 ## 3. 问题 3：成熟 Go JSON Schema 校验库能否满足需求
 
@@ -96,7 +98,9 @@ last-updated: 2026-09-29
     4. 未知非 `x-*`：默认忽略；`--unknown-keywords=warn` 记录警告；`--unknown-keywords=error` 直接报错。
     5. 默认值为 `ignore`。
 - `[ASSUMPTION]` 若未来希望允许完整 JSON Schema 扩展生态，可研究自定义 vocabulary 与 `$vocabulary` 声明；一期不建议。
-- `[TODO]` 需要确定“支持关键字白名单”的范围；owner：技术负责人。
+- 关键字白名单**已定**：`internal/schema/normalize.go` 的 `knownKeywords`（含 `if`/`then`/`else`/`not`、
+  `$ref`/`$defs`、`unevaluated*` 等），配合 `--unknown-keywords=ignore|warn|error` 策略
+  （ADR-003 已更新）。`[FACT]`
 
 ## 5. 推荐方案
 

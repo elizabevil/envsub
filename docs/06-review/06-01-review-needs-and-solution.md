@@ -19,11 +19,11 @@ last-updated: 2026-09-29
 
 | 门禁                                | 结果     | 说明                                                                                                |
 |-------------------------------------|----------|-----------------------------------------------------------------------------------------------------|
-| 问题陈述有可度量证据                | 部分通过 | 有 GitHub/StackOverflow 证据与 510 条 issue 统计，但缺少目标产品自身的成功指标。`[TODO]`            |
+| 问题陈述有可度量证据                | 部分通过 | 有 GitHub/StackOverflow 证据与 510 条 issue 统计，但缺少目标产品自身的成功指标。（现状：`02-03-prd.md` §2 成功指标表 + `reference/REF-04` 数值目标）            |
 | Non-Goals 至少 3 条                 | 通过     | Context、Product、Design、ADR 均有非目标。                                                          |
-| 用户故事有 Given-When-Then 验收条件 | 未通过   | 当前只有 Context 与功能地图，没有 PRD/用户故事。`[TODO]`                                            |
-| 异常流程与边界条件覆盖              | 部分通过 | 设计覆盖 unset/empty/required/schema 错误，但错误码、退出码、批量失败、权限失败等未系统化。`[TODO]` |
-| 非功能需求有数值或 TODO             | 未通过   | 性能、体积、启动时间、内存、安全基线只有 `[TODO]`，无目标值。                                       |
+| 用户故事有 Given-When-Then 验收条件 | 未通过   | 当时只有 Context 与功能地图，没有 PRD/用户故事。（现状：`02-03-prd.md`、`02-04-user-stories.md` 已生成）                                            |
+| 异常流程与边界条件覆盖              | 部分通过 | 设计覆盖 unset/empty/required/schema 错误，当时错误码/退出码/批量失败/权限失败未系统化。（现状：退出码见 `07-serialization/08-errors.md`，边界与 gap 见 `09-gaps` G 系列，权限保真见 `02-05` REQ-OUT-06） |
+| 非功能需求有数值或 TODO             | 未通过   | 当时无目标值。（现状：`reference/REF-04` 给出耗时/内存上限与 100ms 启动预算，由 `test/perf` 门禁执行；安全基线见 `02-05` REQ-SEC-01）                                       |
 | INFERENCE / ASSUMPTION 已人工审核   | 未通过   | 多条已确认决策仍留在 ASSUMPTION / INFO GAP 中，详见第 4 节。                                        |
 
 ## 3. Design Doc 门禁
@@ -33,7 +33,7 @@ last-updated: 2026-09-29
 | Alternatives 至少 1 个被拒绝       | 部分通过 | ADR 有替代方案；但 `03-05` 的 Alternatives 已与当前决策冲突，需重写。 |
 | Trade-offs 写明代价                | 通过     | `03-05` 第 7 节有 trade-offs。                                        |
 | 长度符合规范                       | 通过     | 已拆分为多个 1–3 页级文档。                                           |
-| Open Questions 有 owner 和解决时点 | 未通过   | 大多数只有 owner，没有解决时点。`[TODO]`                              |
+| Open Questions 有 owner 和解决时点 | 未通过   | 当时多数只有 owner、没有解决时点。（现状：`03-06` 八条已逐条给出结论或触发条件）                              |
 
 ## 4. 严重问题清单
 
@@ -103,7 +103,7 @@ last-updated: 2026-09-29
 
 12. **include 细节仍是 P1 设计项**
     - 已确认 P1 实现，但路径白名单、循环检测、执行时指定文件方式尚未设计。
-    - 可以接受，但需在 PRD/任务拆分前补最小设计。`[TODO]`
+    - 可以接受，但需补最小设计。（现状：PRD/任务拆分已出；include 的验收见 `05-04` TASK-114，仍属 P1 未开工）owner：技术负责人。
 
 ## 5. 修改顺序建议
 
@@ -149,9 +149,9 @@ last-updated: 2026-09-29
 - PRD：`docs/02-product/02-03-prd.md`。
 - 用户故事与 Given-When-Then：`docs/02-product/02-04-user-stories.md`。
 - ADR-001 已更新为 Accepted，Go 技术选型已确认。
-- 非功能需求：采用常规二进制优化即可，已记录；具体数值指标仍保留 `[TODO]`。
+- 非功能需求：采用常规二进制优化即可，已记录；**现状**：数值指标见 `reference/REF-04` 与 `test/perf` 门禁。`[FACT]`
 - `| type` 规则已确认：如果提供必须为 pipeline 第一个操作符，可以缺省。
-- Open Questions 中的未决项仍需逐条确认。`[TODO]`
+- Open Questions：**现状**已逐条确认或标注触发条件（见 `03-06-open-questions-and-review.md`）。`[FACT]`
 
 ## 8. 后续确认项更新（2026-09-29）
 
@@ -176,9 +176,9 @@ last-updated: 2026-09-29
     - 发布：GitHub Actions。
     - 快捷编译：`justfile`。
 - 仍需确认：
-    - CLI 使用 Cobra 还是 Kong。`[TODO]`
-    - `.env` 使用自研解析器还是 `joho/godotenv`。`[TODO]`
-    - `sonic` 在 Windows/macOS/arm64 的构建与兼容性验证。`[TODO]`
+    - CLI 使用 Cobra 还是 Kong。**已定**：`spf13/cobra`（见 §10）。`[FACT]`
+    - `.env` 使用自研解析器还是 `joho/godotenv`。**已定**：自研最小解析器（见 §10）。`[FACT]`
+    - `sonic` 在 Windows/macOS/arm64 的**运行时**验证。`[TODO]` 触发条件：有实机或 CI 矩阵 runner；owner：技术负责人（同 `04-04` §7）。
 
 ## 10. CLI 与兼容架构补充（2026-09-29）
 
@@ -190,7 +190,7 @@ last-updated: 2026-09-29
     - `docs/03-design/03-09-extension-and-compat-architecture.md`
 - P2 兼容模式将通过 Engine 接口 + Registry 接入，当前只注册 `extended`。
 - 任务拆分新增 `TASK-027`：定义 Engine 接口与 extended 注册。
-- 仍需验证 `sonic` 在 Windows/macOS/arm64 上的构建兼容性。`[TODO]`
+- 仍需验证 `sonic` 在 Windows/macOS/arm64 上的**运行时**兼容性（构建已覆盖，见 `04-04` §7）。`[TODO]` owner：技术负责人；触发条件：实机/CI runner。
 
 ## 11. 代码规范与骨架（2026-09-29）
 
