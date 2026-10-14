@@ -112,7 +112,8 @@ app:
 
 - 已确认支持 `indent`；`indent N` 要求在每一行行首插入 N 个空格，N 必须为非负整数字面量。`[FACT]`（来源：需求提出者确认，2026-09-29）
 - `indent` 只接受字符串输入；非字符串应先经 `toYaml`/`toJson`/`join` 等转换成字符串。`[INFERENCE]`
-- `join`、`quote`、`toJson`、`toYaml` 等 formatter 的具体参数和转义规则列入 Open Questions。`[TODO]`
+- formatter 白名单与参数已定：`join`、`toJson`、`toYaml`、`quote`、`indent`（另有内联 `| type`），
+  参数与转义规则见 `07-serialization/05-formatters-and-types.md`；实现见 `internal/pipeline`。`[FACT]`
 
 ## 非目标（本部分）
 

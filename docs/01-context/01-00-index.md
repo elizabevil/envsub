@@ -29,4 +29,4 @@ last-updated: 2026-09-29
 
 - 不是最终 PRD。`[ASSUMPTION]`
 - 不替代人工确认。`[INFERENCE]`
-- 不保证覆盖所有未采集场景。`[TODO]`
+- 不保证覆盖所有未采集场景。`[FACT]`

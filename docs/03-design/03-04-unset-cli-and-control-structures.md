@@ -59,7 +59,8 @@ last-updated: 2026-10-08
 
 - `${path:?message}`、`${path?message}` 始终报错。`[INFERENCE]`
 - `--on-empty` 只控制“已设置但为空”的情况，默认 `ok`；schema 可用 `minLength: 1` 或 `nonEmpty` 约束为空值错误。`[INFERENCE]`
-- P1 条件/循环中的缺失路径行为需在 P1 设计时单独定义，默认建议沿用 `error`。`[TODO]`
+- P1 条件/循环中的缺失路径行为**属 P1 设计项**（当前不实现，`05-04` TASK-115），默认建议沿用 `error`。
+  `[TODO]` 触发条件：P1 条件/循环开工时；owner：技术负责人。
 
 默认值仍待确认：建议 `--on-missing=error`，待需求提出者确认。`[ASSUMPTION]`
 

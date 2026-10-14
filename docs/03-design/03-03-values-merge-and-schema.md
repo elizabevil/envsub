@@ -215,7 +215,9 @@ P1 增强：
 - `uniqueItems`。
 - `minProperties`、`maxProperties`。
 - `format` 断言：`hostname`、`ipv4`、`uri`、`duration` 等。
-- `allOf`、`anyOf`、`oneOf`、`not`、`if/then/else`、`$ref`、`$defs` 的深入支持。`[TODO]` owner：技术负责人。
+- 已支持：`$ref`/`$defs` 展开与 `allOf` 合并（G12，`expandSchema`）、`anyOf`/`oneOf` 联合物化（G11）；
+  `not`/`if`/`then`/`else` 由 `santhosh-tekuri/jsonschema/v6` 直接执行，且都在已知关键字表内（`schema.knownKeywords`）。
+  `[FACT]`
 
 示例：
 

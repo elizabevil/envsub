@@ -22,7 +22,7 @@ last-updated: 2026-09-29
   `docs/04-decisions/04-02-adr-002-compatibility-and-migration.md`）
 - ADR-001 已确认 v0/v1 继续使用 Go，并采用层级值模型 + 渲染引擎。`[FACT]`（来源：
   `docs/04-decisions/04-01-adr-001-language-and-render-model.md`）
-- PRD 与用户故事已生成；量化成功指标目标值仍待补充。`[TODO]`（建议 owner：需求提出者）
+- PRD 与用户故事已生成；量化成功指标目标值仍待补充。`[TODO]` 口径与 owner 见 `02-03-prd.md` §2 表后说明；目标值待产品/技术确认。owner：产品/技术负责人。
 
 ## 2. 涉及角色
 

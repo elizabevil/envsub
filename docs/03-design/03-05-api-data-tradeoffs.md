@@ -31,7 +31,8 @@ type Result struct {
 func Render(ctx context.Context, in Input) (Result, error)
 ```
 
-`[INFERENCE]` 具体签名在实现设计阶段确认。`[TODO]` owner：技术负责人。
+`[FACT]` 签名已在实现中确定：`Engine`/`Input`/`Result` 见 `internal/engine/engine.go`，
+接口边界与扩展点见 `03-09-extension-and-compat-architecture.md`。
 
 ## 5. Data
 
@@ -80,7 +81,8 @@ func Render(ctx context.Context, in Input) (Result, error)
 - 可观测性：稳定错误码、`--json-errors`、`--explain`（P1）、渲染报告。`[INFERENCE]`
 - 性能：值树通常较小；模板文本流式读取与写出，避免一次性读入超大文件。`[INFERENCE]`
 - 兼容性：语法预留 Phase 2 兼容模式与转换命令的扩展点。`[FACT]`（来源：ADR-002）
-- 平台：Windows CRLF、路径分隔符、UTF-8 默认；二进制模板另行评估。`[TODO]` owner：技术负责人。
+- 平台：Windows CRLF、路径分隔符、UTF-8 默认保真**尚未实现**（`02-05` REQ-OUT-06 / REQ-DIS-04 均为 ❌，
+需要 Windows CI 用例）；二进制模板另行评估。`[TODO]` 触发条件：接入 Windows CI；owner：技术负责人。
 - 可测试性：为语法和类型系统建立 golden fixture；覆盖嵌套默认值、转义、数组/类型错误。`[INFERENCE]`
 
 ## 非目标（本部分）

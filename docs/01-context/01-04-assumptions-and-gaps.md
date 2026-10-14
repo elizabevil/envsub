@@ -27,15 +27,25 @@ last-updated: 2026-09-29
 
 ## 6. 信息缺口
 
-- 确认或修正 AI 补充的六项默认假设；补充具体输入输出示例与优先级。`[TODO]` owner：需求提出者。
-- TOML 是否纳入 P0/P1，以及工具自身配置格式。`[TODO]` owner：需求提出者/技术负责人。
-- 数组与类型的语义：如何定义、嵌套、引用和输出？`[TODO]` owner：技术负责人。
-- 多文件配置的环境隔离与深合并例外规则。`[TODO]` owner：技术负责人。
-- P2 的 GNU envsubst、a8m/envsubst、drone/envsubst 兼容边界。`[TODO]` owner：技术负责人。
-- 错误/退出码、严格模式、dry-run、批量写回和权限策略。`[TODO]` owner：技术负责人。
-- 平台矩阵、静态编译约束、发布方式、安全与验收标准。`[TODO]` owner：产品/技术负责人。
-- 内联 `| type` 的类型转换细节。`[TODO]` owner：需求提出者/技术负责人。
-- 常规二进制优化的具体命令与发布流水线细节；性能目标参考 GNU envsubst。`[TODO]` owner：技术负责人。
+- 六项默认假设：已逐条落在 §5（已确认者标注来源，仍待确认的以 `[ASSUMPTION]` 保留）；输入输出示例见 `examples/`，优先级见 `02-05`。`[FACT]`
+- TOML 与自身配置格式：TOML 定为 **P1 候选、未实现**（`02-05` REQ-SRC-06，需补 ADR-004 决策）；
+  工具自身不引入配置文件，配置面只有 CLI flag + 值文件 + schema。`[FACT]`
+- 数组与类型语义：见 `07-serialization/01-types.md`（类型与取值范围）、`03-03-values-merge-and-schema.md`
+  与 `07-serialization/05-formatters-and-types.md`（`| type` 转换与错误）。`[FACT]`
+- 多文件配置与深合并：层序见 `04-cli.md` §6.2，合并规则见 `02-sources.md` §4.2，
+  `default` 兜底见 G21；进程环境不入根、只在 `@process`。`[FACT]`
+- P2 兼容边界：基线见 `reference/REF-02-envsubst-compatibility-baseline.md`；
+  对应任务 `05-04` TASK-201/TASK-202（未开工，需先冻结兼容矩阵）。`[FACT]`
+- 错误/退出码与写回策略：退出码见 `07-serialization/08-errors.md`；严格模式为
+  `--validate-only` 与 `--on-missing=error`；批量写回为 `--output-dir`/`--in-place`
+  （`--in-place` 原子替换）；**dry-run 仍是 P1 候选**（`05-03` §13 的 REQ-OUT-03）；
+  输出权限保真见 `05-04` TASK-109。`[FACT]`
+- 平台矩阵与发布：`release.yml` 矩阵构建 5 个目标（linux/darwin/windows × amd64/arm64 组合），
+  纯 Go、无 CGO（`04-04` 依赖选型原则）；验收指标见 `reference/REF-04`。`[FACT]`
+- 内联 `| type` 细节：见 `07-serialization/03-operators.md` §5 与
+  `07-serialization/05-formatters-and-types.md`（含错误码与 case）。`[FACT]`
+- 二进制优化与流水线：优化取舍见 `04-04` §8（含尺寸归因 `06-07`），
+  发布流水线见 `.github/workflows/release.yml`，性能目标见 `reference/REF-04`。`[FACT]`
 
 ## 非目标（本部分）
 

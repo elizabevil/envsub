@@ -116,4 +116,4 @@ envsub completion bash > /etc/bash_completion.d/envsub
 
 - 首版不做交互式 TUI。`[ASSUMPTION]`
 - 不把 P1/P2 命令塞进 P0。`[FACT]`
-- 不通过 stdin 传递 schema 作为 P0 默认能力。`[TODO]`
+- 不通过 stdin 传递 schema 作为 P0 默认能力（schema 只由 `--schema` 指定）。`[FACT]`
