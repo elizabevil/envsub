@@ -32,6 +32,10 @@ type Request struct {
 	// Report selects an extra report about the render.
 	Report       Report
 	ValidateOnly bool
+	// Stdin is the reader behind a template named "-". Nil means os.Stdin. It is
+	// a field so a caller (and a test) can supply its own stream instead of
+	// replacing the process-wide one.
+	Stdin io.Reader
 }
 
 // Input identifies the templates to render.

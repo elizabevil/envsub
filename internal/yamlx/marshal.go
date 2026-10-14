@@ -49,18 +49,24 @@ func MarshalIndent(value any, width int) ([]byte, error) {
 // a json.Number becomes a Go number, because yaml.v3 would quote it as a string.
 // Typed nil collections are left alone so yaml.v3 writes its default "{}" and
 // "[]" (rules 03-12 V1).
+//
+// Every container is copied rather than rewritten in place, so the input tree
+// stays untouched and two renders can share it without racing (the CLI's parallel
+// windows do). The copy is shallow: only the entries that change are replaced.
 func normalizeForYAML(value any) any {
 	switch typed := value.(type) {
 	case map[string]any:
+		normalized := make(map[string]any, len(typed))
 		for key, child := range typed {
-			typed[key] = normalizeForYAML(child)
+			normalized[key] = normalizeForYAML(child)
 		}
-		return typed
+		return normalized
 	case []any:
+		normalized := make([]any, len(typed))
 		for i, child := range typed {
-			typed[i] = normalizeForYAML(child)
+			normalized[i] = normalizeForYAML(child)
 		}
-		return typed
+		return normalized
 	case json.Number:
 		return yamlNumber(typed)
 	case codec.ExactInt:

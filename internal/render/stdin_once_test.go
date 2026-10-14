@@ -3,31 +3,21 @@ package render_test
 import (
 	"bytes"
 	"context"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/elizabevil/envsub/internal/engine/extended"
 	"github.com/elizabevil/envsub/internal/render"
 )
 
-// withStdin swaps the process stdin for the duration of a test and restores it.
-func withStdin(t *testing.T, content string) {
-	t.Helper()
-	reader, writer, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("Pipe: %v", err)
-	}
-	original := os.Stdin
-	os.Stdin = reader
-	t.Cleanup(func() {
-		os.Stdin = original
-		_ = reader.Close()
-	})
-	go func() {
-		_, _ = writer.WriteString(content)
-		_ = writer.Close()
-	}()
+// stdinReader returns a reader over content. The render request takes its stdin
+// as a field, so a test never touches the process-wide os.Stdin: replacing it
+// would race with every other parallel test in this package.
+func stdinReader(content string) io.Reader {
+	return strings.NewReader(content)
 }
 
 // TestStdinIsReadOnce pins that --explain and --report=unused together still
@@ -39,7 +29,7 @@ func TestStdinIsReadOnce(t *testing.T) {
 		[]byte("app:\n  port: 8080\n  unused: dead\n"), 0o600); err != nil {
 		t.Fatalf("write values: %v", err)
 	}
-	withStdin(t, "port=${app.port}\n")
+	stdin := stdinReader("port=${app.port}\n")
 
 	var explain, unused bytes.Buffer
 	req := render.Request{
@@ -49,6 +39,7 @@ func TestStdinIsReadOnce(t *testing.T) {
 		Report:       render.Report{Name: render.ReportUnused, Writer: &unused},
 		Output:       render.Output{},
 		ValidateOnly: false,
+		Stdin:        stdin,
 	}
 	// The rendered bytes go to stdout; capture them by pointing the writer at a
 	// file instead, which also proves the render actually happened.

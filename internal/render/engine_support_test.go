@@ -36,13 +36,13 @@ func TestReportsRequireAPathEngine(t *testing.T) {
 				return render.Request{
 					Input:  render.Input{Templates: []string{"-"}},
 					Report: render.Report{Name: render.ReportUnused},
+					Stdin:  strings.NewReader("plain\n"),
 				}
 			},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			withStdin(t, "plain\n")
 			err := render.Run(context.Background(), stubEngine{}, tc.build())
 			if got := diag.KindOf(err); got != diag.KindInternal {
 				t.Fatalf("Run() error = %v (kind %q), want kind %q", err, got, diag.KindInternal)

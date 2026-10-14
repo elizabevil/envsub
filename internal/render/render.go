@@ -32,6 +32,9 @@ const (
 	logRenderBatch    = "render batch"
 
 	templateGlobChars = "*?["
+
+	// stdinTemplate is the template path that reads the standard input.
+	stdinTemplate = "-"
 )
 
 // Run loads the value sources, expands the template arguments and renders every
@@ -161,7 +164,12 @@ func (req Request) collectReferences(eng RenderEngine, templates []template, ref
 	for i := range templates {
 		data := templates[i].Text
 		if data == nil {
-			read, err := readTemplate(templates[i].Input, os.Stdin)
+			// A file template is read by the render itself; only stdin has to be
+			// consumed here, because it cannot be read twice.
+			if templates[i].Input != stdinTemplate {
+				continue
+			}
+			read, err := readTemplate(templates[i].Input, req.stdin())
 			if err != nil {
 				return err
 			}
@@ -264,7 +272,7 @@ func (req Request) renderOne(ctx context.Context, eng RenderEngine, rs renderers
 		return nil
 	}
 
-	data, err := readTemplate(tmpl.Input, os.Stdin)
+	data, err := readTemplate(tmpl.Input, req.stdin())
 	if err != nil {
 		return err
 	}
@@ -323,7 +331,7 @@ func (req Request) readSources(ctx context.Context, templates []template) error 
 		if templates[i].Text != nil {
 			continue
 		}
-		data, err := readTemplate(templates[i].Input, os.Stdin)
+		data, err := readTemplate(templates[i].Input, req.stdin())
 		if err != nil {
 			return err
 		}
@@ -609,6 +617,13 @@ func (req Request) templateOutput(input, base string) (string, error) {
 
 // readTemplate reads a whole template into memory. It backs the buffered
 // fallback path for engines without reader streaming.
+func (req Request) stdin() io.Reader {
+	if req.Stdin != nil {
+		return req.Stdin
+	}
+	return os.Stdin
+}
+
 func readTemplate(path string, stdin io.Reader) ([]byte, error) {
 	templateInput := source.TemplateInput(path)
 	if stream, ok := templateInput.(source.StdinInput); ok {
