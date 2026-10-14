@@ -146,25 +146,26 @@
 cannot decode "internal/goarch", export data version 5 is greater than maximum supported version 4
 ```
 
-**环境约束（三条，共同决定工具只能放仓库内）**：
+**结论**：工具必须用同版本 Go 从源码构建一次。`tools/lint/golangci-lint.sh` 负责这件事，
+并且**优先使用标准用户缓存**：
 
-| 位置 | 状态 | 后果 |
-|------|------|------|
-| `$HOME/.cache/go-build`、`$HOME/.cache/golangci-lint`、`$GOMODCACHE` | **只读** | 默认 `go build` 直接失败；默认缓存无法使用 |
-| `/tmp` | 可写，但**每次调用之间被清空**（tmpfs） | 工具放这里会每次重新下载+构建（约 45s） |
-| 仓库 `.tmp/` | 唯一**持久可写**处 | 工具与缓存只能放这里 |
+| 位置 | 正常开发机 | 受限运行器（本仓库开发时用的沙箱） |
+|------|------------|--------------------------------------|
+| `$HOME/.cache` | 可写 → 工具装到 `$HOME/.cache/envsub-lint`，`GOPATH`/`GOMODCACHE` **不改动**，直接复用用户已有模块 | 被挂成只读（`EROFS`），不可写 |
+| `/tmp` | — | 可写但**每次进程调用之间清空**（tmpfs），会每次重建，故不作候选 |
+| 仓库 `.tmp/lint` | 不用 | **回退位置**：`bin/` + `gopath/` + `lintcache/`，约 430M |
 
-**解决**：`tools/lint/golangci-lint.sh` 负责"版本不符则从源码构建一次，之后直接复用"：
+判定方式是**实际写入**（`mkdir` + `touch`）而不是看权限位：只读挂载下权限位仍显示可写
+（`drwxrwxr-x debi:debi`），只有写入会返回 `EROFS`。`LINT_HOME` 可覆盖选择结果。
 
-- 工具家目录固定为 `.tmp/lint/`（`bin/` + `gopath/` + `lintcache/`，约 430M），
-  可用 `LINT_HOME` 覆盖；Go 构建缓存与临时目录**与项目其余配方共用**
-  （`.tmp/gocache`、`.tmp/gotmp`），不重复占一份；`.tmp/` 已被 gitignore；
-- 脚本内固定 `GOTOOLCHAIN=go1.27.2`，不读写调用方的 `HOME`，也不改 `go env`；
-- 版本已就位时**零下载、零重建**（实测跨调用第二次 0.55s，二进制时间戳不变）；首次约 45s；
+- 版本已就位时**零下载、零重建**；版本不符才构建一次（首次约 45s）；
+- 工具家目录在 `.tmp` 时，Go 的构建缓存与临时目录随之落到工作区
+  （`.tmp/gocache`、`.tmp/gotmp`），与项目其余配方共用；用用户缓存时不覆盖它们；
 - 版本号两处同步：`justfile` 的 `lintPin`（`v2.14.0`）与脚本内的 `version`。
 
 **lint 已进入静态测试**：`just check` 现在是
 `caches fmt-check fmt-just vet lint test test-e2e`，lint 失败即门禁失败。
+`just test-race` 同时覆盖 `./...`（含 sonic 后端）。
 
 
 ## 本轮修复的 18 项 lint 问题（`golangci-lint v2.14.0`，配置不变）
