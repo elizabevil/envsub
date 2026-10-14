@@ -116,7 +116,14 @@ test-e2e: caches
 # walks the failure cases by exit code and compares the checked-in output tree.
 # The recipes live in examples/justfile so the guard and the human-facing demo
 # are the same code.
+# Requires the just version below or newer: the examples recipes use this
+# justfile's syntax, and CI installs at least this version.
+minJust := "1.58.0"
+
 test-examples:
+    @current=$(just --version | awk '{print $2}'); \
+        awk -v min='{{ minJust }}' -v cur="$current" 'BEGIN { n=split(min,a,"."); split(cur,b,"."); for (i=1;i<=n;i++) { if ((b[i]+0)>(a[i]+0)) exit 0; if ((b[i]+0)<(a[i]+0)) exit 1 } exit 0 }' \
+        || { echo "just $current is older than the supported minimum {{ minJust }}"; exit 1; }
     just --justfile examples/justfile demo
 
 # Performance gate (TASK-023): renders the REF-04 baseline template with GNU

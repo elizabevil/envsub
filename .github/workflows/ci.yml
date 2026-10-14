@@ -65,6 +65,24 @@ jobs:
       - name: govulncheck
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
 
+  # The runnable examples drive the CLI end to end (batch, in-place, stdin,
+  # filters, acceptance tree). `just` must be at least the version the recipes
+  # are written for; see the guard in the root justfile.
+  examples:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.x'
+          check-latest: true
+      - name: Install just
+        uses: extractions/setup-just@v3
+        with:
+          just-version: '1.58.0'
+      - name: Runnable examples
+        run: just --justfile examples/justfile demo
+
   perf:
     runs-on: ubuntu-latest
     env:

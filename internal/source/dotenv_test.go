@@ -148,8 +148,8 @@ func TestForFile(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ForFile(%q) error = %v", tt.path, err)
 			}
-			if loader.Name != tt.name {
-				t.Fatalf("ForFile(%q).Name = %q, want %q", tt.path, loader.Name, tt.name)
+			if loader.Name() != tt.name {
+				t.Fatalf("ForFile(%q).Name() = %q, want %q", tt.path, loader.Name(), tt.name)
 			}
 			if loader.Kind != tt.kind {
 				t.Fatalf("ForFile(%q).Kind = %q, want %q", tt.path, loader.Kind, tt.kind)

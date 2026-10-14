@@ -61,7 +61,7 @@ func TestDotenvLoaderIgnoresFileName(t *testing.T) {
 				t.Fatalf("ForFile(%q) error = nil, want it to reject the name", name)
 			}
 			loader := source.DotenvLoader()
-			if !loader.Dotenv || loader.Name != source.DotenvName {
+			if !loader.Dotenv || loader.Name() != source.DotenvName {
 				t.Fatalf("DotenvLoader() = %+v, want the dotenv loader", loader)
 			}
 			tree, err := loader.ReadFile(path)

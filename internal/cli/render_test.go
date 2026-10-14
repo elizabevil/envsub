@@ -126,3 +126,39 @@ func TestRunnerReceivesAssembledRequest(t *testing.T) {
 		t.Fatal("Explain.Writer = nil, want the command's stderr")
 	}
 }
+
+// TestRunnerReceivesEachOutputMode pins the output-mode wiring: the three flags
+// are mutually exclusive choices of one destination, so each must reach the
+// request as its own field and leave the others empty. The command matrix that
+// exercises what the renderer does with them lives in test/e2e.
+func TestRunnerReceivesEachOutputMode(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name     string
+		args     []string
+		wantPath string
+		wantDir  string
+		wantIn   bool
+	}{
+		{name: "output file", args: []string{"--output", "out.txt"}, wantPath: "out.txt"},
+		{name: "output directory", args: []string{"--output-dir", "out"}, wantDir: "out"},
+		{name: "in place", args: []string{"--in-place"}, wantIn: true},
+		{name: "default is stdout", args: nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			stub, run := newStubRunner()
+			cmd := cli.NewRootCommand(stubEngine{}, run)
+			cmd.SetArgs(append([]string{"render", "input.tmpl"}, tt.args...))
+			if err := cmd.Execute(); err != nil {
+				t.Fatalf("Execute() error = %v", err)
+			}
+			got := stub.request.Output
+			if got.Path != tt.wantPath || got.Dir != tt.wantDir || got.InPlace != tt.wantIn {
+				t.Fatalf("Output = %+v, want path=%q dir=%q inPlace=%v",
+					got, tt.wantPath, tt.wantDir, tt.wantIn)
+			}
+		})
+	}
+}

@@ -14,8 +14,6 @@ import (
 
 // Loader parses one external value file. It implements values.Loader.
 type Loader struct {
-	// Name identifies the file format in diagnostics.
-	Name string
 	// Kind is the layering stage the loader feeds: values for a structured value
 	// file, envfile for a .env file. It is the origin category recorded for every
 	// value the loader reads.
@@ -40,11 +38,11 @@ const (
 func ForFile(path string) (Loader, error) {
 	switch strings.ToLower(filepath.Ext(path)) {
 	case extDotenv:
-		return Loader{Name: DotenvName, Kind: values.SourceEnvFile, Values: Environ{}, Dotenv: true}, nil
+		return Loader{Kind: values.SourceEnvFile, Values: Environ{}, Dotenv: true}, nil
 	case extYAML, extYML:
-		return Loader{Name: YAMLName, Kind: values.SourceValues, Values: YAML{}}, nil
+		return Loader{Kind: values.SourceValues, Values: YAML{}}, nil
 	case extJSON:
-		return Loader{Name: JSONName, Kind: values.SourceValues, Values: JSON{}}, nil
+		return Loader{Kind: values.SourceValues, Values: JSON{}}, nil
 	default:
 		return Loader{}, diag.New(diag.KindUsage,
 			"cannot determine value file format for %q: expected %s, %s, %s or %s",
@@ -56,8 +54,12 @@ func ForFile(path string) (Loader, error) {
 // explicitly, so the loader must not depend on the file name: `.env.local`,
 // `prod.env` and extensionless files all accept the same content.
 func DotenvLoader() Loader {
-	return Loader{Name: DotenvName, Kind: values.SourceEnvFile, Values: Environ{}, Dotenv: true}
+	return Loader{Kind: values.SourceEnvFile, Values: Environ{}, Dotenv: true}
 }
+
+// Name identifies the file format in diagnostics. The parser owns the name, so a
+// Loader never carries a second copy of it.
+func (l Loader) Name() string { return l.Values.Name() }
 
 // ReadFile loads one value file, recording path as the origin of its values.
 func (l Loader) ReadFile(path string) (*values.Tree, error) {

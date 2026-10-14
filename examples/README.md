@@ -3,6 +3,9 @@
 Runnable, self-contained cases that show the whole product: a shared dataset, one
 template per rendering view, and one recipe per question you might ask.
 
+Requires `just` **1.58.0 or newer** (CI installs at least this version; the root
+justfile's `test-examples` refuses to run on an older one).
+
 ```bash
 cd examples
 just               # list the recipes
