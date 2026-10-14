@@ -146,32 +146,28 @@
 cannot decode "internal/goarch", export data version 5 is greater than maximum supported version 4
 ```
 
-**结论**：工具必须用同版本 Go 从源码构建一次。`tools/lint/golangci-lint.sh` 负责这件事，
-并且**优先使用标准用户缓存**：
+**解决**：`tools/lint/golangci-lint.sh` 用 `go install` 构建一次固定版本，位置**跟随标准约定**：
 
-| 位置 | 正常开发机 | 受限运行器（本仓库开发时用的沙箱） |
-|------|------------|--------------------------------------|
-| `$HOME/.cache` | 可写 → 工具装到 `$HOME/.cache/envsub-lint`，`GOPATH`/`GOMODCACHE` **不改动**，直接复用用户已有模块 | 被挂成只读（`EROFS`），不可写 |
-| `/tmp` | — | 可写但**每次进程调用之间清空**（tmpfs），会每次重建，故不作候选 |
-| 仓库 `.tmp/lint` | 不用 | **回退位置**：`bin/` + `gopath/` + `lintcache/`，约 430M |
+| 场景 | 二进制 | 缓存 | 模块/构建缓存 |
+|------|--------|------|----------------|
+| 正常开发机 | `$GOBIN`（即 `$GOPATH/bin`，本项目为 `~/go/bin`） | `~/.cache/golangci-lint` | 环境默认（`~/go/pkg/mod`、`~/.cache/go-build`） |
+| 受限运行器（默认缓存只读） | 仓库 `.tmp/lint/bin`，可用 `LINT_HOME` 覆盖 | `.tmp/lint/lintcache` | 一并落到 `.tmp/` |
 
-判定方式是**实际写入**（`mkdir` + `touch`）而不是看权限位：只读挂载下权限位仍显示可写
-（`drwxrwxr-x debi:debi`），只有写入会返回 `EROFS`。`LINT_HOME` 可覆盖选择结果。
-
-- 版本已就位时**零下载、零重建**；版本不符才构建一次（首次约 45s）；
-- 工具家目录在 `.tmp` 时，Go 的构建缓存与临时目录随之落到工作区
-  （`.tmp/lint` 内），用用户缓存时不覆盖它们；
-- **`justfile` 不再强制任何缓存变量**（原先把 `GOCACHE`/`GOTMPDIR`/`GOLANGCI_LINT_CACHE`
-  指到 `.tmp`，现改为走环境默认）；因此**受限运行器**（默认缓存只读的沙箱）需要自行提供可写位置：
-
-  ```bash
-  GOCACHE=/tmp/gocache GOTMPDIR=/tmp/gotmp just check
-  ```
-- 版本号两处同步：`justfile` 的 `lintPin`（`v2.14.0`）与脚本内的 `version`。
+- 判定"可写"用**实际写入**（`touch`）而不是权限位：只读挂载下权限位仍显示可写，只有写入返回 `EROFS`；
+- PATH 或 `$GOBIN` 里已有该版本时**直接复用**，不构建、不下载；
+- 版本不符才构建一次（首次约 45s）；`justfile` 的 `lintPin`（`v2.14.0`）与脚本内 `version` 必须同步；
+- 不使用 `/tmp`：它是 tmpfs，部分运行器每次调用清空，会每次重建。
 
 **lint 已进入静态测试**：`just check` 现在是
 `caches fmt-check fmt-just vet lint test test-e2e`，lint 失败即门禁失败。
 `just test-race` 同时覆盖 `./...`（含 sonic 后端）。
+
+**缓存归属**：`justfile` **不强制任何缓存变量**（原先会把 `GOCACHE`/`GOTMPDIR`/
+`GOLANGCI_LINT_CACHE` 指到 `.tmp`，现已移除，走环境默认）。受限运行器需自行给出可写位置：
+
+```bash
+GOCACHE=/tmp/gocache GOTMPDIR=/tmp/gotmp just check
+```
 
 
 ## 本轮修复的 18 项 lint 问题（`golangci-lint v2.14.0`，配置不变）
