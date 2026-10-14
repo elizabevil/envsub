@@ -78,7 +78,7 @@ func matchesPattern(path, pattern string) bool {
 		return false
 	}
 	if !strings.ContainsRune(pattern, values.PathSeparator) {
-		return values.RootSegment(path) == pattern
+		return values.RootKey(path) == pattern
 	}
 	return matchesPathPrefix(path, pattern) || matchesPathPrefix(filterKey(path), pattern)
 }
@@ -96,7 +96,7 @@ func filterKey(path string) string {
 		return ""
 	}
 	if values.Namespace(segments) != "" {
-		return values.Canonical(segments)
+		return values.CanonicalPath(segments)
 	}
 	return values.EncodeSegments(segments)
 }

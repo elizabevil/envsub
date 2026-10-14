@@ -84,11 +84,11 @@ func CloneValue(value any) any {
 	}
 }
 
-// RecordRootMeta records an empty origin for every value reachable from the
-// root. Loaders that replace Root wholesale call it so callers can attach a
-// file origin afterwards.
-func (t *Tree) RecordRootMeta() {
-	if t == nil || t.Root == nil {
+// SeedOrigins records an empty origin for every value reachable from the root.
+// A loader that assigns Root wholesale calls it so later consumers can enumerate
+// the keys: MergeInto fills the file origin in, and --explain reports each one.
+func (t *Tree) SeedOrigins() {
+	if t.Root == nil {
 		return
 	}
 	if t.meta == nil {

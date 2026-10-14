@@ -26,6 +26,6 @@ func (JSON) Load(data []byte) (*values.Tree, error) {
 	}
 	tree := values.NewTree()
 	tree.Root = root
-	tree.RecordRootMeta()
+	tree.SeedOrigins()
 	return tree, nil
 }

@@ -59,8 +59,8 @@ func FuzzPathParser(f *testing.F) {
 		if err != nil {
 			return
 		}
-		// A parsed path must round-trip through Canonical and re-parse.
-		spelling := values.Canonical(segments)
+		// A parsed path must round-trip through CanonicalPath and re-parse.
+		spelling := values.CanonicalPath(segments)
 		if _, err := values.ParsePath(spelling); err != nil {
 			t.Fatalf("Canonical(%q) = %q does not re-parse: %v", path, spelling, err)
 		}

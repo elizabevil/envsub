@@ -57,8 +57,9 @@ func ParsePath(raw string) ([]Segment, error) {
 	return segments, nil
 }
 
-// ParsePathPrefix parses a leading path and returns the remaining expression.
-func ParsePathPrefix(raw string) (path string, rest string, err error) {
+// CutPathPrefix splits raw after its leading path and returns that path text plus
+// whatever follows.
+func CutPathPrefix(raw string) (path string, rest string, err error) {
 	if raw == "" {
 		return "", "", fmt.Errorf("empty path")
 	}
@@ -78,7 +79,7 @@ type pathParser struct {
 }
 
 // parsePrefix parses the leading path. With collect false only the end offset is
-// wanted (ParsePathPrefix), so no segments are built.
+// wanted (CutPathPrefix), so no segments are built.
 //
 // A path is either a namespace selector (@process...) or a root expression; a
 // leading bracket makes a top-level special key reachable, as in ["a.b"].k.
@@ -282,13 +283,14 @@ func (p *pathParser) parseQuoted(collect bool) (string, error) {
 	return "", fmt.Errorf("unclosed quoted key")
 }
 
-// IsSimpleIdentifier reports whether path is a single bare identifier.
-func IsSimpleIdentifier(path string) bool {
-	if path == "" || !isIdentifierStart(path[0]) {
+// IsSimpleIdentifier reports whether key can be written unquoted: it is a single
+// bare identifier, so a path that needs brackets (app["my-key"]) is not simple.
+func IsSimpleIdentifier(key string) bool {
+	if key == "" || !isIdentifierStart(key[0]) {
 		return false
 	}
-	for i := 1; i < len(path); i++ {
-		if !isIdentifierContinue(path[i]) {
+	for i := 1; i < len(key); i++ {
+		if !isIdentifierContinue(key[i]) {
 			return false
 		}
 	}
@@ -332,10 +334,10 @@ func EnvKey(segments []Segment) (string, bool) {
 	return strings.Join(parts, string(PathSeparator)), true
 }
 
-// RootSegment returns the first segment as the --only-vars/--ignore-vars filters
-// see it: the leading key, or the namespace name. It is the single place the root
-// is derived, so the filters cannot drift from the grammar.
-func RootSegment(path string) string {
+// RootKey returns the leading key of a path, or the namespace name for a
+// namespace path. It is the single place a filter's root is derived, so
+// --only-vars/--ignore-vars cannot drift from the grammar.
+func RootKey(path string) string {
 	segments, err := ParsePath(path)
 	if err != nil {
 		return malformedRootSegment(path)
@@ -355,11 +357,11 @@ func malformedRootSegment(path string) string {
 	return root
 }
 
-// Canonical returns the path in template syntax, so diagnostics and --explain
+// CanonicalPath formats segments in template syntax, so diagnostics and --explain
 // report a spelling that can be pasted back into a template. It keeps the @
-// namespace sigil and the brackets a non-identifier key needs; EncodePath is the
-// metadata key, which drops both.
-func Canonical(segments []Segment) string {
+// namespace sigil and the brackets a non-identifier key needs; EncodeSegments is
+// the encoded key, which drops both.
+func CanonicalPath(segments []Segment) string {
 	var b strings.Builder
 	// afterIndex allows the dot directly after a bracket, as in hosts[0].name; it
 	// is set by the bracket branch below and cleared at the end of each step.
@@ -416,7 +418,7 @@ func ParentPath(path string) string {
 	if err != nil || len(segments) < 2 {
 		return ""
 	}
-	return Canonical(segments[:len(segments)-1])
+	return CanonicalPath(segments[:len(segments)-1])
 }
 
 // IsBelow reports whether path addresses a value strictly under prefix. Segments

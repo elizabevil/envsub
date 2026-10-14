@@ -249,7 +249,7 @@ func explainName(path string) string {
 	if err != nil {
 		return trimmed
 	}
-	return values.Canonical(segments)
+	return values.CanonicalPath(segments)
 }
 
 // explainLookupKeys maps a path to the process environment name and the encoded

@@ -212,7 +212,7 @@ func canonicalPath(path string) string {
 	if err != nil {
 		return strings.TrimSpace(path)
 	}
-	return values.Canonical(segments)
+	return values.CanonicalPath(segments)
 }
 
 // template pairs a template's input path with its resolved output path.

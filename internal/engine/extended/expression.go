@@ -117,7 +117,7 @@ func parseExpression(raw string) (expression, error) {
 // parsePathAndOperator parses the leading path and its operator.
 func parsePathAndOperator(segment string) (expression, error) {
 	segment = strings.TrimSpace(segment)
-	path, rest, err := values.ParsePathPrefix(segment)
+	path, rest, err := values.CutPathPrefix(segment)
 	if err != nil {
 		return expression{}, diag.WrapIfNot(diag.KindTemplate, err)
 	}

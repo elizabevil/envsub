@@ -35,6 +35,6 @@ func (YAML) Load(data []byte) (*values.Tree, error) {
 	}
 	tree := values.NewTree()
 	tree.Root = object
-	tree.RecordRootMeta()
+	tree.SeedOrigins()
 	return tree, nil
 }

@@ -34,7 +34,7 @@ func collectUnused(tree *values.Tree, references map[string]bool) []string {
 				walk(item, append(segments, values.Segment{Index: i, IsIndex: true}))
 			}
 		default:
-			leaves = append(leaves, values.Canonical(segments))
+			leaves = append(leaves, values.CanonicalPath(segments))
 		}
 	}
 	walk(tree.Root, nil)

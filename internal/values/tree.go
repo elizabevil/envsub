@@ -280,7 +280,10 @@ type Loader interface {
 	Load(data []byte) (*Tree, error)
 }
 
-// EncodePath converts a raw template path into a canonical metadata key.
+// EncodePath converts a raw template path into its encoded key: dots between
+// named segments, [i] for an index, no @ sigil and no quotes. It is the spelling
+// metadata is keyed by and the spelling --only-vars filters compare, so a quoted
+// key and its dot spelling agree.
 func EncodePath(rawPath string) (string, error) {
 	segments, err := ParsePath(rawPath)
 	if err != nil {
@@ -289,9 +292,9 @@ func EncodePath(rawPath string) (string, error) {
 	return EncodeSegments(segments), nil
 }
 
-// EncodeSegments converts parsed segments into a metadata key: dots between named
+// EncodeSegments converts parsed segments into an encoded key: dots between named
 // segments, [i] for an index, and no quotes. Callers that already hold segments
-// (the --explain lookup) avoid re-parsing. Use Canonical for a spelling a reader
+// (the --explain lookup) avoid re-parsing. Use CanonicalPath for a spelling a reader
 // can paste back into a template.
 func EncodeSegments(segments []Segment) string {
 	var b strings.Builder

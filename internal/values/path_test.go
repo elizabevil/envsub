@@ -154,7 +154,7 @@ func TestTreeResolve(t *testing.T) {
 	}
 }
 
-func TestParsePathPrefix(t *testing.T) {
+func TestCutPathPrefix(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name string
@@ -176,12 +176,12 @@ func TestParsePathPrefix(t *testing.T) {
 
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			path, rest, err := values.ParsePathPrefix(tt.raw)
+			path, rest, err := values.CutPathPrefix(tt.raw)
 			if err != nil {
-				t.Fatalf("ParsePathPrefix(%q) error = %v", tt.raw, err)
+				t.Fatalf("CutPathPrefix(%q) error = %v", tt.raw, err)
 			}
 			if path != tt.path || rest != tt.rest {
-				t.Fatalf("ParsePathPrefix(%q) = (%q, %q), want (%q, %q)", tt.raw, path, rest, tt.path, tt.rest)
+				t.Fatalf("CutPathPrefix(%q) = (%q, %q), want (%q, %q)", tt.raw, path, rest, tt.path, tt.rest)
 			}
 		})
 	}
@@ -190,19 +190,19 @@ func TestParsePathPrefix(t *testing.T) {
 // TestParsePathPrefixAgreesWithParsePath pins that the prefix-only scan (which
 // collects no segments) consumes exactly the bytes ParsePath parses, and keeps
 // the same errors.
-func TestParsePathPrefixAgreesWithParsePath(t *testing.T) {
+func TestCutPathPrefixAgreesWithParsePath(t *testing.T) {
 	t.Parallel()
 	inputs := []string{
 		"app", "app.port", "app.servers[0]", `app["my-key"]`, `app["a\"b"]`,
 		`app.labels["x"] | toJson`, "a[10].b",
 	}
 	for _, input := range inputs {
-		path, rest, err := values.ParsePathPrefix(input)
+		path, rest, err := values.CutPathPrefix(input)
 		if err != nil {
-			t.Fatalf("ParsePathPrefix(%q) error = %v", input, err)
+			t.Fatalf("CutPathPrefix(%q) error = %v", input, err)
 		}
 		if path+rest != input {
-			t.Fatalf("ParsePathPrefix(%q) = (%q, %q), want the pieces to rebuild the input", input, path, rest)
+			t.Fatalf("CutPathPrefix(%q) = (%q, %q), want the pieces to rebuild the input", input, path, rest)
 		}
 		segments, err := values.ParsePath(path)
 		if err != nil {
@@ -214,15 +214,15 @@ func TestParsePathPrefixAgreesWithParsePath(t *testing.T) {
 	}
 
 	for _, bad := range []string{"", "app[", `app["x`, "app..b"} {
-		if _, _, err := values.ParsePathPrefix(bad); err == nil {
-			t.Fatalf("ParsePathPrefix(%q) error = nil, want error", bad)
+		if _, _, err := values.CutPathPrefix(bad); err == nil {
+			t.Fatalf("CutPathPrefix(%q) error = nil, want error", bad)
 		}
 	}
 }
 
 // TestCanonical pins the spelling --explain reports: template syntax a reader can
 // paste back, which is why EncodePath (a metadata key, unquoted) is not used.
-func TestCanonical(t *testing.T) {
+func TestCanonicalPath(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		raw string
@@ -247,14 +247,14 @@ func TestCanonical(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ParsePath(%q) error = %v", tt.raw, err)
 			}
-			got := values.Canonical(segments)
+			got := values.CanonicalPath(segments)
 			if got != tt.raw {
-				t.Fatalf("Canonical(%q) = %q, want the spelling it parsed from", tt.raw, got)
+				t.Fatalf("CanonicalPath(%q) = %q, want the spelling it parsed from", tt.raw, got)
 			}
 			// The canonical form must parse back to the same segments.
 			again, err := values.ParsePath(got)
 			if err != nil {
-				t.Fatalf("ParsePath(Canonical(%q)) = %q error = %v", tt.raw, got, err)
+				t.Fatalf("ParsePath(CanonicalPath(%q)) = %q error = %v", tt.raw, got, err)
 			}
 			if !reflect.DeepEqual(again, segments) {
 				t.Fatalf("round trip of %q: %#v, want %#v", tt.raw, again, segments)
@@ -265,19 +265,19 @@ func TestCanonical(t *testing.T) {
 
 // TestCanonicalEscapesQuotes pins that a key which itself contains a quote stays
 // expressible: the canonical form escapes it rather than emitting invalid syntax.
-func TestCanonicalEscapesQuotes(t *testing.T) {
+func TestCanonicalPathEscapesQuotes(t *testing.T) {
 	t.Parallel()
 	segments := []values.Segment{{Key: `a"b`}, {Key: "c"}}
-	got := values.Canonical(segments)
+	got := values.CanonicalPath(segments)
 	if want := `["a\"b"].c`; got != want {
-		t.Fatalf("Canonical(%#v) = %q, want %q", segments, got, want)
+		t.Fatalf("CanonicalPath(%#v) = %q, want %q", segments, got, want)
 	}
 }
 
 // TestRootSegment pins the root the Only/Ignore filters see: the leading key for a
 // root path, the namespace name for a namespace path, and the extracted text for a
 // path the parser rejects (which keeps the pre-grammar filtering behavior).
-func TestRootSegment(t *testing.T) {
+func TestRootKey(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		path string
@@ -298,8 +298,8 @@ func TestRootSegment(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.path, func(t *testing.T) {
 			t.Parallel()
-			if got := values.RootSegment(tt.path); got != tt.want {
-				t.Fatalf("RootSegment(%q) = %q, want %q", tt.path, got, tt.want)
+			if got := values.RootKey(tt.path); got != tt.want {
+				t.Fatalf("RootKey(%q) = %q, want %q", tt.path, got, tt.want)
 			}
 		})
 	}

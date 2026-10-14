@@ -43,7 +43,7 @@ func BenchmarkParsePath(b *testing.B) {
 func BenchmarkParsePathPrefix(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
-		if _, _, err := values.ParsePathPrefix(`app.servers[0].labels["my-key"] | toJson`); err != nil {
+		if _, _, err := values.CutPathPrefix(`app.servers[0].labels["my-key"] | toJson`); err != nil {
 			b.Fatal(err)
 		}
 	}
