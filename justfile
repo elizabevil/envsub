@@ -12,7 +12,10 @@ set shell := ["bash", "-uc"]
 # Go's caches are left at their defaults ($GOCACHE, $GOTMPDIR, the module cache);
 # recipes use whatever the environment provides. Only the linter is special.
 # A restricted runner whose default caches are read-only must point them somewhere
-# writable, for example: GOCACHE=/tmp/gocache GOTMPDIR=/tmp/gotmp just check
+# writable inside the repository, for example:
+#   GOCACHE=$PWD/.tmp/gocache GOTMPDIR=$PWD/.tmp/gotmp just check
+# Never point them at /tmp: the module cache is reused there only by accident, and
+# a fresh cache makes every build re-download the dependencies.
 
 # The linter is built from source because a prebuilt release is compiled with an
 # older Go than this repository uses (see the script for where it lives).

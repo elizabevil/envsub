@@ -11,8 +11,10 @@
 # Where things go: the standard locations, exactly as a manual `go install` would
 # use them ($GOBIN or $GOPATH/bin for the binary, ~/.cache/golangci-lint for its
 # cache, the usual module and build caches). A restricted runner that mounts those
-# read-only gets the repository's .tmp/lint instead, with Go's caches moved there
-# too; LINT_HOME forces that second form.
+# read-only gets a shared scratch home instead (<main worktree>/.tmp/lint, shared
+# by every worktree so nothing is downloaded twice). The module cache is only
+# relocated when the default one is not writable, so a warm ~/go/pkg/mod is always
+# reused. LINT_HOME forces the scratch form.
 #
 # If LINT_VERSION changes, update lintPin in the justfile too.
 set -euo pipefail
@@ -58,15 +60,29 @@ if [ -z "${LINT_HOME:-}" ] && writable "$go_bin" && writable "${XDG_CACHE_HOME:-
     exec "$go_bin/golangci-lint" "$@"
 fi
 
-# Restricted runner: keep everything the build needs inside the repository.
-home="${LINT_HOME:-$root/.tmp/lint}"
-export GOPATH="$home/gopath"
-export GOMODCACHE="$home/gopath/pkg/mod"
+# Scratch home for a runner whose standard locations are read-only. It is anchored
+# to the main worktree (git's common dir), not to the current worktree, so every
+# worktree shares one installed binary and one module cache.
+common="$(git -C "$root" rev-parse --git-common-dir 2>/dev/null || true)"
+case "$common" in
+    /*) ;;
+    "") common="$root/.git" ;;
+    *) common="$root/$common" ;;
+esac
+shared="$(dirname "$common")"
+home="${LINT_HOME:-$shared/.tmp/lint}"
+
 export GOBIN="$home/bin"
-export GOCACHE="${GOCACHE:-$root/.tmp/gocache}"
-export GOTMPDIR="${GOTMPDIR:-$root/.tmp/gotmp}"
+export GOCACHE="${GOCACHE:-$shared/.tmp/gocache}"
+export GOTMPDIR="${GOTMPDIR:-$shared/.tmp/gotmp}"
 export GOLANGCI_LINT_CACHE="$home/lintcache"
-mkdir -p "$GOBIN" "$GOCACHE" "$GOTMPDIR" "$GOLANGCI_LINT_CACHE"
+# Reuse the default module cache whenever it is writable; only a read-only one is
+# replaced. A fresh module cache per run is what made every build re-download.
+if ! writable "$(go env GOMODCACHE)"; then
+    export GOPATH="$home/gopath"
+    export GOMODCACHE="$home/gopath/pkg/mod"
+fi
+mkdir -p "$GOBIN" "$GOCACHE" "$GOTMPDIR" "$GOLANGCI_LINT_CACHE" "$GOMODCACHE"
 
 if ! matches "$home/bin/golangci-lint"; then
     echo "installing golangci-lint $version ($toolchain) into $home" >&2
