@@ -224,7 +224,7 @@ _列：ID | 一句话规则 | 状态 | 验收测试。索引只做导航，规�
 | G12 | schema 校验与物化能力不对称 | 待定 | §13.1 |
 | G13 | 联合 `type` 不触发物化 | 待定 | §13.1 |
 | G14 | `array<T>` schema 与 inline 语义不同 | 待定 | §13.1 |
-| G15 | 嵌套 env fallback 不参与 `Validate` | 待定 | §13.1 |
+| G15 | ~~嵌套 env fallback 不参与 `Validate`~~ | **已消除（功能移除）**：无路径推导 | §13.1 |
 | G16 | `pipeline.Names()` 不含 `type` | 无需改代码 | §13.1 |
 | G17 | ~~`--set-string` 仍按 schema 物化~~ | **已消除（v0.6，随 C2 删除）** | §13.1 |
 | G18 | `\| type null` 对 `""` 曾隐式转 `nil` | 已消除（v0.7） | §8.2 |

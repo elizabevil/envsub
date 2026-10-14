@@ -35,7 +35,8 @@ last-updated: 2026-09-29
 - 仍需确认的 `[ASSUMPTION]`：
     - 默认 `--on-missing=error`；`--on-missing=zero` 已确认加入，仅限非 required 字段。
     - 特殊 key 只允许 quoted-string。
-    - 环境变量是否仅通过 `env.*` 与回退读取。（**已由 `07-serialization/13-materialization.md` §13 处理**：建议显式映射为契约、路径推导降级为可选兼容回退；待评审决断）  **（已更新：见 `07-serialization/13-materialization.md` §13/§14——不保留路径推导，环境读取为分层覆盖）**
+    - 环境变量如何进入值树？**已决**：`.env` 顶层键写入根，进程环境只经 `${@process.NAME}` 读取，
+      不做"路径 → 环境变量名"推导（见 `07-serialization/13-materialization.md` §13/§14）。
 - 主要 `[INFERENCE]`：
     - `env` 命名空间与根命名空间。
     - `${path:-default}` 等操作符语义。

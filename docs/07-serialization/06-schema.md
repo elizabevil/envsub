@@ -39,7 +39,7 @@ _列：声明类型 | 处理 | 证据。_
 | `integer` / `number` / `boolean` | `convertScalar` | materialize.go:67-76；normalize.go:198-229 |
 | 其它 | 保持字符串 | materialize.go:90；sources/dotenv_string_not_parsed |
 | 顶层 `.env` key | root 缺失时复制进 root 再物化 | materialize.go:35-46 |
-| 嵌套 env fallback | Materialize 不处理，渲染期由 `applyType`→`Assert` 转换 | path.go:237-241；engine.go:325-362；**待定** |
+| 嵌套路径的环境读取 | **不提供**：无"路径 → 环境变量名"推导；环境只经 `${@process.NAME}` 读取（见 `13-materialization.md` §13/§14） | — |
 
 ### 9.4 Validate 输入构造
 

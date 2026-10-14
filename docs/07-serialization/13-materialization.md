@@ -132,7 +132,7 @@ internal/render/render.go:367   sch.Validate(tree)
 | 项 | 状态 |
 |----|------|
 | `array<array<…>>` | **已决并实现：两侧统一拒绝**（G13，共用文法 `types.ArrayElement`） |
-| 嵌套 env fallback（`APP_HOSTS`→`app.hosts`）纳入物化与 `--validate-only` | **已实现（G14）**：按 schema 声明路径用 `values.EnvName` 查 env；仅当真找到值时才合成已声明的对象父层；根值优先 |
+| 嵌套 env fallback（`APP_HOSTS`→`app.hosts`） | **不提供**：不存在"路径 → 环境变量名"的推导，物化与校验都不读环境（环境读取只有 §14 的两条路） |
 | 本地 `$ref`/`allOf` 处的 `default` | **已实现（G12）**：`expandSchema` 展开 `$ref`、合并 `allOf`，四个 walker 统一读 `s.walk`；`Raw`/编译结果不变 |
 | 外部 `$ref` | 不处理：由 schema 编译器直接拒绝（不联网、不加依赖） |
 | 多可物化成员的真歧义（如 `["integer","number"]`） | 按**书写顺序**取第一个成功者（确定性） |
@@ -152,7 +152,7 @@ internal/render/render.go:367   sch.Validate(tree)
 ## 11. 案例（Examples）
 
 > 以下案例都可以用仓库里的 fixture 形态复现（`test/e2e/testdata/` 的 `args` + `input.tmpl` + `expect.out`）。
-> 命令中的 `--schema` 即 schema 选项；`.env` 的顶层键会被物化（嵌套 env fallback 见 §9 G14）。
+> 命令中的 `--schema` 即 schema 选项；`.env` 的顶层键会被物化（无嵌套 env 推导，见 §9）。
 
 ### 案例 1：同一份值，`.env` 与 YAML 结果一致（顶层键）
 
@@ -304,78 +304,42 @@ ${app.hosts | join ","}      # a,b
 
 ## 13. 环境变量映射（需求讨论，待评审决断）
 
-> **前置约定**：根是唯一配置面（`.env` 写入根），进程环境仅经 `${@process.NAME}` 读取。
-> 因此下表里的 `env.NAME` 一律读作 **`@process.NAME`**。本节讨论的是**显式映射**
-> （把 `APP_PORT` 写回 `app.port`），与命名空间归属正交，属独立后续议题。`[FACT]`
+> **前置**：根是唯一配置面（`.env` 的顶层键写入根）；进程环境只读，仅经 `${@process.NAME}`
+> 读取（见 §14）。本节讨论的是**显式映射**（例如把 `APP_PORT` 写回 `app.port`），属独立后续议题。
 
-### 现状：环境变量进入值树只有三条路
+### 现状：环境进入值树的两条路
 
-| 方式 | 规则 | 例子 | 歧义 |
-|------|------|------|------|
-| 顶层同名 | **精确同名** | schema 属性 `PORT` ← env `PORT` | 无（但要求两处名字一致） |
-| `env.NAME` | 显式命名空间 | `${env.PORT}` | 无 |
-| **嵌套路径推导** | ≥2 段：点 → 下划线 + **全大写**（`values.EnvName`） | `app.port` ← `APP_PORT` | **有** |
+| 方式 | 规则 | 例子 |
+|------|------|------|
+| `.env` 文件 | 顶层键按原样名字写入根（`--dotenv-file`） | `.env` 的 `PORT=8080` ← `${PORT}` |
+| 进程环境 | 只读命名空间，显式读取 | `APP_PORT=9090` ← `${@process.APP_PORT}` |
 
-推导只在第三条路生效，且仅在根值缺失时。它带来三个问题：
+不存在"路径 → 环境变量名"的推导，也没有 `env` 命名空间：`${app.port}` 只读根，宿主里的
+`APP_PORT` 不会被当成 `app.port`。推导被否决的理由是它无法表达多对多映射（同一个 `PORT` 可能
+对应 `app.port` 或 `mongo.port`），并且会让同名无关进程变量意外命中。
 
-1. **多对多无法表达**：同一个 env 名 `PORT` 在不同项目里可能对应 `app.port`、`mongo.port`、
-   `service.port`；同一个路径也可能希望读不同 env 名（多环境/多租户）。
-2. **自定义名无处安放**：`app_port`、`mongo_port`、`MY_SERVICE_PORT` 这类命名与本规则无关。
-3. **意外命中**：与推导名相同的无关进程变量（别的工具设的 `APP_PORT`）会被当成 `app.port`。
-
-**结论：`路径 → env 名` 只能作为便利约定，不能作为契约。** 最初的功能目标其实是
-"环境变量映射到配置文件"，而这需要**显式映射**。
-
-### 候选方案
+### 候选方案：显式映射
 
 | 方案 | 做法 | 优点 | 代价 |
 |------|------|------|------|
-| **A（推荐）** | **显式映射**：`--env-map ENV=path`（可重复）或 `--env-map-file map.yaml`（`ENV: path`）；只读取映射到的名字；`env.NAME` 保留 | 零歧义、支持任意自定义名、天然防污染（白名单即映射表）；与 G14 的物化/校验自然衔接 | 新选项 + 文档 + fixture；自动便利消失 |
-| B | 推导降级为**可选回退**（默认关，`--env-fallback` 打开） | 兼容现状；默认可预测 | 两套规则并存，歧义仍在（只是默认收敛） |
-| C | 只保留 `env.NAME` + 顶层同名，**删除推导** | 最简、零歧义 | 破坏现有 `.env` + 嵌套 schema 用法（G14 的意义消失） |
-| D | 前缀 + **剥离**（`--process-env-prefix APP_` 下 `APP_PORT` → `PORT`） | 名字更短 | 与点号路径叠加仍二义（`app.port` vs `app_port`），只是把问题搬家 |
+| **A（推荐）** | `--env-map ENV=path`（可重复）或 `--env-map-file map.yaml`（`ENV: path`）；只读取映射到的名字 | 零歧义、支持任意自定义名、白名单即映射表 | 新选项 + 文档 + fixture |
+| B | 前缀 + **剥离**（`--process-env-prefix APP_` 下 `APP_PORT` → `PORT`） | 名字更短 | 与点号路径叠加仍二义（`app.port` vs `app_port`） |
+| C | 不做映射，维持上面两条路 | 零新增 | 需要映射的项目要自己写值文件 |
 
 ### 待决点（请评审决定）
 
-1. 主契约选 **A / B / C**？（D 单独或与 A 组合？）
-2. 映射写在哪里：CLI `--env-map`、映射文件（便于版本化）、还是两者都支持？
-3. **优先级次序**：显式映射 / `.env` 文件 / `env.NAME` / 顶层同名 / 推导回退 谁先谁后？
+1. 主契约选 **A / B / C**？
+2. 映射写在哪里：CLI `--env-map`、映射文件（便于版本化），还是两者都支持？
+3. **优先级次序**：显式映射 / `--set` / `.env` / 值文件谁先谁后？
 4. 映射目标路径在 schema/值树中不存在（拼错）→ 报错（推荐）还是告警？
-5. `env.` 显式命名空间是否保留？
-6. 若保留推导：默认开还是关？
-7. 若选 A，`--process-env-prefix` 的定位是否简化为"仅诊断/审计"（白名单由映射表承担）？
+5. 若选 A，`--process-env-prefix` 的定位是否简化为"仅诊断/审计"（白名单由映射表承担）？
 
-> 未决断前不改动实现；现有 `--no-process-env` / `--process-env-prefix` 与推导规则保持现状（有测试与文档）。
+### 评审结论与实测事实
 
-### 设计溯源：这条推导当初为什么存在
+**结论**：**不保留 `路径 → env 名` 推导**（隐式逻辑，容易造成误判），环境读取只有上面的两条路；
+"这个值来自 `.env` 还是宿主环境"由 `--explain` 回答（帧里的 `kind`/`method`/`file`/`line`，见 §15 与 ADR-005）。
 
-| 出处 | 原文 / 含义 |
-|------|-------------|
-| `03-design/03-02-value-model-and-template-syntax.md:26` | 明确写成**兼容回退**：`${NAME}` 在根命名空间未找到且是简单标识符时回退环境变量 |
-| `03-design/03-03-values-merge-and-schema.md:51` | 操作系统环境变量**默认不自动合并**进根命名空间，只通过 `${env.*}` 或简单名回退读取 |
-| `internal/values/path.go:239`、`tree.go:115` | 代码注释：根优先 → 直接 `env.NAME` → conventional SCREAMING_SNAKE_CASE 回退；点号路径映射为大写下划线 |
-| `00-raw/00-04-priority-and-json-schema.md:87` | 扩展引擎已支持 `${app.port}`、`env.PORT` ⇒ 属要保留的既有能力 |
-| `03-design/03-06-open-questions-and-review.md:38` | **一直被列为待定问题**：环境变量是否仅通过 `env.*` 与回退读取 |
-
-动机归纳（三条，本质都是降低上手成本）：
-
-1. **零值文件可用**：只有 `.env` / 环境变量的项目也能渲染 `${app.port}`，不必先写 YAML 值文件；
-2. **少写前缀**：`${PORT}` 这类简单名不必处处写成 `${env.PORT}`；
-3. **顺应惯例**：环境变量惯用 SCREAMING_SNAKE_CASE，于是把路径机械映射为大写加下划线。
-
-代价：把**便利回退**当成了**映射契约** ⇒ 多对多歧义（`PORT` → `app.port` / `mongo.port`）、
-自定义名无法表达（`app_port`）、无关变量意外命中（污染）。
-
-**结论**：§13 的方案选择实际上是在回答 `03-06` 那个悬而未决的问题——建议以显式映射为契约（方案 A），
-推导降级为可选的兼容回退（方案 B 的开关），并在 `03-06` 标注该问题已由本文回答。
-
-### 评审决定（不保留推导）与实测事实
-
-**决定**：**不保留 `路径 → env 名` 推导**（它属隐式逻辑，容易造成误判）。环境的读取只保留：
-显式 `${env.NAME}`、`.env` 文件（按原样键名）、进程环境（受 `--no-process-env` / `--process-env-prefix` 约束）。
-**优先级（已修复）**：`--set` > **YAML/JSON 值文件** > `.env` > 进程环境 > schema `default`（定稿见 [`04-cli.md` §6.2](04-cli.md)；环境命名空间内部见 §12）。
-
-实测（`.tmp` 下临时文件，CLI 冒烟）：
+实测（CLI 冒烟）：
 
 | 场景 | 模板 | 结果 |
 |------|------|------|
@@ -386,42 +350,6 @@ ${app.hosts | join ","}      # a,b
 | 进程环境 `APP_PORT=9090` | `${app.port:-none}` | **`none`** ⇒ 无路径推导，无关变量不会被吃 |
 | `--set K=from_set` + `.env K=from_env_file` + 进程 `K=from_process` | `${K}` | **`from_set`**（最高层） |
 | `.env K=from_env_file` + 进程 `K=from_process` | `${K}` 得 `from_env_file`，`${@process.K}` 得 `from_process` | fixture `env_file_wins` 钉住两者互不干扰 |
-
-### 移除推导的实施清单（✅ 已执行）
-
-| 位置 | 现状 | 移除后 |
-|------|------|--------|
-| `internal/values/path.go` | `envName()` 推导 | ✅ 仅保留单段精确名（点号/索引路径返回 false）；`EnvName` 保留但语义收窄 |
-| `internal/values/tree.go` | 解析只读根；环境由 `@process` 显式读取 | ✅ 见 §12 |
-| `internal/schema/materialize.go` | `envFallback` 走 `values.EnvName` | ✅ 自动收窄为**顶层精确同名**（无需改动） |
-| 测试 | `env_name_test.go`、`g14_env_fallback_test.go`、`union_materialize_test.go`、engine fixture | ✅ 已改写为精确名；`TestEnvName` 换成 `TestEnvKey`/`TestFirstKey`，`TestMaterializeTopLevelEnvFallback` 换成 `TestMaterializeConvertsRootStrings` + `TestProcessNamespaceIsNotAMaterializationSource`，`TestNoPathDerivationForNestedPaths` 反向钉住不推导；engine fixture 的 testdata `env.yaml` 全部改用 `${@process.…}` |
-| 文档 | `03-02:26`、`03-03:51`、`03-06:38`、本文件 §6/§13、`04-cli` 相关表述 | 同步为"无推导；环境读取三条路 + `env.` 显式" |
-
-**（已澄清）**：不存在"精确回退"这一独立概念——环境读取就是分层覆盖（见 §14）。
-
-### `.env` 与进程环境的读法
-
-| 项 | 内容 |
-|----|------|
-| 结论 | `.env` 是根层、进程环境是独立命名空间，两者不互相覆盖 |
-| 评审期望 | `--set` > **`.env`** > 进程环境（`.env` 是项目内的显式配置，应当压过宿主的进程环境） |
-| 代码位置 | `internal/render/render.go` 的 `tree.Env = mergeEnv(loaded.Env, tree.Env)` —— 进程环境是后写入方，胜出 |
-| 修复方式 | 反转合并顺序（`.env` 后写入，即 `mergeEnv(tree.Env, loaded.Env)` 语义），并补 e2e fixture：`.env K=from_env_file` + 进程 `K=from_process` → 期望 `from_env_file` |
-| 影响面 | 仅影响同一个键同时出现在 `.env` 与进程环境的场景；`--set` 仍最高优先 |
-
-### 待决断：`env` 命名空间的来源可区分性
-
-评审指出的原始困扰（**已确认成立**）：`.env` 与进程环境共用 `env` 命名空间，用户系统里本就有
-`NAME`，临时新建 `.env` 改 `NAME` 时，`${env.NAME}` 到底读的是哪一个**无从判断**。优先级修复后
-（`.env` 胜）**取到的值是确定的**，但"这个值来自 `.env` 还是宿主环境"仍不可见。
-
-| 候选 | 做法 | 权衡 |
-|------|------|------|
-| A | 保持单一 `env` 命名空间 + 让来源可查（诊断/`--explain` 显示胜出来源：文件名+行号或 process） | 不破坏模板；需新增诊断入口 |
-| B | 拆命名空间：`dotenv.NAME`（仅 `.env`）、`process.NAME`（仅进程环境），`env.NAME` 保留为"生效值" | 语义最清楚；新增两个命名空间与文档 |
-| C | 仅在被遮蔽时告警（同一键两来源都存在 → 日志/警告一行） | 改动小；仍是隐式，只是可见 |
-
-需要决定：选 A / B / C，或都不做（仅依赖 §12 的优先级）。
 
 ## 14. 两个命名空间
 
@@ -533,8 +461,8 @@ ${app.hosts | join ","}      # a,b
 
 | 部分 | 状态 |
 |------|------|
-| 引擎侧变量枚举 | ✅ `engine.PathEngine` 接口 + `extended.Engine.Paths(src)`：按**首次出现顺序**去重，表达式经 `parseExpression` 归约为路径（`${A \| toJson}` → `A`、`${B:-x}` → `B`）；测试 `TestPaths`（7 例，含 `env.NAME`、点号/索引、`$${A}` 转义、无变量） |
-| 渲染层输出 | ✅ `render.Request.Explain{Enabled, Paths, Writer}`（`Explain` 组，Writer 默认 stderr）；`buildValues` 在加载各来源时记录每名的来源栈（`.env`（参数顺序，后覆盖前）→ 值文件 → `--set`；schema `default` 只在无任何来源时兜底，见 G21），`explainTemplate` 编码 JSONL 并做精确路径过滤；单测 `TestExplainTemplateWritesJSONL`/`TestExplainTemplateFiltersByExactPath`/`TestExplainerSource`/`TestMetaOrigin` |
+| 引擎侧变量枚举 | ✅ `engine.PathEngine` 接口 + `extended.Engine.Paths(src)`：按**首次出现顺序**去重，表达式经 `parseExpression` 归约为路径（`${A \| toJson}` → `A`、`${B:-x}` → `B`）；测试 `TestPaths`（9 例，含把 `env.PORT` 当普通根路径、点号/索引、`$${A}` 转义、无变量） |
+| 渲染层输出 | ✅ `render.Request.Explain{Enabled, Paths, Writer}`（`Explain` 组，Writer 默认 stderr）；`load.Load` 在加载各来源时记录每个路径的来源栈（由低到高：值文件 → `.env` → `--set`；schema `default` 只在无任何来源时兜底，见 G21），`explainTemplate` 编码 JSONL 并做精确路径过滤；单测 `TestExplainTemplateWritesJSONL`/`TestExplainTemplateFiltersByExactPath`/`TestExplainerSource`/`TestMetaOrigin` |
 | CLI 选项 | ✅ `--explain[=PATH]`（pflag 可选值，裸 `--explain` 用 `*` 哨兵表示全部）；CLI 只解析，`internal/cli` 的 `renderFlags.request()` 装配成 `render.Request`，校验统一在 `Request.Validate()` |
 | e2e fixture | ✅ `explain_env_file`、`explain_multi_env`、`explain_set_wins`、`explain_missing`、`explain_batch`（多模板同构）、`explain_path`（`--explain=PATH` 过滤）、`explain_space_form`（空格形态 → exit 5）；`TestExplainStdoutUnchanged` 对拍加/不加 `--explain` 的 stdout。`shadowed` 不再含 `process`（见下） |
 
