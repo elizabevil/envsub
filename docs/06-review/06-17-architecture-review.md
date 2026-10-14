@@ -111,7 +111,7 @@ cmd/envsub/main.go
 - 危害：`${@process.NAME}` 的根段被算成 `@process`；`${["a.b"].k}` 的根段被算成 `["a`。
   这是**同一个语法的第二份实现**，随语法演进必然分叉（本轮刚给语法加了 `@` 与引导索引）。
 - 候选：
-  - **P1（推荐）** `values` 导出 `RootSegment(segments)`（或 `Selector(path)`），`engine` 改调它，
+  - **P1（推荐）** `values` 导出 `RootKey(path)`（或 `Selector(path)`），`engine` 改调它，
     删除本地常量与手写解析。
   - P2 把 `Only/Ignore` 匹配整体下移到 `values`（连同语义测试），engine 只做布尔判断。
 
@@ -170,7 +170,7 @@ cmd/envsub/main.go
 | # | 决策 | 结果 | 证据 |
 |---|------|------|------|
 | D3 | 未接线扩展点 | ✅ **已执行**：删除 `engine.Capabilities` 与 `engine.ErrNotImplemented`；`Registry`/`NewRegistry`/`Register` 整体删除，装配改为 `cli` 接收一个引擎；`source.HTTPInput`/`RPCInput` 占位类型与 `hasScheme` 删除（`TemplateInput` 只认 file/stdin）；`internal/engine` 175→174 行但删掉整个注册表与能力面 | `TestExtendedEngineImplementsPipelineInterfaces`；`internal/source/input_test.go` 改为"非 stdio 一律当路径"；`03-07` §4、`03-09` §2 同步 |
-| D4 | 路径语法单一来源 | ✅ **已执行**：新增 `values.RootSegment`，`engine.matchesPattern` 改调它并删除本地 `pathSeparator`/`indexOpen` 手写拆分；带 `.` 的 pattern 用 `filterKey`（根路径不带引号、命名空间保留 `@`）比较 | `TestRootSegment`（9 例）、`TestReplacesMatchesGrammarRoots`（8 例）；`04-cli` §6.4 新增匹配规则表 |
+| D4 | 路径语法单一来源 | ✅ **已执行**：新增 `values.RootKey`，`engine.matchesPattern` 改调它并删除本地 `pathSeparator`/`indexOpen` 手写拆分；带 `.` 的 pattern 用 `filterKey`（根路径不带引号、命名空间保留 `@`）比较 | `TestRootKey`（9 例）、`TestReplacesMatchesGrammarRoots`（8 例）；`04-cli` §6.4 新增匹配规则表 |
 | D2 | explain 退出核心循环 | ✅ **已执行**：`--explain` 变为循环**之前**的 `reportSources` 一次扫描，模板文本只读一次并存入 `template.Text`；`renderOne` 不含 explain 分支与 `explainRun` 参数 | e2e 42 个 fixture 全绿（stdout/stderr 断言均不改）；`13-materialization` §15 记录先后顺序调整 |
 | D1 | engine 去 schema 依赖 | ✅ **已执行**：`types.TypeResolver` + `types.TypeResolverFuncs` + `types.SchemaTypeToDeclared`；`engine.Input.Schema` 改为该接口；`extended` 的 `applyType/zeroValue/schemaCompatibleMembers/normalizeBySchemaMembers` 改收接口。**`internal/engine` 与 `internal/engine/extended` 的依赖里已无 `internal/schema`** | `go list` 依赖核对；`TestSchemaTypeToDeclared`、`TestTypeResolverFuncs` |
 | D6 | app 装配职责 | ✅ **已执行（方式调整，见 §2.1）**：`cli` 不再调用 `render.Run`，改为接收注入的 `cli.Runner`；`app.runRender` 是唯一的执行点 | `TestRunnerReceivesAssembledRequest` 钉住 flag→Request 装配；`03-07` §4 同步 |
@@ -191,7 +191,7 @@ cmd/envsub/main.go
 | D1 | `engine` 是否去掉 `schema` 依赖 | **S1**：`types` 定义最小类型解析接口 | `engine`、`schema`、`extended`、约 180 行搬迁 + 接口 | 中 |
 | D2 | `--explain` 是否退出核心渲染循环 | **E1**：独立扫描 + 循环不感知 explain | `render.Run/renderOne`、`engine.PathEngine` 保留 | 小-中 |
 | D3 | 未接线扩展点如何处置 | **X1**：删 `Capabilities`/`engine.ErrNotImplemented`，`Registry` 降级为直接持有引擎 | `engine`、`app`、`cli`、`extended` 签名 | 小 |
-| D4 | 路径语法是否只有一份 | **P1**：`values.RootSegment`，`engine` 改调 | `engine.Options` + 其单测 | 小 |
+| D4 | 路径语法是否只有一份 | **P1**：`values.RootKey`，`engine` 改调 | `engine.Options` + 其单测 | 小 |
 | D5 | `render` 是否拆包 | **R1**：只拆值装载 | `render` → `values`（或新包） | 中 |
 | D6 | `app` 职责是否回归 | **A1'**：装配移到 `app`（或改文档 A2'） | `cli`、`app`、`render` | 小-中 |
 | D7 | 数字归一是否收敛 | **N2**：明确边界 + 对拍测试（先不搬代码） | `values`、`types` 测试 | 小 |

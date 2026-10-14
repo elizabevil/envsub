@@ -38,9 +38,9 @@ func BenchmarkParsePath(b *testing.B) {
 	}
 }
 
-// BenchmarkParsePathPrefix measures extracting the leading path of an
+// BenchmarkCutPathPrefix measures extracting the leading path of an
 // expression, which only needs the end offset.
-func BenchmarkParsePathPrefix(b *testing.B) {
+func BenchmarkCutPathPrefix(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
 		if _, _, err := values.CutPathPrefix(`app.servers[0].labels["my-key"] | toJson`); err != nil {

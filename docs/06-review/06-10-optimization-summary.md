@@ -25,7 +25,7 @@ last-updated: 2026-10-09
 | 渲染快路径 span 名零拷贝（`[]byte` 贯通 + `ResolveRootName`/`ResolveEnvName`） | `RenderLargeTemplate`（200k 变量） | allocs/op 400,021 → **21**；B/op 36.40 → **29.99 MB** |
 | 同上（门禁侧） | `test/perf` RSS 比值 | 1.40x → **1.05–1.12x**；render 0.41–0.43x |
 | yamlx 标量按 tag 直解 + 键快路径 | `Decode`（1000 服务） | allocs/op 121,059 → **94,056（−22%）**；B −25%；ns ≈ −14% |
-| 路径解析（`ParsePath` 预分配 / `ParsePathPrefix` 零收集） | `ParsePath` / `ParsePathPrefix` | 5 → **2 allocs**（−45% 时间）/ 5 → **0 allocs**（≈6×） |
+| 路径解析（`ParsePath` 预分配 / `CutPathPrefix` 零收集） | `ParsePath` / `CutPathPrefix` | 5 → **2 allocs**（−45% 时间）/ 5 → **0 allocs**（≈6×） |
 
 ## 3. 已检查但**有意不改**（均有数据）
 
@@ -84,7 +84,7 @@ env 回退、两个 CLI 开关），需确认渲染热路径与解析路径**没
 |------|------|------|------|
 | `RenderLargeTemplate`（200k 变量） | 21 allocs / 29,999,200 B | **21 allocs / 29,999,220 B** | 持平 |
 | `ParsePath` | 2 allocs / 168 B | **2 allocs / 168 B** | 持平 |
-| `ParsePathPrefix` | 0 allocs / 0 B | **0 allocs / 0 B** | 持平 |
+| `CutPathPrefix` | 0 allocs / 0 B | **0 allocs / 0 B** | 持平 |
 | `Decode`（1000 服务） | 94,056 allocs | **94,056 allocs** | 持平 |
 | `ParseDotenv`（1000 键，source_test） | 1,657 allocs | **1,657 allocs** | 持平 |
 | `MergeInto`（50×100 键） | 18 allocs | **18 allocs** | 持平 |

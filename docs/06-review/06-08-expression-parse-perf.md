@@ -60,7 +60,7 @@ go test -run 'TestSplitPipesCases|TestSplitPipesRejectsUnclosedQuote|TestParseEx
 ## 非目标（Non-Goals）
 
 - 不引入解析缓存（CLI 每模板渲染一次；`Engine` 为进程级单例且并行渲染会并发解析，缓存需并发安全且有界）。`[FACT]`
-- 不在本文评估 `values.ParsePathPrefix` 的 1 次分配（另见提交信息中的后续机会）。`[FACT]`
+- 不在本文评估 `values.CutPathPrefix` 的 1 次分配（另见提交信息中的后续机会）。`[FACT]`
 
 ## 6. 快路径 span 名零拷贝（已实施，附 A/B）
 

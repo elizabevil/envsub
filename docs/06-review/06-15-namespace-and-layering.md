@@ -232,7 +232,7 @@ go fix ./...              # 应用；之后 go fix -diff 为空
 |---|------|------|------|------|
 | F1 | **裸 `${NAME}` 仍会读进程环境** | 解析快路径 `emitSpan` 保留了 `ResolveEnvName` 回退，与 §2 定案和文档（"取消分层便利"）矛盾：`NAME=world` 时 `${NAME}` 得 `world` | 删除该回退，快路径只读根；改用例为 `TestRenderBareNameIgnoresProcessEnv`（裸名 exit 6、`${@process.NAME}` 得值） | `internal/engine/extended/engine.go`；`e2e basic_env/output_file/unset_keep/empty_error` 改为显式 `${@process.…}` 并加 dotenv `env` 文件 |
 | F2 | **`--set '@process.K=v'` 写入进程环境命名空间** | `SetPath`→`assignPath` 把 `@process.K` 当成普通键写进 `root["process"]["K"]`（旧实现），既污染根又让 `--explain` 谎报 `source:set`；契约上 `@process` 只读 | `assignPath` 增加 namespace 守卫，返回 `namespace @process is read-only: assignment paths target the root namespace`（`KindUsage` exit 2） | `internal/values/set.go`；`TestSetPathRejectsNamespace`、`app_test.go` 的 exit-code 表两行（`--set`/`--set-json`） |
-| F3 | `--explain` 的特殊键写法不可粘贴回模板 | `["a.b"].k` 的 `variable` 报成元数据形式 `a.b.k`，`--explain='["a.b"].k'` 过滤不到 | 新增 `values.Canonical`（模板写法）并把 `EncodePath` 的骨架提为 `EncodeSegments`；`explainName` 改用 `Canonical` | `internal/values/path.go`、`internal/render/explain.go`；`TestCanonical`（12 例往返）、`TestExplainNameAndLookupKeys` |
+| F3 | `--explain` 的特殊键写法不可粘贴回模板 | `["a.b"].k` 的 `variable` 报成元数据形式 `a.b.k`，`--explain='["a.b"].k'` 过滤不到 | 新增 `values.CanonicalPath`（模板写法）并把 `EncodePath` 的骨架提为 `EncodeSegments`；`explainName` 改用 `CanonicalPath` | `internal/values/path.go`、`internal/render/explain.go`；`TestCanonicalPath`（12 例往返）、`TestExplainNameAndLookupKeys` |
 
 **C. 顺带的清晰度收敛（无行为变化）**
 

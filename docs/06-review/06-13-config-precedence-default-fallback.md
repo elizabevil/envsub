@@ -66,7 +66,7 @@ last-updated: 2026-10-10
 ## 4. 实现与影响面
 
 - `internal/schema/defaults.go`：`defaultsVisitor.missing` 先调用 `envFallback(tree, path)`，命中则不填
-  default、不记 schema 来源 meta；未命中时行为不变（`CloneValue` + `RecordEncodedMeta`）。`[FACT]`
+  default、不记 schema 来源 meta；未命中时行为不变（`CloneValue` + `RecordMeta`）。`[FACT]`
 - 连带效果（有意）：环境提供了值但不符合 schema 类型时，现在会走**类型错误**（exit 4），而不是被
   default 静默顶掉；需要忽略宿主环境时用 `--no-process-env`。`[FACT]`
 - fixture：`schema_default_precedence` → 重做并更名 `schema_default_is_fallback`，同时钉住两件事：
@@ -85,8 +85,11 @@ just check
 printf 'K=from_env_file\n' > .env
 printf '{"type":"object","properties":{"K":{"type":"string","default":"from_default"}}}\n' > schema.json
 printf 'K=${K}\n' > input.tmpl
-envsub render --explain --env-file .env --schema schema.json input.tmpl
-#   {"template":"input.tmpl","variable":"K","source":".env:1","kind":"dotenv","file":".env","line":1,"shadowed":["process"]}
+envsub render --explain --dotenv-file .env --schema schema.json input.tmpl
+#   K=from_env_file
+#   {"template":"input.tmpl","variable":"K","origin":{"kind":"envfile","method":"file","source":".env","file":".env","line":1},
+#    "shadowed":[{"kind":"schema","method":"default","source":"#/properties/K/default","file":"schema.json","line":0}]}
+#   （上面为便于阅读折行；实际是一行 JSONL）
 ```
 
 `[FACT]`（`just check` 本轮退出码 0）

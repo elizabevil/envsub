@@ -53,7 +53,7 @@ last-updated: 2026-10-09
 | `schema` 归一化/校验 | 待落基准（`codec.ToJSON` 仅在含精确整数时复制，预期不改） |
 | `values` 合并/克隆 | 待落基准（多文件覆盖场景） |
 | 输出写入 / streaming 窗口 | 待抽查（已用 `bufio` + `os.CreateTemp`，读取缓冲已复用） |
-| 引擎通用路径 | `ParsePathPrefix` 仍有 1 次分配/表达式（`BenchmarkParseExpression` 可量化） |
+| 引擎通用路径 | `CutPathPrefix` 仍有 1 次分配/表达式（`BenchmarkParseExpression` 可量化） |
 | CLI 启动 | 实测 ~5.8 ms（预算 100 ms），维持 |
 
 ## 4. `schema.Validate` —— 结论：不改（瓶颈在第三方库内）
@@ -105,7 +105,7 @@ last-updated: 2026-10-09
 | B/op | 488 | — |
 
 判定：**候选优化**（分配 5 次/表达式，在非快路径模板里可观），但需要先把 5 次分配的来源逐项定位
-（段切片增长、引号键、索引解析），再按 A/B 决定；`ParsePathPrefix` 的单独分配（历史报告 19.4 ns/1 alloc）
+（段切片增长、引号键、索引解析），再按 A/B 决定；`CutPathPrefix` 的单独分配（历史报告 19.4 ns/1 alloc）
 尚未独立复现，列为下一轮第一件事。
 
 ### 2.1 实施与 A/B
@@ -145,17 +145,17 @@ last-updated: 2026-10-09
   对五段路径要扩容三次；
 - `parseQuoted(collect bool)`：只取前缀时**扫描引号但不构建键字符串**（`strings.Builder`
   零写入不分配）；
-- `ParsePathPrefix` 传 `collect=false`，不再为了取前缀而构建整套 `[]Segment` 与引号键。
+- `CutPathPrefix` 传 `collect=false`，不再为了取前缀而构建整套 `[]Segment` 与引号键。
 
 A/B（同基准文件，改前 = HEAD worktree，`-benchmem -count 3`）：
 
 | 基准 | 指标 | 改前 | 改后 | 变化 |
 |------|------|------|------|------|
 | `ParsePath`（`app.servers[0].labels["my-key"]`） | allocs / B / ns | 5 / 488 / 230–250 | **2 / 168 / 116–149** | allocs −60%、B −66%、时间 ≈ −45% |
-| `ParsePathPrefix`（同路径 + ` \| toJson`） | allocs / B / ns | 5 / 488 / 230–271 | **0 / 0 / 37–38** | 零分配、≈ 6× 快 |
+| `CutPathPrefix`（同路径 + ` \| toJson`） | allocs / B / ns | 5 / 488 / 230–271 | **0 / 0 / 37–38** | 零分配、≈ 6× 快 |
 
 可见用例：`internal/values/path_test.go` 新增
-`TestParsePathPrefixAgreesWithParsePath`（前缀与剩余部分可拼回原串、`ParsePath` 能解析该前缀、
-空串/未闭合括号/未闭合引号/连续点号仍报错）；新增基准 `BenchmarkParsePathPrefix`。
+`TestCutPathPrefixAgreesWithParsePath`（前缀与剩余部分可拼回原串、`ParsePath` 能解析该前缀、
+空串/未闭合括号/未闭合引号/连续点号仍报错）；新增基准 `BenchmarkCutPathPrefix`。
 
 回归：`internal/values`、160 个 engine fixture、`test/e2e` 全部通过，golden 未改动。

@@ -202,7 +202,7 @@ func (req Request) reportUnused(tree *values.Tree, referenced rootNames) error {
 type rootNames map[string]bool
 
 // canonicalPath normalizes a template path to the spelling the value tree walk
-// produces (values.Canonical), so the comparison is exact for keys that need
+// produces (values.CanonicalPath), so the comparison is exact for keys that need
 // quoting. A path the parser cannot read is kept verbatim rather than dropped.
 func canonicalPath(path string) string {
 	segments, err := values.ParsePath(strings.TrimSpace(path))

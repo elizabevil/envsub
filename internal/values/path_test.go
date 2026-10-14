@@ -187,7 +187,7 @@ func TestCutPathPrefix(t *testing.T) {
 	}
 }
 
-// TestParsePathPrefixAgreesWithParsePath pins that the prefix-only scan (which
+// TestCutPathPrefixAgreesWithParsePath pins that the prefix-only scan (which
 // collects no segments) consumes exactly the bytes ParsePath parses, and keeps
 // the same errors.
 func TestCutPathPrefixAgreesWithParsePath(t *testing.T) {
@@ -274,7 +274,7 @@ func TestCanonicalPathEscapesQuotes(t *testing.T) {
 	}
 }
 
-// TestRootSegment pins the root the Only/Ignore filters see: the leading key for a
+// TestRootKey pins the root the Only/Ignore filters see: the leading key for a
 // root path, the namespace name for a namespace path, and the extracted text for a
 // path the parser rejects (which keeps the pre-grammar filtering behavior).
 func TestRootKey(t *testing.T) {

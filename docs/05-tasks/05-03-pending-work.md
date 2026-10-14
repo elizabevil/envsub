@@ -25,7 +25,7 @@
 ### F2：walker 遍历骨架收敛 —— ✅ 已完成
 
 新增 `internal/schema/walk.go`：`propertyVisitor` 只回答两个问题（缺失键怎么办、字符串怎么办），
-遍历骨架（`sortedKeys(properties)` + `joinPath` + map/[]any 递归 + items 迭代）只有一份：
+遍历骨架（`utils.SortedKeys(properties)` + `values.JoinPath` + map/[]any 递归 + items 迭代）只有一份：
 `walkProperties` / `walkItems` / `walkValue`。`applyDefaults` 与 `materializeNode` 各自退化为
 一个 visitor。
 
@@ -35,6 +35,8 @@
 `TestMaterializeConvertsElementsOfParsedArray`（`go test ./internal/schema/`）。
 
 ### 原始记录（留档）
+
+> 下文符号是当时的实现名，与当前代码的对应：`sortedKeys` → `utils.SortedKeys`，`joinPath` → `values.JoinPath`。
 
 
 `applyDefaults` / `materializeNode` 各自实现"按 `sortedKeys(properties)` 遍历 + `joinPath` +
