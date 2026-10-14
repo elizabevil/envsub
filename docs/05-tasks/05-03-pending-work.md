@@ -113,14 +113,13 @@
 
 | 编号 | 候选 | 优先级 | 开工前需要定的事 |
 |------|------|--------|------------------|
-| REQ-SRC-05 | `--set-file KEY=FILE` | P1 | 与 `--set` 的优先级关系；文件读取错误分类；值是否参与脱敏 |
 | REQ-SRC-06 | TOML 值文件 | P1 | 是否引入新依赖（ADR-004 需补决策）；与 `.env`/YAML 的语义差异 |
 | REQ-SRC-08 | 值引用/插值 | P1 | 求值顺序、循环诊断、与 schema 物化的先后；是否破坏"无隐式逻辑"——设计材料见本文 §14 |
 | REQ-SRC-09 | profiles/environments | P1 | 用"声明式覆盖层"还是新语法；与 `-f`/`--dotenv-file` 的合并点 |
 | REQ-SRC-11 | HTTP(S) 值来源 | P2 | 与 K1 冲突：`--allow-remote` 的开关名、超时/大小/重定向上限、是否进日志 |
 | REQ-TPL-04 | include/partials | P1 | `--include-dir` 白名单、深度上限（候选 3 层）、循环检测与错误格式 |
 | REQ-TPL-05 | 受限条件/循环 | P1 | 保持"受限"的边界（无递归、无函数定义）与确定性 fixture |
-| REQ-OUT-03/04/05 | `--dry-run`/`--diff`/`--check` | P1 | 三者与 `--validate-only` 的差异；diff 是否内置实现 |
+| REQ-OUT-04 | `--diff`（⏸ 待需求） | P1 | 实现时作为 `--check` 的输出模式；是否内置 unified diff（外部 `diff`/`git diff` 已可替代） |
 
 ## 待办 O：`just lint` 的工具链版本（已解决）
 

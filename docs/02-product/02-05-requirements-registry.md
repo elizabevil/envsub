@@ -57,7 +57,7 @@ last-updated: 2026-10-12
 | REQ-SRC-02 | `.env` 配置层（`--dotenv-file`，进根、高于值文件） | P0 | ✅ 已实现 | ✅ | — |
 | REQ-SRC-03 | YAML/JSON 值文件、多文件覆盖、object 深合并 | P0 | ✅ 已实现 | ✅ | — |
 | REQ-SRC-04 | `--set` / `--set-json` | P0 | ✅ 已实现 | ✅ | `--set-string` 已删除 |
-| REQ-SRC-05 | `--set-file KEY=FILE`（值来自文件，避免命令行泄密） | P1 | ❌ 未实现 | ✅ | `source` 已有文件读取与 `Input` 抽象；注意脱敏（REQ-SEC-02） |
+| REQ-SRC-05 | `--set-file KEY=FILE`（值来自文件，避免命令行泄密） | P1 | ✅ 已实现 | ✅ | W1（2026-10-12，TASK-107）：4 单测 + 2 fixture；脱敏见 REQ-SEC-02 |
 | REQ-SRC-06 | TOML 值文件 | P1 | ❌ 未实现（`.toml` 当前被拒） | 🟡 | 需新增 loader + 依赖（`pelletier/go-toml`）；ADR-004 需补决策 |
 | REQ-SRC-07 | INI / `.properties` 值文件 | P2 | ❌ | 🟡 | 与 REQ-SRC-06 同构，格式语义弱于 YAML，收益待评估 |
 | REQ-SRC-08 | 值引用与插值（配置值内部引用其他值、检测循环） | P1 | ❌ | 🟡 | 与"确定性 + 无隐式逻辑"有张力：需定义求值顺序与循环诊断 |
@@ -99,13 +99,13 @@ last-updated: 2026-10-12
 |------|------|--------|------|----------|------|
 | REQ-OUT-01 | stdout / `-o` / `--output-dir` / `--recursive` / `-i` 原子写回 | P0 | ✅ | ✅ | — |
 | REQ-OUT-02 | `--validate-only` | P0 | ✅ | ✅ | — |
-| REQ-OUT-03 | `--dry-run`（只预览不写） | P1 | ❌ | ✅ | 与 `--validate-only` + stdout 有重叠，需先明确差异（是否仍输出内容） |
-| REQ-OUT-04 | `--diff`（输出 diff） | P1 | ❌ | ✅ | 需内置 unified diff（标准库无）；约 150 行或加轻依赖 |
-| REQ-OUT-05 | `--check`（有差异即非零退出，CI 门禁） | P1 | ❌ | ✅ | 与 REQ-OUT-04 共用比较逻辑 |
+| REQ-OUT-03 | `--dry-run`（只预览不写） | P1 | ❌ **已删除任务** | ✅ | 无独立语义：stdout 即"不写"，`--check` 天然不写（2026-10-12 产品结论，见 `05-04` 取舍表） |
+| REQ-OUT-04 | `--diff`（输出 diff） | P1 | ⏸ **待需求** | ✅ | 呈现便利，外部 `diff`/`git diff` 可替代；出现需求时作为 `--check` 的输出模式实现（见 `05-04` 取舍表） |
+| REQ-OUT-05 | `--check`（有差异即非零退出，CI 门禁） | P1 | ✅ 已实现 | ✅ | TASK-105：`--check` + 专用退出码 7；5 fixture + 5 单测 |
 | REQ-OUT-06 | 权限/行尾/编码保真（CRLF、mode 位） | P1 | ❌ | ✅ | 原子写回已保留文件，需显式测试 mode 与 CRLF |
 | REQ-OUT-07 | 输出路径变量化（输出名由值决定） | P2 | ❌ | 🟡 | 需限制在输出根目录内（防路径穿越） |
-| REQ-OUT-08 | 机器可读输出（错误/报告 JSON） | P1 | 部分（`--explain` 为 JSONL） | ✅ | 建议 `--error-format=json`，复用 `diag` 的分类 |
-| REQ-OUT-09 | 渲染统计与未使用变量报告 | P1 | ❌ | ✅ | `--explain` 已枚举引用名，可直接做"未被引用的值文件键" |
+| REQ-OUT-08 | 机器可读输出（错误/报告 JSON） | P1 | ✅ 已实现 | ✅ | `--error-format=json`（TASK-102，2 fixture + 单测）；`--explain` 为 JSONL |
+| REQ-OUT-09 | 渲染统计与未使用变量报告 | P1 | ✅ 已实现 | ✅ | `--report=unused`（TASK-103：6 单测 + 2 fixture）；口径见 `04-cli` C15 |
 | REQ-OUT-10 | 交互确认 / 覆盖保护 | P2 | ❌ | ✅ | 与 CI 非交互冲突：默认非交互，仅 `-i` 时加保护 |
 | REQ-OUT-11 | 批量输出名处理（模板后缀） | P2 | ❌（现保留 `.tmpl`） | 🟡 | 真实配置仓库会得到 `nginx.conf.tmpl`；三种形态待决：文档化 / `--strip-suffix`（推荐）/ 自动剥离（隐式，不推荐）。需要时补 ADR 到 CLI 契约 |
 
@@ -116,7 +116,7 @@ last-updated: 2026-10-12
 | REQ-CLI-01 | 稳定退出码与错误分类 | P0 | ✅ | ✅ | 2/3/4/5/6 |
 | REQ-CLI-02 | `--explain`（来源报告 JSONL） | P0 | ✅ | ✅ | — |
 | REQ-CLI-03 | 结构化日志（`--log-level`） | P0 | ✅ | ✅ | slog |
-| REQ-CLI-04 | shell completion | P1 | ❌ | ✅ | cobra 自带；只需暴露 `completion` 子命令并加 e2e 用例 |
+| REQ-CLI-04 | shell completion | P1 | ✅ 已实现 | ✅ | cobra 自带 `completion`（bash/zsh/fish/powershell，实测可用）；防退化守护见 TASK-101 |
 | REQ-CLI-05 | man page | P2 | ❌ | ✅ | 由 cobra 生成，随发布资产 |
 | REQ-CLI-06 | `--compat=gnu\|a8m\|drone` 兼容模式 | P2 | ❌ | 🟡 | 与 K6 一致（P2 边界）；需先冻结兼容矩阵（`REF-02`） |
 | REQ-CLI-07 | `migrate`/`convert` 命令 | P2 | ❌ | 🟡 | ADR-002 二期项；依赖 REQ-CLI-06 的语法映射表 |
@@ -127,10 +127,10 @@ last-updated: 2026-10-12
 | 编号 | 需求 | 优先级 | 现状 | 可实现性 | 说明 |
 |------|------|--------|------|----------|------|
 | REQ-SEC-01 | 默认不执行命令、不访问网络 | P0 | ✅ | ✅ | K1；`@process` 与 `--dotenv-file` 均不触网 |
-| REQ-SEC-02 | 敏感值脱敏（日志与诊断不泄露值） | P1 | 部分（`--explain` 不含值） | ✅ | 需覆盖错误信息（如 `.env` 值进入诊断的路径） |
-| REQ-SEC-03 | 临时文件权限安全（`0600`、原子替换） | P1 | 部分（已原子写回） | ✅ | 补测试即可 |
+| REQ-SEC-02 | 敏感值脱敏（日志与诊断不泄露值） | P1 | ✅ 已实现 | ✅ | 脱敏修复（TASK-106）；`--explain` 只输出来源不输出值；测试 `internal/schema/redaction_test.go`；`x-sensitive` 标记见 REQ-TYP-07 |
+| REQ-SEC-03 | 临时文件权限安全（`0600`、原子替换） | P1 | ✅ 已实现 | ✅ | `internal/output` 原子替换 + 0600 权限守护（TASK-106；`internal/output/writer_test.go`）；mode 保真见 REQ-OUT-06 |
 | REQ-SEC-04 | 发布校验：checksums/SBOM/可复现构建 | P1 | 部分（checksums、sbom 脚本已存在） | ✅ | 补签名与可复现性验证 |
-| REQ-SEC-05 | 解析器/扫描器 fuzz | P1 | ❌ | ✅ | `[INFERENCE]`（`03-10` §8 已列为要求） |
+| REQ-SEC-05 | 解析器/扫描器 fuzz | P1 | ✅ 已实现 | ✅ | 4 个 `func Fuzz` 目标（扫描器/表达式/`.env`/数值）于 `test/fuzz/`；`just test-fuzz` 覆盖 |
 | REQ-SEC-06 | 远程 secret 自动读取 | P3 | ❌ | ⛔ | 与 K1 冲突 |
 
 ### 3.7 分发与平台（REQ-DIS）
@@ -156,7 +156,7 @@ last-updated: 2026-10-12
 | 需求 | 判定 | 理由 |
 |------|------|------|
 | REQ-SRC-06 TOML | 🟡 | 技术上简单（新增 loader），但会引入新依赖并扩大"值文件格式"契约面（ADR-004 需补决策）；建议先确认是否真有 TOML 用户 |
-| REQ-SRC-08 值引用 | 🟡 | 与"无隐式逻辑、确定性"张力最大：需要定义求值顺序、循环诊断、与 schema 物化的先后。**建议先出设计再决定是否做** |
+| REQ-SRC-08 值引用 | 🟡 | 与"无隐式逻辑、确定性"张力最大：需要定义求值顺序、循环诊断、与 schema 物化的先后。**建议先出设计再决定是否做**（设计材料：现状实测、三种求值模型对照、业界案例、最小边界与 8 项决策清单见 `05-tasks/05-03-pending-work.md` §14） |
 | REQ-SRC-11 HTTP 值来源 | 🟡 | K1 要求默认不触网。可实现形态：`--allow-remote` + 只读单次 GET + 超时/大小/重定向上限 + 明确不进日志。须用户确认后再设计 |
 | REQ-SRC-13 远程密钥 | 🟡 | 仅接受**本地可解密**（SOPS/age）形态；Vault/云的联网读取与 K1 冲突 |
 | REQ-TPL-04 include | 🟡 | 与 K5 交互：需要 `--include-dir` 白名单、深度上限（候选 3 层）、循环检测与稳定错误格式；不默认开启 |
@@ -169,17 +169,18 @@ last-updated: 2026-10-12
 
 ## 5. 推荐落地顺序（P1 内部）
 
-按"依赖少、风险低、收益直接"排序，前四项互相独立：
+按"依赖少、风险低、收益直接"排序；**状态截至 2026-10-14**（✅ 已完成、❌ 待做）：
 
-1. **REQ-CLI-04 shell completion**（最小、cobra 自带、可立刻 e2e 覆盖）
-2. **REQ-OUT-03/04/05 `--dry-run`/`--diff`/`--check`**（CI/GitOps 直接受益，共用一套比较逻辑）
-3. **REQ-OUT-08 机器可读错误 + REQ-OUT-09 未使用变量报告**（复用 `diag` 与 `--explain` 已有枚举）
-4. **REQ-SEC-02/03 脱敏与临时文件权限 + REQ-SEC-05 fuzz**（安全债，成本低）
-5. **REQ-SRC-05 `--set-file`**（与 secret 场景配套）
-6. **REQ-DIS-04 + REQ-OUT-06 Windows/CRLF/权限保真**（需要 Windows CI，独立推进）
-7. **REQ-TPL-06 内置函数扩展**（逐个加，注意与既有 formatter 语义一致）
-8. **REQ-SRC-09 profiles**（设计成"声明式覆盖层"，不引入新语法）
-9. **REQ-TPL-04 include**、**REQ-TPL-05 条件/循环**（两项都需先出设计文档与安全边界，见 §4）
+1. **REQ-CLI-04 shell completion** — ✅ 已实现（TASK-101，含防退化守护）
+2. **REQ-OUT-05 `--check`** — ✅ 已实现（TASK-105）；同组：REQ-OUT-03 `--dry-run` **已删除任务**、
+   REQ-OUT-04 `--diff` **⏸ 待需求**（见 `05-04` 的取舍表）
+3. **REQ-OUT-08 机器可读错误 + REQ-OUT-09 未使用变量报告** — ✅ 已实现（TASK-102/103）
+4. **REQ-SEC-02/03 脱敏与临时文件权限 + REQ-SEC-05 fuzz** — ✅ 已实现（TASK-106）
+5. **REQ-SRC-05 `--set-file`** — ✅ 已实现（TASK-107）
+6. **REQ-DIS-04 + REQ-OUT-06 Windows/CRLF/权限保真** — ❌ 待做（需要 Windows CI）
+7. **REQ-TPL-06 内置函数扩展** — ❌ 待做（注意与既有 formatter 语义一致）
+8. **REQ-SRC-09 profiles** — ❌ 待做（设计成"声明式覆盖层"，不引入新语法）
+9. **REQ-TPL-04 include**、**REQ-TPL-05 条件/循环** — ❌ 待做（两项都需先出设计文档与安全边界，见 §4）
 10. **REQ-CLI-06/07 兼容模式与转换**（P2，需先冻结 `REF-02` 的兼容矩阵）
 
 ## 6. 非目标（Non-Goals）
