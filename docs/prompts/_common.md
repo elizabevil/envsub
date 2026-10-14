@@ -97,3 +97,32 @@ last-updated: [ 当前日期 ]
      澄清结论写入对应文档后，再按结论实施。`[FACT]`
    - 已经擅自改动的，先如实披露改了哪些文件与行为，给出"保留 / 回退 / 改文档"的选项，由用户选择。
      `[FACT]`
+
+11. **注释只写现状：契约写清楚，沿革一律不留；未完成的功能用 IDE 可识别的 TODO 占位。**
+    - 分类与长度遵循 `docs/03-design/03-10-go-code-standards.md` §3.1：doc comment 写**契约**
+      （做什么、参数与返回值、错误语义、边界、调用方注意什么）；函数体内的实现注释只写
+      **代码表达不出的约束**（为什么必须这样、外部硬限制），一行。`[FACT]`
+    - **禁止沿革与指路**：
+      - 描述变化："原来是 X，现在 Y"、"was replaced by"、"不再使用"、"已删除"、"原来是"；
+      - 说明"这块逻辑搬去哪了"的指路注释（如 "Path joining lives in the value grammar"）——
+        调用点直接写新 API 即可，读者不需要知道它曾经在哪；
+      - 版本号（`v0.11`）、评审编号（`06-review/06-17`）、任务编号（`TASK-xxx`）；
+        这些属于 commit message、`docs/06-review`、`docs/04-decisions`。`[FACT]`
+      - 允许描述**当前归属**（如"编解码集中在 internal/yamlx，因为它按 tag 直解标量"）：
+        它说明现状与理由，不是沿革。
+    - **功能占位必须保留**：尚未实现的分支、待接线的参数、待补的规则，写
+      `// TODO(owner): 具体要做什么`（owner 用任务号或责任人，如
+      `// TODO(TASK-206): 让 --output-dir 的输出名去掉模板后缀`）；
+      写"要做什么"，不写"现在是什么"；已知缺陷用 `FIXME`。
+      这类标记是 IDE TODO 面板的唯一来源，删掉等于隐藏未完成的工作。`[FACT]`
+    - TODO 不能替代 doc comment：契约照写，TODO 只标记缺口；被 TODO 标记的能力不得在文档或
+      回复中宣称已支持；实现完成后**删除该注释**，不得改写成"已完成"。`[FACT]`
+    - 提交前自检（应无输出）：
+
+      ```bash
+      grep -rnE "原来是|曾经|was replaced by|no longer|formerly|previously|已删除|不再使用" \
+          --include=*.go internal/ cmd/ test/
+      ```
+
+      命中需人工判断：描述**返回值语义**的 "was replaced"（如 «changed reports whether the value
+      was replaced»）是契约，不是沿革。

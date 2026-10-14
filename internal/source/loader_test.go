@@ -148,8 +148,8 @@ func TestReadFileParseError(t *testing.T) {
 	}
 }
 
-// TestReadFileMissingValueFile pins the dedicated diagnostic for a value file
-// that does not exist (previously both branches produced the generic read error).
+// TestReadFileMissingValueFile pins the dedicated diagnostic for a value file that
+// does not exist: the missing-file error names the path, not the generic read error.
 func TestReadFileMissingValueFile(t *testing.T) {
 	t.Parallel()
 	loader, err := source.ForFile("missing.yaml")

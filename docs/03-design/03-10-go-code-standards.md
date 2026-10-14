@@ -53,6 +53,9 @@ last-updated: 2026-09-29
 - 一眼能看懂的函数不给注释（如 getter、字段搬运、简单的 `if err != nil` 分支）。
 - 注释里**不得**出现设计沿革（“原来是 X，现在 Y”）、版本号（v0.11）、评审编号（06-review/06-17）；
   这些属于 commit message 与 `docs/06-review`。`[FACT]`
+- 未完成的功能留 `// TODO(owner): …`（已知缺陷用 `FIXME`）作为占位：它是 IDE TODO 面板的
+  唯一来源，不得当作沿革注释删除；实现完成后删除，不得改写成“已完成”。`[FACT]`
+- 可执行清单与提交前自检命令见 `docs/prompts/_common.md` 第 7 节第 11 条。`[FACT]`
 
 ## 4. 必须使用现代 Go 语法
 

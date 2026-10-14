@@ -34,7 +34,7 @@ func TestJSONv2DefaultsToFloat64ForAny(t *testing.T) {
 	}
 	rounded, ok := plain["pow53"].(float64)
 	if !ok {
-		t.Fatalf("pow53 = %T, want float64 (the tree walker may no longer be needed)", plain["pow53"])
+		t.Fatalf("pow53 = %T, want float64 (the encoder reads the decoded number as float64)", plain["pow53"])
 	}
 	if got := strconv.FormatFloat(rounded, 'f', -1, 64); got != "9007199254740992" {
 		t.Fatalf("pow53 = %s, want the rounded 9007199254740992", got)

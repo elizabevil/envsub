@@ -599,6 +599,7 @@ func (req Request) templateOutput(input, base string) (string, error) {
 	case req.Output.InPlace:
 		return input, nil
 	case req.Output.Dir != "":
+		// TODO(TASK-206): make the --output-dir name drop the template suffix.
 		relative := filepath.Base(input)
 		if !utils.IsStdio(input) && base != "" {
 			rel, err := filepath.Rel(base, input)
