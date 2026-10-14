@@ -1,0 +1,4 @@
+render
+--set-file
+TOKEN=absent.txt
+input.tmpl

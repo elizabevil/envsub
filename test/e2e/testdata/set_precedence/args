@@ -1,0 +1,8 @@
+render
+--set
+app.port=8080
+--set
+NAME=world
+--set-json
+HOSTS=["a","b"]
+input.tmpl
