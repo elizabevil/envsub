@@ -1,13 +1,22 @@
-/bin/
 /dist/
+# `go build ./cmd/envsub` drops the binary in the repository root.
+/envsub
 *.test
-*.out
+/coverage.out
 coverage.txt
 
 # Toolchain caches. The justfile and CI both keep them inside the workspace.
 /.tmp/
 /.gocache/
 
+# Go fuzz cache, kept inside the workspace like the other toolchain caches.
+/.tmp/gofuzz/
+
 # IDE project files.
 /.idea/
 *.iml
+
+# Output written into an e2e fixture directory when its case is run by hand
+# (`render --output-dir result ...`). The e2e runner only ever writes result/
+# inside its temporary copy, so a fixture-local result/ is always scratch.
+/test/e2e/testdata/*/result/

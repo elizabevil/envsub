@@ -1,0 +1,31 @@
+# NOTE: 本文件是 docs 目录辅助脚本。
+# 项目构建/测试命令在仓库根目录的 ../justfile。
+# 在仓库根目录执行 just --list 可看到全部命令。
+
+mkdir:
+    mkdir -p "prompts"
+    mkdir -p '00-raw'
+    mkdir -p '01-context'
+    mkdir -p '02-product'
+    mkdir -p '03-design'
+    mkdir -p '04-decisions'
+    mkdir -p '05-tasks'
+    mkdir -p '99-archive'
+
+mkdir-prompts:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p prompts
+    for f in _common.md 01-context-summary.md 02-prd-generator.md \
+             03-user-story-splitter.md 04-design-doc-generator.md \
+             05-adr-generator.md 06-doc-reviewer.md 07-task-splitter.md; do
+      if [[ -s "prompts/$f" ]]; then
+        echo "⚠️  prompts/$f 已有内容，跳过"
+      else
+        echo "# ${f%.md}" > "prompts/$f"
+        echo "✅ 创建 prompts/$f"
+      fi
+    done
+
+project:
+    just --justfile ../justfile --list

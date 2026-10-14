@@ -1,0 +1,84 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GOCACHE: ${{ github.workspace }}/.gocache
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.x'
+          check-latest: true
+      - name: Verify modules
+        run: go mod verify
+      - name: Format
+        run: |
+          unformatted="$(gofmt -l ./cmd ./internal ./test)"
+          if [ -n "$unformatted" ]; then
+            echo "gofmt needed for:"
+            echo "$unformatted"
+            exit 1
+          fi
+      - name: Vet
+        run: go vet ./...
+      - name: Test
+        run: go test -count=1 ./...
+      - name: Test with race detector
+        run: go test -race -count=1 ./...
+      - name: Test with the sonic JSON backend
+        run: go test -tags=sonic -count=1 ./...
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.x'
+          check-latest: true
+      - name: Lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          # Pinned: the configuration uses the v2 schema.
+          version: v2.13.2
+          args: --timeout=5m
+
+  # TASK-024: fails when a vulnerability is reachable from the module graph or
+  # is actually called by the code. The version is pinned to the one verified
+  # locally; `just vuln` runs the same command.
+  security:
+    runs-on: ubuntu-latest
+    env:
+      GOCACHE: ${{ github.workspace }}/.gocache
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.x'
+          check-latest: true
+      - name: govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
+
+  perf:
+    runs-on: ubuntu-latest
+    env:
+      GOCACHE: ${{ github.workspace }}/.gocache
+      # Shared runners are noisy; the ratios keep the REF-04 limits (5x time,
+      # 5x RSS) and the absolute startup budget of 100ms.
+      PERF_RUNS: '9'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.x'
+          check-latest: true
+      - name: Install GNU envsubst baseline
+        run: sudo apt-get update && sudo apt-get install -y gettext-base
+      - name: Performance gate
+        run: go test -count=1 -v ./test/perf

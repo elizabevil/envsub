@@ -1,6 +1,9 @@
+version: "2"
+
 run:
   timeout: 5m
   tests: true
+
 linters:
   enable:
     - errcheck
@@ -11,3 +14,8 @@ linters:
     - revive
     - gocritic
     - misspell
+
+issues:
+  # Report every finding: the defaults silently cap repeated issues per linter.
+  max-issues-per-linter: 0
+  max-same-issues: 0
