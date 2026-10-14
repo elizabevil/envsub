@@ -416,3 +416,26 @@ func TestRunInvalidSetJSONIsTypeError(t *testing.T) {
 		})
 	}
 }
+
+// TestRunRendersYAMLDateScalar pins the user-visible regression: a value file with
+// an unquoted date used to fail every path that is not a formatter
+// ("value type time.Time requires a formatter", exit 4). Both file formats must
+// render the text the source wrote.
+func TestRunRendersYAMLDateScalar(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "values.yaml"), "d: 2024-01-01\nstamp: 2024-01-01T10:00:00Z\n")
+	tmpl := filepath.Join(dir, "input.tmpl")
+	writeFile(t, tmpl, "d=${d} stamp=${stamp}\n")
+
+	out := filepath.Join(dir, "out.txt")
+	req := request(tmpl)
+	req.Values = render.Values{Files: []string{filepath.Join(dir, "values.yaml")}}
+	req.Output.Path = out
+	if err := render.Run(context.Background(), extendedEngine(), req); err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+	if got, want := readFile(t, out), "d=2024-01-01 stamp=2024-01-01T10:00:00Z\n"; got != want {
+		t.Fatalf("output = %q, want %q", got, want)
+	}
+}

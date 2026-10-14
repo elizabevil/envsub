@@ -139,11 +139,12 @@ func mergeSources(node *yaml.Node) ([]map[string]any, error) {
 // only read here, never written: yaml.v3 prints an explicit Tag as part of the
 // value (see yamlScalarNode).
 const (
-	tagStr   = "!!str"
-	tagInt   = "!!int"
-	tagFloat = "!!float"
-	tagBool  = "!!bool"
-	tagNull  = "!!null"
+	tagStr       = "!!str"
+	tagInt       = "!!int"
+	tagFloat     = "!!float"
+	tagBool      = "!!bool"
+	tagNull      = "!!null"
+	tagTimestamp = "!!timestamp"
 )
 
 // Boolean literals in the YAML 1.2 core schema. Other spellings (yes/on) stay
@@ -164,6 +165,12 @@ func scalarValue(node *yaml.Node) (any, error) {
 		return node.Value, nil
 	case tagNull:
 		return nil, nil
+	case tagTimestamp:
+		// YAML 1.2 Core has no timestamp type, and the value tree holds JSON
+		// compatible values only. Keep the scalar's own text as a string instead
+		// of letting the library resolve it to time.Time, which no renderer path
+		// accepts (rules N1: date-like scalars are strings).
+		return node.Value, nil
 	case tagBool:
 		if strings.EqualFold(node.Value, trueText) {
 			return true, nil

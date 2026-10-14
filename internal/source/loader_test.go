@@ -105,6 +105,10 @@ func TestLoadPreservesTypes(t *testing.T) {
 		// spelling the source wrote must not be rounded or rewritten.
 		{name: "yaml big int", file: "v.yaml", data: "a: 12345678901234567890\n", path: "a", want: uint64(12345678901234567890)},
 		{name: "yaml literal", file: "v.yaml", data: "a: 1.50\n", path: "a", want: codec.LiteralNumber("1.50")},
+		// A date-like scalar must stay a string: the value grammar has no
+		// timestamp type, and time.Time fails every renderer path.
+		{name: "yaml date", file: "v.yaml", data: "a: 2024-01-01\n", path: "a", want: "2024-01-01"},
+		{name: "json date", file: "v.json", data: `{"a":"2024-01-01"}`, path: "a", want: "2024-01-01"},
 		{name: "yaml beyond int64", file: "v.yaml", data: "a: -9223372036854775809\n", path: "a", want: codec.ExactInt("-9223372036854775809")},
 		{name: "json big int", file: "v.json", data: `{"a":12345678901234567890}`, path: "a", want: uint64(12345678901234567890)},
 		{name: "json beyond uint64", file: "v.json", data: `{"a":123456789012345678901234567890}`, path: "a", want: codec.ExactInt("123456789012345678901234567890")},

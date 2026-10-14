@@ -24,7 +24,7 @@ _列：来源 | 类型与范围规则 | 证据 / 测试 | 案例。_
 |------|----------------|-------------|--------------|
 | JSON 值文件 | `jsonx.UnmarshalValue` → `json.Number` → `NormalizeNumbers` 逐级；重复成员名拒绝 | json.go:18-31；§6.1 C3 | `echo '{"id":18446744073709551616}' > v.json; envsub render -f v.json <(printf '${id}')` → `18446744073709551616` |
 | `--set-json` | 与 JSON 值文件同一条解析路径 → 精确类型树 | set.go:108-113 | `envsub render --set-json 'x=18446744073709551616' <(printf '${x \| toJson}')` → `18446744073709551616` |
-| YAML 值文件 | `yamlx.Decode` 节点遍历；`int`/`uint64`/精确整数；重复键拒绝；`<<` 合并 | yamlv3.go:16-22,70-105 | `printf 'x: 18446744073709551616\n' > v.yaml; envsub render -f v.yaml <(printf '${x}')` → 精确十进制 |
+| YAML 值文件 | `yamlx.Decode` 节点遍历；`int`/`uint64`/精确整数；重复键拒绝；`<<` 合并；**日期/时间类标量（`!!timestamp`）按字符串处理**（值文法无时间类型，见 `01-types.md` §3.3.1） | yamlv3.go:16-22,70-105；`TestScalarFormsStayInTheValueGrammar` | `printf 'x: 18446744073709551616\n' > v.yaml; envsub render -f v.yaml <(printf '${x}')` → 精确十进制；`x: 2024-01-01` → `${x}` 输出 `2024-01-01` |
 | `.env`（`--dotenv-file`） | 全部为字符串；按行扫描；重复键报错；双引号解码 `\n\r\t`。**格式由 flag 强制**，与文件名无关（`.env.local`/无扩展名均可）。写入**根命名空间**（层序：`.env` > `-f`） | dotenv.go:51-62,88-90,139-171；loader.go `DotenvLoader`；`06-15` §2.2 | `printf 'BIG=18446744073709551615\n' > .env; envsub render --dotenv-file .env <(printf '${BIG \| type int}')` → 精确十进制 |
 | `--set` | **存原始字符串**；类型只由 schema 声明或模板 `\| type xxx` 决定 | set.go:114-118；§6.1 C1 | `envsub render --set 'x=8080' <(printf '${x} ${x \| toJson}')` → `8080 "8080"` |
 | `--set` | 存原始字符串；类型由 schema 或 `\| type` 决定 | set.go:104-110；§6.1 | `envsub render --set 'x=8080' <(printf '${x \| toJson}')` → `"8080"` |

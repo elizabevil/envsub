@@ -62,6 +62,21 @@ func TestTypeMatrixDecode(t *testing.T) {
 		{name: "LiteralNumber integral", jsonText: `{"x":1.0}`, yamlText: "x: 1.0\n", want: codec.LiteralNumber("1.0")},
 		{name: "LiteralNumber exponent", jsonText: `{"x":1e3}`, yamlText: "x: 1e3\n", want: codec.LiteralNumber("1e3")},
 		{name: "float64 from a YAML-only spelling", yamlText: "x: .5\n", want: 0.5},
+		// Date and time scalars: YAML resolves them to a timestamp tag, but the value
+		// grammar has no timestamp type, so both formats must carry the text.
+		{name: "date stays a string", jsonText: `{"x":"2024-01-01"}`, yamlText: "x: 2024-01-01\n", want: "2024-01-01"},
+		{name: "timestamp stays a string", jsonText: `{"x":"2024-01-01T10:00:00Z"}`, yamlText: "x: 2024-01-01T10:00:00Z\n", want: "2024-01-01T10:00:00Z"},
+		{name: "date with a space stays a string", jsonText: `{"x":"2024-01-01 10:00:00"}`, yamlText: "x: 2024-01-01 10:00:00\n", want: "2024-01-01 10:00:00"},
+		{name: "quoted date stays a string", jsonText: `{"x":"2024-01-01"}`, yamlText: "x: \"2024-01-01\"\n", want: "2024-01-01"},
+		{name: "explicit timestamp tag stays a string", yamlText: "x: !!timestamp 2024-01-01\n", want: "2024-01-01"},
+		{name: "time of day stays a string", jsonText: `{"x":"12:30:00"}`, yamlText: "x: 12:30:00\n", want: "12:30:00"},
+		// YAML 1.2 core has no yes/no/on/off booleans; they are plain strings.
+		{name: "yes stays a string", jsonText: `{"x":"yes"}`, yamlText: "x: yes\n", want: "yes"},
+		{name: "off stays a string", jsonText: `{"x":"off"}`, yamlText: "x: off\n", want: "off"},
+		{name: "uppercase true is a bool", jsonText: `{"x":true}`, yamlText: "x: True\n", want: true},
+		{name: "binary tag decodes to a string", yamlText: "x: !!binary aGk=\n", want: "hi"},
+		{name: "set tag decodes to an object of nulls", yamlText: "x: !!set {a, b}\n", want: map[string]any{"a": nil, "b": nil}},
+		{name: "omap tag decodes to an array", yamlText: "x: !!omap [{a: 1}]\n", want: []any{map[string]any{"a": 1}}},
 		{name: "array", jsonText: `{"x":[1,2]}`, yamlText: "x: [1, 2]\n", want: []any{1, 2}},
 		{name: "object", jsonText: `{"x":{"b":1,"a":2}}`, yamlText: "x: {b: 1, a: 2}\n", want: map[string]any{"a": 2, "b": 1}},
 	}

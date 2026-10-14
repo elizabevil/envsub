@@ -84,6 +84,19 @@ schema 校验、边界与特殊规则。每张主表后紧跟 **案例** 小节�
 | `.env` 行 `A="line\nbreak"` + `${A}` | 两行文本（`\n` 被解码） | 现状 |
 | JSON 文件含非法 UTF-8 字节 + 渲染 | `jsontext: invalid UTF-8 ...`，exit 4 | 现状 |
 
+### 3.3.1 日期/时间类标量（YAML `!!timestamp`）
+
+YAML 会把 `2024-01-01`、`2024-01-01T10:00:00Z`、`2024-01-01 10:00:00`（以及显式 `!!timestamp`）解析为
+**`!!timestamp` tag**。值文法**没有时间类型**（§3 的值类只有 null/bool/string/int/uint64/精确整数/
+LiteralNumber/float64/array/object），因此这类标量**按字符串处理**，保留源文件的原始拼写。`[FACT]`
+
+| 维度 | 规则与现状 |
+|------|------------|
+| YAML 解码 | `!!timestamp` → **原始文本字符串**（`yamlv3.go` 的 `scalarValue`）；不产出 `time.Time` ✅ |
+| JSON / `.env` / `--set` | 本来就是字符串（JSON 无日期类型）✅ |
+| 规避 | 无需规避；如需强制字符串可写引号或 `!!str` |
+| 契约测试 | `TestScalarFormsStayInTheValueGrammar`（所有常见标量形式必须落在值文法类型内）、`TestTypeMatrixDecode` 的日期/时间行（YAML 与 JSON 同值同型）、`internal/render` 的 `TestRunRendersYAMLDateScalar`；gap 见 `09-gaps` G24 |
+
 ### 3.4 int
 
 | 维度 | 规则与现状 |
