@@ -66,10 +66,7 @@ func TestMetaForWalksParents(t *testing.T) {
 
 	meta := tree.MetaFor("app.port.deep")
 	if !meta.Found || meta.Meta.File != "v.yaml" {
-		t.Fatalf("MetaFor() = %#v, want v.yaml", meta)
-	}
-	if meta.Key != "app" {
-		t.Fatalf("MetaFor().Key = %q, want app", meta.Key)
+		t.Fatalf("MetaFor() = %#v, want the parent origin v.yaml", meta)
 	}
 }
 

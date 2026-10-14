@@ -11,9 +11,6 @@ import (
 // its own line number) wins over that fallback. Objects merge recursively,
 // arrays and scalars replace.
 func MergeInto(dst, src *Tree, meta Meta) {
-	if dst == nil || src == nil {
-		return
-	}
 	if dst.Root == nil {
 		dst.Root = map[string]any{}
 	}

@@ -55,7 +55,8 @@ type explainRecord struct {
 type explainRun struct {
 	sources explainer
 	// tree supplies origins the layering did not record, for example a value
-	// written by a template assignment.
+	// written by a template assignment. It must be set before the report is
+	// written; the renderer assigns the loaded tree right after loading.
 	tree *values.Tree
 }
 
@@ -179,11 +180,9 @@ func (e explainer) source(path string, tree *values.Tree) (winner explainOrigin,
 		return winner, shadowed
 	}
 	// A value the layering did not record still carries meta on the tree.
-	if tree != nil {
-		if ref := tree.MetaFor(path); ref.Found {
-			if origin := metaOrigin(ref.Meta); origin.valid() {
-				return origin, nil
-			}
+	if ref := tree.MetaFor(path); ref.Found {
+		if origin := metaOrigin(ref.Meta); origin.valid() {
+			return origin, nil
 		}
 	}
 	return missingOrigin(), nil

@@ -8,6 +8,11 @@ import (
 
 // Tree is the value tree a template resolves against: the merged root namespace
 // plus the read-only process environment.
+//
+// Every method requires a non-nil receiver: NewTree returns a ready tree, and the
+// engine hands one to any input that arrived without values (Input.WithTree). The
+// zero Tree is usable as an empty tree, so a caller that wants "no values" passes
+// NewTree() rather than nil.
 type Tree struct {
 	// Root holds root-namespace values by top-level name. Every source (--set,
 	// dotenv files, value files, schema defaults) merges here in precedence order.
@@ -55,8 +60,6 @@ type Meta struct {
 
 // MetaRef is the closest known origin of a value.
 type MetaRef struct {
-	// Key is the path the lookup was made for.
-	Key string
 	// Meta is the closest recorded origin.
 	Meta Meta
 	// Found reports whether any origin was recorded.
@@ -74,38 +77,28 @@ func NewTree() *Tree {
 
 // Resolve looks up a raw template path in the root and env namespaces.
 func (t *Tree) Resolve(rawPath string) (any, bool, error) {
-	if t == nil {
-		return nil, false, nil
-	}
 	return resolvePath(t.Root, t.Env, rawPath)
 }
 
 // ResolvePath resolves an already compiled path, avoiding a re-parse per
 // reference.
 func (t *Tree) ResolvePath(path CompiledPath) (any, bool) {
-	if t == nil {
-		return nil, false
-	}
 	return path.lookup(t.Root, t.Env)
 }
 
 // CompilePath parses rawPath once and caches the result on the tree.
 func (t *Tree) CompilePath(rawPath string) (CompiledPath, error) {
-	if t != nil {
-		if cached, ok := t.paths[rawPath]; ok {
-			return cached, nil
-		}
+	if cached, ok := t.paths[rawPath]; ok {
+		return cached, nil
 	}
 	path, err := compilePath(rawPath)
 	if err != nil {
 		return CompiledPath{}, err
 	}
-	if t != nil {
-		if t.paths == nil {
-			t.paths = make(map[string]CompiledPath)
-		}
-		t.paths[rawPath] = path
+	if t.paths == nil {
+		t.paths = make(map[string]CompiledPath)
 	}
+	t.paths[rawPath] = path
 	return path, nil
 }
 
@@ -175,9 +168,6 @@ func compilePath(rawPath string) (CompiledPath, error) {
 // ResolveRootName resolves a bare identifier in the root namespace, keeping the
 // value's own type. name may still be a slice of the template.
 func (t *Tree) ResolveRootName(name []byte) (any, bool) {
-	if t == nil {
-		return nil, false
-	}
 	value, ok := t.Root[string(name)]
 	return value, ok
 }
@@ -186,9 +176,6 @@ func (t *Tree) ResolveRootName(name []byte) (any, bool) {
 // caller that only needs the text never boxes it into an any. Only @process.NAME
 // reaches it: a bare name never reads the environment.
 func (t *Tree) ResolveEnvName(name []byte) (string, bool) {
-	if t == nil {
-		return "", false
-	}
 	value, ok := t.Env[string(name)]
 	return value, ok
 }
@@ -197,9 +184,6 @@ func (t *Tree) ResolveEnvName(name []byte) (string, bool) {
 // environment is deliberately not consulted, so the host cannot change what a
 // template renders. It is the hot path for most template variables.
 func (t *Tree) ResolveName(name string) (any, bool) {
-	if t == nil {
-		return nil, false
-	}
 	value, ok := t.Root[name]
 	return value, ok
 }
@@ -207,19 +191,17 @@ func (t *Tree) ResolveName(name string) (any, bool) {
 // Mutated reports whether a template assignment wrote to the tree. Renderers that
 // split work across goroutines must fall back to sequential when it is set.
 func (t *Tree) Mutated() bool {
-	return t != nil && t.mutated
+	return t.mutated
 }
 
 // MarkMutated records that an assignment wrote to the tree.
 func (t *Tree) MarkMutated() {
-	if t != nil {
-		t.mutated = true
-	}
+	t.mutated = true
 }
 
 // RecordMeta remembers where the value at rawPath came from.
 func (t *Tree) RecordMeta(rawPath string, meta Meta, index int) {
-	if t == nil || rawPath == "" {
+	if rawPath == "" {
 		return
 	}
 	if t.meta == nil {
@@ -240,7 +222,7 @@ func (t *Tree) RecordMeta(rawPath string, meta Meta, index int) {
 // Preallocating and sorting beats slices.Sorted(maps.Keys(...)): the iterator form
 // cannot size the slice and allocates 7 times more for 8 keys (measured).
 func (t *Tree) MetaKeys() []string {
-	if t == nil || len(t.meta) == 0 {
+	if len(t.meta) == 0 {
 		return nil
 	}
 	keys := make([]string, 0, len(t.meta))
@@ -253,16 +235,13 @@ func (t *Tree) MetaKeys() []string {
 
 // MetaAt returns the recorded origin for an encoded key.
 func (t *Tree) MetaAt(key string) (Meta, bool) {
-	if t == nil {
-		return Meta{}, false
-	}
 	meta, ok := t.meta[key]
 	return meta, ok
 }
 
 // RecordEncodedMeta records an origin using an already encoded key.
 func (t *Tree) RecordEncodedMeta(key string, meta Meta) {
-	if t == nil || key == "" {
+	if key == "" {
 		return
 	}
 	if t.meta == nil {
@@ -274,7 +253,7 @@ func (t *Tree) RecordEncodedMeta(key string, meta Meta) {
 // MetaFor returns the closest recorded origin for rawPath, walking from the most
 // specific path prefix to the least specific one.
 func (t *Tree) MetaFor(rawPath string) MetaRef {
-	if t == nil || len(t.meta) == 0 {
+	if len(t.meta) == 0 {
 		return MetaRef{}
 	}
 	key, err := EncodePath(rawPath)
@@ -283,7 +262,7 @@ func (t *Tree) MetaFor(rawPath string) MetaRef {
 	}
 	for {
 		if meta, ok := t.meta[key]; ok {
-			return MetaRef{Key: key, Meta: meta, Found: true}
+			return MetaRef{Meta: meta, Found: true}
 		}
 		trimmed, ok := trimMetaKey(key)
 		if !ok {

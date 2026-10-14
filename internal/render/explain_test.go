@@ -30,7 +30,7 @@ func (s stubPathEngine) Paths([]byte) ([]string, error) { return s.paths, s.err 
 // spelling the template used.
 func TestExplainTemplateWritesJSONL(t *testing.T) {
 	t.Parallel()
-	run := explainRun{sources: explainer{
+	run := explainRun{tree: values.NewTree(), sources: explainer{
 		root: map[string][]explainOrigin{
 			"A": {{kind: "set", method: "flag", source: "A"}},
 			"K": {
@@ -63,7 +63,7 @@ func TestExplainTemplateWritesJSONL(t *testing.T) {
 // is exact rather than a prefix.
 func TestExplainTemplateFiltersByExactPath(t *testing.T) {
 	t.Parallel()
-	run := explainRun{sources: explainer{
+	run := explainRun{tree: values.NewTree(), sources: explainer{
 		root: map[string][]explainOrigin{
 			"app.port": {{kind: "values", method: "file", source: "values.yaml", file: "values.yaml"}},
 		},
@@ -202,7 +202,7 @@ func TestExplainerSource(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.path, func(t *testing.T) {
 			t.Parallel()
-			origin, shadowed := expl.source(tt.path, nil)
+			origin, shadowed := expl.source(tt.path, values.NewTree())
 			if origin.source != tt.wantSource || origin.kind != tt.wantKind {
 				t.Fatalf("source(%q) = %+v, want source %q kind %q", tt.path, origin, tt.wantSource, tt.wantKind)
 			}
@@ -267,7 +267,7 @@ func TestExplainTemplateWrapsPathErrors(t *testing.T) {
 	t.Parallel()
 	eng := stubPathEngine{err: errors.New("boom")}
 	req := Request{Explain: Explain{Enabled: true}}
-	err := explainTemplate(&bytes.Buffer{}, eng, req, "app.tmpl", nil, explainRun{})
+	err := explainTemplate(&bytes.Buffer{}, eng, req, "app.tmpl", nil, explainRun{tree: values.NewTree()})
 	if err == nil {
 		t.Fatal("explainTemplate() error = nil, want a wrapped error")
 	}
@@ -297,7 +297,7 @@ func equalStrings(got, want []string) bool {
 // origin, so this test goes through the interface the loader uses.
 func TestObserverRecordsThroughTheInterface(t *testing.T) {
 	t.Parallel()
-	run := explainRun{}
+	run := explainRun{tree: values.NewTree()}
 	var observer load.Observer = &run
 	observer.AddEnv("FROM_PROCESS")
 	observer.AddRoot("K", load.Origin{Kind: values.SourceEnvFile, Method: values.MethodFile, Source: ".env", File: ".env", Line: 1})

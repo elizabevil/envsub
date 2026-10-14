@@ -14,7 +14,7 @@ import (
 // schema type is array or object are parsed, parse failures are type errors
 // naming the value and its origin, and everything else stays a string.
 func (s *Schema) Materialize(tree *values.Tree) error {
-	if s == nil || tree == nil {
+	if s == nil {
 		return nil
 	}
 	return materializeNode(tree, s.effective(), tree.Root, "")

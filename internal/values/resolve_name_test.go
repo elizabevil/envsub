@@ -62,11 +62,4 @@ func TestResolveNameStaysInRoot(t *testing.T) {
 		t.Fatalf("ResolveEnvName(HOME) = (%#v, %v), want (/home/x, true)", value, ok)
 	}
 
-	var nilTree *values.Tree
-	if _, ok := nilTree.ResolveRootName([]byte("APP")); ok {
-		t.Fatal("ResolveRootName on a nil tree = ok, want false")
-	}
-	if _, ok := nilTree.ResolveEnvName([]byte("APP")); ok {
-		t.Fatal("ResolveEnvName on a nil tree = ok, want false")
-	}
 }

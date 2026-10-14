@@ -15,7 +15,7 @@ import (
 // (rule G21). The process environment is a separate, read-only namespace
 // (@process) and therefore never stands in for a root key.
 func (s *Schema) ApplyDefaults(tree *values.Tree) {
-	if s == nil || tree == nil || tree.Root == nil {
+	if s == nil || tree.Root == nil {
 		return
 	}
 	applyDefaults(tree, s.effective(), tree.Root, "")

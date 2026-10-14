@@ -90,7 +90,7 @@ func TestInspectText(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.text, func(t *testing.T) {
 			t.Parallel()
-			got, err := inspectText([]byte(tt.text), nil)
+			got, err := inspectText([]byte(tt.text), values.NewTree())
 			if err != nil {
 				t.Fatalf("inspectText(%q) error = %v", tt.text, err)
 			}

@@ -23,7 +23,7 @@ const maxReportedCauses = 8
 
 // Validate checks the value tree against the schema.
 func (s *Schema) Validate(tree *values.Tree) error {
-	if s == nil || s.compiled == nil || tree == nil {
+	if s == nil || s.compiled == nil {
 		return nil
 	}
 	// jsonschema/v6 understands json.Number but not codec.ExactInt; the tree is
