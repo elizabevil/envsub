@@ -1,0 +1,17 @@
+port=8080
+debug=true
+ratio="0.5"
+hosts=a-b
+json="[\"a\",\"b\"]"
+block: |
+   a:
+  deep: 1
+b: 2
+aligned: |
+   a:
+     deep: 1
+   b: 2
+width: |
+   a:
+      deep: 1
+   b: 2

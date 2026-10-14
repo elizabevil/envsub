@@ -1,0 +1,5 @@
+PORT: "8080"
+HOSTS: '["a","b"]'
+DEBUG: "true"
+RATIO: "0.5"
+LABELS: '{"b":2,"a":{"deep":1}}'

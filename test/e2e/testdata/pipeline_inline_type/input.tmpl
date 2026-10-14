@@ -1,0 +1,11 @@
+port=${PORT | type int}
+debug=${DEBUG | type bool}
+ratio=${RATIO | type float | quote}
+hosts=${HOSTS | type array<string> | join "-"}
+json=${HOSTS | type array<string> | toJson | quote}
+block: |
+   ${LABELS | type object | toYaml}
+aligned: |
+   ${LABELS | type object | toYaml align}
+width: |
+   ${LABELS | type object | toYaml 3 align}

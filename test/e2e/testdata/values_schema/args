@@ -1,0 +1,10 @@
+render
+-f
+base.yaml
+-f
+prod.yaml
+--dotenv-file
+.env
+--schema
+schema.yaml
+input.tmpl

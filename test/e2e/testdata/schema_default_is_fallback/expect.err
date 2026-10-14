@@ -1,0 +1,2 @@
+{"template":"input.tmpl","variable":"K","source":".env:1","kind":"dotenv","file":".env","line":1}
+{"template":"input.tmpl","variable":"D","source":"schema","kind":"schema"}

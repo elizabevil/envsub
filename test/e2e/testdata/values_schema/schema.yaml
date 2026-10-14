@@ -1,0 +1,13 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+type: object
+properties:
+  app:
+    type: object
+    required: [ port ]
+    properties:
+      port: { type: integer, default: 1, minimum: 1, maximum: 65535 }
+      hosts: { type: array, items: { type: string } }
+      ratio: { type: number, default: 0.5 }
+  NAME: { type: string, minLength: 2 }
+  HOSTS: { type: array, items: { type: string } }
+  DEBUG: { type: boolean }

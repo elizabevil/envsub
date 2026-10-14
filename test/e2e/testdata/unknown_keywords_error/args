@@ -1,0 +1,7 @@
+render
+-f
+values.yaml
+--schema
+schema.yaml
+--unknown-keywords=error
+input.tmpl

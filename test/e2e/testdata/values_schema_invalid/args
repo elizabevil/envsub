@@ -1,0 +1,6 @@
+render
+-f
+base.yaml
+--schema
+schema.yaml
+input.tmpl

@@ -1,0 +1,11 @@
+port=9090
+hosts=a,b
+env-hosts=["x","y"]
+debug=true
+name="world"
+ratio=0.5
+nested=hosts:
+  - a
+  - b
+port: 9090
+ratio: 0.5

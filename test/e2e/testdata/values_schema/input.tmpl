@@ -1,0 +1,7 @@
+port=${app.port}
+hosts=${app.hosts | join ","}
+env-hosts=${HOSTS | toJson}
+debug=${DEBUG}
+name=${NAME | quote}
+ratio=${app.ratio}
+nested=${app | toYaml}

@@ -1,0 +1,4 @@
+render
+--schema
+absent.json
+input.tmpl
