@@ -74,6 +74,3 @@ func sortedKeys(object map[string]any) []string {
 	slices.Sort(keys)
 	return keys
 }
-
-// Path joining lives in the value grammar: see values.JoinPath and
-// values.JoinIndex, which this package uses for instance and keyword paths.
