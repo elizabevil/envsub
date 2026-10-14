@@ -122,12 +122,16 @@ func TestForFile(t *testing.T) {
 	tests := []struct {
 		path    string
 		name    string
+		kind    values.SourceKind
 		wantErr bool
 	}{
-		{path: ".env", name: source.DotenvName},
-		{path: "values.yaml", name: source.YAMLName},
-		{path: "values.yml", name: source.YAMLName},
-		{path: "values.json", name: source.JSONName},
+		// The loader declares the origin category, so this table is the only
+		// place the mapping is pinned: a .env file is its own layer, a structured
+		// value file is the values layer whatever its format.
+		{path: ".env", name: source.DotenvName, kind: values.SourceEnvFile},
+		{path: "values.yaml", name: source.YAMLName, kind: values.SourceValues},
+		{path: "values.yml", name: source.YAMLName, kind: values.SourceValues},
+		{path: "values.json", name: source.JSONName, kind: values.SourceValues},
 		{path: "values.toml", wantErr: true},
 	}
 	for _, tt := range tests {
@@ -147,6 +151,19 @@ func TestForFile(t *testing.T) {
 			if loader.Name != tt.name {
 				t.Fatalf("ForFile(%q).Name = %q, want %q", tt.path, loader.Name, tt.name)
 			}
+			if loader.Kind != tt.kind {
+				t.Fatalf("ForFile(%q).Kind = %q, want %q", tt.path, loader.Kind, tt.kind)
+			}
 		})
+	}
+}
+
+// TestDotenvLoaderDeclaresItsKind pins the --dotenv-file path: it selects the same
+// loader as a .env extension, so it must report the same origin category.
+func TestDotenvLoaderDeclaresItsKind(t *testing.T) {
+	t.Parallel()
+	loader := source.DotenvLoader()
+	if loader.Kind != values.SourceEnvFile {
+		t.Fatalf("DotenvLoader().Kind = %q, want %q", loader.Kind, values.SourceEnvFile)
 	}
 }

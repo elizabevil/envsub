@@ -96,9 +96,9 @@ lint: caches
 tidy: caches
     go mod tidy
 
-# check is the local gate: formatting (Go and just), vet, unit/fixture tests and
-# the end-to-end suite.
-check: caches fmt-check fmt-just vet lint test test-e2e
+# check is the local gate: formatting (Go and just), vet, unit/fixture tests,
+# the end-to-end suite and the runnable examples.
+check: caches fmt-check fmt-just vet lint test test-e2e test-examples
 
 # --- tests ------------------------------------------------------------------
 
@@ -112,6 +112,13 @@ test-race: caches
 test-e2e: caches
     cd test && just test-e2e
 
+# Every example recipe in sequence: renders each template against its golden,
+# walks the failure cases by exit code and compares the checked-in output tree.
+# The recipes live in examples/justfile so the guard and the human-facing demo
+# are the same code.
+test-examples:
+    just --justfile examples/justfile demo
+
 # Performance gate (TASK-023): renders the REF-04 baseline template with GNU
 # envsubst and with envsub and enforces the ratios from docs/reference/REF-04.
 # Needs GNU envsubst in PATH (Debian/Ubuntu: gettext-base). Tune with
@@ -119,7 +126,7 @@ test-e2e: caches
 test-perf: caches
     go test -count=1 -v ./test/perf
 
-test-all: test test-e2e test-perf
+test-all: test test-e2e test-perf test-examples
 
 test-fixtures: caches
     cd internal/engine/extended && just test-fixtures

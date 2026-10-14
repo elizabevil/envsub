@@ -148,3 +148,47 @@ func TestLoadReportsOrigins(t *testing.T) {
 		}
 	}
 }
+
+// TestOriginKindAgreesBetweenTreeAndReport pins the single origin vocabulary: the
+// category recorded on the tree and the one reported to --explain are the same
+// value for the same key, whatever the source. A loader-name vocabulary on one
+// side ("yaml", "dotenv") would make this test fail for file sources.
+func TestOriginKindAgreesBetweenTreeAndReport(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	valuesFile := filepath.Join(dir, "values.yaml")
+	dotenvFile := filepath.Join(dir, "app.env")
+	schemaFile := filepath.Join(dir, "schema.json")
+	for name, content := range map[string]string{
+		valuesFile: "FROM_VALUES: 1\n",
+		dotenvFile: "FROM_DOTENV=2\n",
+		schemaFile: `{"type":"object","properties":{"FROM_DEFAULT":{"type":"string","default":"3"}}}`,
+	} {
+		if err := os.WriteFile(name, []byte(content), 0o600); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
+	}
+
+	observer := newRecordingObserver()
+	result, err := load.Load(context.Background(), load.Spec{
+		Files:       []string{valuesFile},
+		DotenvFiles: []string{dotenvFile},
+		Schema:      schemaFile,
+		Sets:        []string{"FROM_SET=4"},
+	}, observer)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	for _, path := range []string{"FROM_VALUES", "FROM_DOTENV", "FROM_DEFAULT", "FROM_SET"} {
+		origins := observer.root[path]
+		if len(origins) == 0 {
+			t.Fatalf("%s: no origin reported", path)
+		}
+		reported := origins[len(origins)-1].Kind
+		recorded := result.Tree.MetaFor(path).Meta.Kind
+		if recorded != reported {
+			t.Errorf("%s: tree records kind %q but the report says %q", path, recorded, reported)
+		}
+	}
+}
