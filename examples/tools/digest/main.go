@@ -26,6 +26,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/elizabevil/envsub/internal/yamlx"
@@ -225,11 +226,53 @@ func summarize(value any) string {
 
 // explainEntry is one line of the --explain log.
 type explainEntry struct {
-	Template string   `json:"template"`
-	Variable string   `json:"variable"`
-	Source   string   `json:"source"`
-	Kind     string   `json:"kind"`
-	Shadowed []string `json:"shadowed"`
+	Template string         `json:"template"`
+	Variable string         `json:"variable"`
+	Origin   explainFrame   `json:"origin"`
+	Shadowed []explainFrame `json:"shadowed"`
+}
+
+// explainFrame is one step of a value's lineage (ADR-005).
+type explainFrame struct {
+	Kind   string `json:"kind"`
+	Method string `json:"method"`
+	Source string `json:"source"`
+	File   string `json:"file"`
+	Line   int    `json:"line"`
+}
+
+// where renders a frame as one compact line: "kind/method source:line". File
+// paths are shown relative to the repository root so the report reads the same on
+// every machine and can be pasted into an issue.
+func (f explainFrame) where() string {
+	loc := relativeToRepo(f.Source)
+	if loc == "" {
+		loc = relativeToRepo(f.File)
+	}
+	if loc == "" {
+		return f.Kind + "/" + f.Method
+	}
+	if f.Line > 0 {
+		return f.Kind + "/" + f.Method + " " + loc + ":" + strconv.Itoa(f.Line)
+	}
+	return f.Kind + "/" + f.Method + " " + loc
+}
+
+// relativeToRepo trims the repository root prefix from a path so the report does
+// not leak the local checkout location.
+func relativeToRepo(path string) string {
+	if path == "" {
+		return ""
+	}
+	for _, marker := range []string{"/examples/", "/test/", "/internal/", "/docs/"} {
+		if index := strings.Index(path, marker); index >= 0 {
+			return path[index+1:]
+		}
+	}
+	if index := strings.Index(path, "/examples"); index > 0 {
+		return path[index+1:]
+	}
+	return path
 }
 
 // summariseSources reads an --explain log and prints the provenance of every
@@ -270,11 +313,11 @@ func summariseSources(path string, stdout io.Writer) error {
 	}
 
 	sort.Slice(entries, func(i, j int) bool {
-		if entries[i].Kind != entries[j].Kind {
-			return entries[i].Kind < entries[j].Kind
+		if entries[i].Origin.Kind != entries[j].Origin.Kind {
+			return entries[i].Origin.Kind < entries[j].Origin.Kind
 		}
-		if entries[i].Source != entries[j].Source {
-			return entries[i].Source < entries[j].Source
+		if entries[i].Origin.Source != entries[j].Origin.Source {
+			return entries[i].Origin.Source < entries[j].Origin.Source
 		}
 		return entries[i].Variable < entries[j].Variable
 	})
@@ -282,17 +325,23 @@ func summariseSources(path string, stdout io.Writer) error {
 	fmt.Fprintf(stdout, "%d values referenced\n", len(entries))
 	kind, source := "", ""
 	for _, entry := range entries {
-		if entry.Kind != kind {
-			kind, source = entry.Kind, ""
+		if entry.Origin.Kind != kind {
+			kind, source = entry.Origin.Kind, ""
 			fmt.Fprintf(stdout, "\n[%s]\n", kind)
 		}
-		if entry.Source != source {
-			source = entry.Source
-			fmt.Fprintf(stdout, "  from %s\n", source)
+		if entry.Origin.Source != source {
+			source = entry.Origin.Source
+			if where := relativeToRepo(source); where != "" {
+				fmt.Fprintf(stdout, "  from %s\n", where)
+			}
 		}
-		fmt.Fprintf(stdout, "    %s", entry.Variable)
+		fmt.Fprintf(stdout, "    %s   <- %s", entry.Variable, entry.Origin.where())
 		if len(entry.Shadowed) > 0 {
-			fmt.Fprintf(stdout, "   (shadowed: %s)", strings.Join(entry.Shadowed, ", "))
+			parts := make([]string, 0, len(entry.Shadowed))
+			for _, frame := range entry.Shadowed {
+				parts = append(parts, frame.where())
+			}
+			fmt.Fprintf(stdout, "   (covered: %s)", strings.Join(parts, " | "))
 		}
 		fmt.Fprintln(stdout)
 	}

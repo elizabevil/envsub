@@ -11,6 +11,8 @@ string_src_from_default: unreachable-because-values-provide
 string_src_from_values: from-values
 # string_src_from_dotenv: provided by app.env
 # string_src_from_set: provided by --set
+# string_prec_multi_layer: value file -> value file -> .env -> default (a full chain)
+string_prec_multi_layer: from-base
 # string_prec_dotenv_over_values: provided by app.env
 # string_prec_set_over_dotenv: provided by --set
 string_prec_setjson_over_set: from-set

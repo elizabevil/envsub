@@ -1,2 +1,2 @@
-{"template":"input.tmpl","variable":"K","source":".env:1","kind":"dotenv","file":".env","line":1}
-{"template":"input.tmpl","variable":"D","source":"schema","kind":"schema"}
+{"template":"input.tmpl","variable":"K","origin":{"kind":"envfile","method":"file","source":".env","file":".env","line":1},"shadowed":[{"kind":"schema","method":"default","source":"#/properties/K/default","file":"schema.json","line":0}]}
+{"template":"input.tmpl","variable":"D","origin":{"kind":"schema","method":"default","source":"#/properties/D/default","file":"schema.json","line":0},"shadowed":[]}

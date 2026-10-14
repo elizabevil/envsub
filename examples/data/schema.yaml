@@ -42,6 +42,7 @@ properties:
   string_prec_setjson_over_set: {type: string}
   string_prec_default_never_wins: {type: string, default: default-should-not-win}
   string_prec_readonly: {type: string}
+  string_prec_multi_layer: {type: string, default: from-default}
 
   int_schema_from_string: {type: integer, minimum: 1, maximum: 65535}
   bool_schema_from_string: {type: boolean}

@@ -54,14 +54,31 @@ type Observer interface {
 	AddRoot(path string, origin Origin)
 }
 
-// Origin is where a contributed value came from.
+// Origin is where a contributed value came from: the layering stage, how the
+// value entered it, and the location. See ADR-005 for the model.
 type Origin struct {
-	// Kind is the source category: values, dotenv, set or schema.
+	// Kind is the layering stage: schema, values, envfile, set or process.
 	Kind values.SourceKind
+	// Method is how the value entered that stage: default, file, flag, json,
+	// env or assign.
+	Method values.SourceMethod
+	// Source is the address within the stage: a file path, a schema pointer, or
+	// the key itself when the stage has no other address.
+	Source string
 	// File is the source file, empty when the source has none.
 	File string
 	// Line is the 1-based line, 0 when unknown.
 	Line int
+}
+
+// sourceOrigin maps a value loader name to the stage and method it reports.
+// A .env file is its own stage because it has its own flag and its own failure
+// mode; YAML and JSON are both "values", distinguished by the file extension.
+func sourceOrigin(loaderName string) (values.SourceKind, values.SourceMethod) {
+	if loaderName == source.DotenvName {
+		return values.SourceEnvFile, values.MethodFile
+	}
+	return values.SourceValues, values.MethodFile
 }
 
 // Load reads every source in Spec and returns the tree the renderer resolves
@@ -85,6 +102,24 @@ func Load(ctx context.Context, spec Spec, observer Observer) (*Result, error) {
 	if observer != nil {
 		for name := range tree.Env {
 			observer.AddEnv(name)
+		}
+	}
+
+	sch, err := loadSchema(ctx, spec.Schema, policy)
+	if err != nil {
+		return nil, err
+	}
+	// The schema defaults are the bottom layer, so they are reported before any
+	// other layer: a default a later layer covered then appears in that value's
+	// lineage instead of after its winner (ADR-005 I6).
+	if observer != nil && sch != nil {
+		for _, decl := range sch.DefaultOrigins() {
+			observer.AddRoot(decl.Path, Origin{
+				Kind:   values.SourceSchema,
+				Method: values.MethodDefault,
+				Source: decl.Pointer,
+				File:   decl.Schema,
+			})
 		}
 	}
 
@@ -116,20 +151,18 @@ func Load(ctx context.Context, spec Spec, observer Observer) (*Result, error) {
 		return nil, err
 	}
 	if observer != nil {
-		for _, key := range setKeys {
-			observer.AddRoot(key, Origin{Kind: values.SourceSet})
+		for _, applied := range setKeys {
+			observer.AddRoot(applied.Key, Origin{
+				Kind:   values.SourceSet,
+				Method: applied.Method,
+				Source: applied.Key,
+				File:   applied.File,
+			})
 		}
 	}
 
-	sch, err := loadSchema(ctx, spec.Schema, policy)
-	if err != nil {
-		return nil, err
-	}
 	if sch != nil {
 		sch.ApplyDefaults(tree)
-		if observer != nil {
-			reportSchemaDefaults(tree, observer)
-		}
 		if err := sch.Materialize(tree); err != nil {
 			return nil, err
 		}
@@ -152,20 +185,18 @@ func loadInto(tree *values.Tree, loader source.Loader, path string, observer Obs
 	}
 	// The entries carry the origin the loader recorded: a dotenv key keeps its own
 	// line number.
+	kind, method := sourceOrigin(loader.Name)
 	for _, key := range loaded.MetaKeys() {
 		meta, _ := loaded.MetaAt(key)
-		observer.AddRoot(key, Origin{Kind: values.SourceKind(loader.Name), File: meta.File, Line: meta.Line})
+		observer.AddRoot(key, Origin{
+			Kind:   kind,
+			Method: method,
+			Source: path,
+			File:   meta.File,
+			Line:   meta.Line,
+		})
 	}
 	return nil
-}
-
-// reportSchemaDefaults reports the root keys a schema default filled.
-func reportSchemaDefaults(tree *values.Tree, observer Observer) {
-	for _, key := range tree.MetaKeys() {
-		if meta, ok := tree.MetaAt(key); ok && values.SourceKind(meta.Kind) == values.SourceSchema {
-			observer.AddRoot(key, Origin{Kind: values.SourceSchema, File: meta.File, Line: meta.Line})
-		}
-	}
 }
 
 // loadSchema reads and compiles the configured schema file.
@@ -193,52 +224,68 @@ func mapToAny(root map[string]any) any {
 	return root
 }
 
-// applySets applies --set then --set-json, in that fixed order regardless of the
-// command line, and returns the encoded root paths they wrote.
-func applySets(tree *values.Tree, spec Spec) ([]string, error) {
-	keys := make([]string, 0, len(spec.Sets)+len(spec.SetJSON)+len(spec.SetFiles))
+// setApplied is one --set* assignment that reached the tree, with the method it
+// used and, for --set-file, the file it read.
+type setApplied struct {
+	// Key is the encoded root path the assignment wrote.
+	Key string
+	// Method is flag, json or file.
+	Method values.SourceMethod
+	// File is the file --set-file read, empty for the other two.
+	File string
+}
+
+// applySets applies --set then --set-json then --set-file, in that fixed order
+// regardless of the command line, and returns what each assignment wrote.
+func applySets(tree *values.Tree, spec Spec) ([]setApplied, error) {
+	applied := make([]setApplied, 0, len(spec.Sets)+len(spec.SetJSON)+len(spec.SetFiles))
 	for _, assignment := range spec.Sets {
 		key, err := setOne(tree, assignment, values.SetString)
 		if err != nil {
 			return nil, err
 		}
-		keys = append(keys, key)
+		applied = append(applied, setApplied{Key: key, Method: values.MethodFlag})
 	}
 	for _, assignment := range spec.SetJSON {
 		key, err := setOne(tree, assignment, values.SetJSON)
 		if err != nil {
 			return nil, err
 		}
-		keys = append(keys, key)
+		applied = append(applied, setApplied{Key: key, Method: values.MethodJSON})
 	}
 	for _, assignment := range spec.SetFiles {
-		key, err := setOneFile(tree, assignment)
+		key, file, err := setOneFile(tree, assignment)
 		if err != nil {
 			return nil, err
 		}
-		keys = append(keys, key)
+		applied = append(applied, setApplied{Key: key, Method: values.MethodFile, File: file})
 	}
-	return keys, nil
+	return applied, nil
 }
 
 // setOneFile writes one --set-file assignment: the value is the file's bytes as
 // a string. One trailing newline is dropped, because a file created by an editor
 // or a secret store ends with one; any other byte is kept, so a multi-line value
 // survives intact.
-func setOneFile(tree *values.Tree, assignment string) (string, error) {
+func setOneFile(tree *values.Tree, assignment string) (string, string, error) {
 	key, path, err := values.ParseAssignment(assignment)
 	if err != nil {
-		return "", diag.Wrap(diag.KindUsage, err)
+		return "", "", diag.Wrap(diag.KindUsage, err)
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return "", diag.Wrap(diag.KindIO, fmt.Errorf("read --set-file %s: %w", path, err))
+		return "", "", diag.Wrap(diag.KindIO, fmt.Errorf("read --set-file %s: %w", path, err))
 	}
 	text := strings.TrimSuffix(strings.TrimSuffix(string(data), "\n"), "\r")
-	if err := tree.SetPath(key, text, values.SetString, values.Origin{Kind: values.SourceSet}); err != nil {
-		return "", diag.Wrap(diag.KindUsage, err)
+	origin := values.Origin{Kind: values.SourceSet, Method: values.MethodFile, Source: key, File: path}
+	if err := tree.SetPath(key, text, values.SetString, origin); err != nil {
+		return "", "", diag.Wrap(diag.KindUsage, err)
 	}
-	return values.EncodePath(key)
+	encoded, err := values.EncodePath(key)
+	if err != nil {
+		return "", "", diag.Wrap(diag.KindUsage, err)
+	}
+	return encoded, path, nil
 }
 
 // setOne writes one --set assignment into the root and returns its encoded path.
@@ -247,7 +294,15 @@ func setOne(tree *values.Tree, assignment string, mode values.SetMode) (string, 
 	if err != nil {
 		return "", diag.Wrap(diag.KindUsage, err)
 	}
-	if err := tree.SetPath(key, value, mode, values.Origin{Kind: values.SourceSet}); err != nil {
+	method := values.MethodFlag
+	if mode == values.SetJSON {
+		method = values.MethodJSON
+	}
+	if err := tree.SetPath(key, value, mode, values.Origin{
+		Kind:   values.SourceSet,
+		Method: method,
+		Source: key,
+	}); err != nil {
 		// An invalid JSON literal is a type error; the other SetPath failures
 		// (assignment form, path) stay usage errors.
 		if errors.Is(err, values.ErrInvalidJSON) {
@@ -255,7 +310,11 @@ func setOne(tree *values.Tree, assignment string, mode values.SetMode) (string, 
 		}
 		return "", diag.Wrap(diag.KindUsage, err)
 	}
-	return values.EncodePath(key)
+	encoded, err := values.EncodePath(key)
+	if err != nil {
+		return "", diag.Wrap(diag.KindUsage, err)
+	}
+	return encoded, nil
 }
 
 // schemaFileError names the schema in a read failure. The shared loader reports a

@@ -204,7 +204,7 @@ func TestMaterialize(t *testing.T) {
 	tree.Root["hosts"] = `["a","b"]`
 	tree.Root["app"] = `{"port":1}`
 	tree.Root["name"] = `["not","parsed"]`
-	tree.RecordEncodedMeta("hosts", values.Meta{File: ".env", Line: 3, Kind: string(values.SourceDotenv)})
+	tree.RecordEncodedMeta("hosts", values.Meta{File: ".env", Line: 3, Kind: string(values.SourceEnvFile)})
 
 	if err := sch.Materialize(tree); err != nil {
 		t.Fatalf("Materialize() error = %v", err)
@@ -236,7 +236,7 @@ func TestMaterializeErrorMentionsOrigin(t *testing.T) {
 	}
 	tree := values.NewTree()
 	tree.Root["hosts"] = "not json"
-	tree.RecordEncodedMeta("hosts", values.Meta{File: ".env", Line: 7, Kind: string(values.SourceDotenv)})
+	tree.RecordEncodedMeta("hosts", values.Meta{File: ".env", Line: 7, Kind: string(values.SourceEnvFile)})
 
 	err = sch.Materialize(tree)
 	if err == nil {

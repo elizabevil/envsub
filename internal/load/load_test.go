@@ -129,12 +129,12 @@ func TestLoadReportsOrigins(t *testing.T) {
 		file string
 		line int
 	}{
-		// A structured file reports its loader name ("yaml"/"json"), which is what the
-		// --explain kind has always shown.
-		{path: "FROM_VALUES", kind: "yaml", file: valuesFile},
-		{path: "FROM_DOTENV", kind: values.SourceDotenv, file: dotenvFile, line: 1},
+		// Both YAML and JSON value files report the same stage; the file
+		// extension tells the two apart (ADR-005).
+		{path: "FROM_VALUES", kind: values.SourceValues, file: valuesFile},
+		{path: "FROM_DOTENV", kind: values.SourceEnvFile, file: dotenvFile, line: 1},
 		{path: "FROM_SET", kind: values.SourceSet},
-		{path: "FROM_DEFAULT", kind: values.SourceSchema},
+		{path: "FROM_DEFAULT", kind: values.SourceSchema, file: schemaFile},
 	}
 	for _, tt := range tests {
 		origins := observer.root[tt.path]

@@ -216,6 +216,7 @@ func (e *Engine) renderToken(ctx context.Context, token Token, in engine.Input, 
 	if err != nil {
 		return renderResult{}, diag.WrapIfNot(diag.KindTemplate, fmt.Errorf("parse %q: %w", token.Path, err))
 	}
+	expr.Offset = token.Pos
 	if !in.Options.Replaces(expr.Path) {
 		return found(token.String()), nil
 	}
@@ -329,10 +330,32 @@ func (e *Engine) renderedWord(ctx context.Context, word string, in engine.Input)
 // stays unformatted: the pipeline formats this output, it does not change what the
 // expression assigns.
 func (e *Engine) assignWord(ctx context.Context, expr expression, word string, in engine.Input) (renderResult, error) {
-	if err := in.Values.Store(expr.Path, word); err != nil {
+	origin := values.Origin{
+		Kind:   values.SourceSet,
+		Method: values.MethodAssign,
+		Source: in.Name,
+		File:   in.Name,
+		Line:   lineAt(in.Template, expr.Offset),
+	}
+	if err := in.Values.Store(expr.Path, word, origin); err != nil {
 		return renderResult{}, diag.Wrap(diag.KindTemplate, err)
 	}
 	return pipelineValue(ctx, expr, word, in)
+}
+
+// lineAt returns the 1-based line containing offset. It is how an assignment
+// reports the template line it wrote from; 0 when the source is not available.
+func lineAt(src []byte, offset int) int {
+	if offset < 0 || offset > len(src) {
+		return 0
+	}
+	line := 1
+	for _, b := range src[:offset] {
+		if b == '\n' {
+			line++
+		}
+	}
+	return line
 }
 
 // applyPolicy handles the --on-missing and --on-empty policies for a plain reference.

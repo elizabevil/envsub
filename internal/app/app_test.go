@@ -217,7 +217,7 @@ func TestRunExplain(t *testing.T) {
 	if stdout != "K=v\n" {
 		t.Fatalf("stdout = %q, want the rendered template", stdout)
 	}
-	if !strings.Contains(stderr, `"variable":"K","source":"set"`) {
+	if !strings.Contains(stderr, `"variable":"K","origin":{"kind":"set","method":"flag","source":"K"`) {
 		t.Fatalf("stderr = %q, want the JSON explain report", stderr)
 	}
 }

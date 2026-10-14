@@ -1,1 +1,1 @@
-{"template":"input.tmpl","variable":"K","source":"set","kind":"set","shadowed":[".env:1"]}
+{"template":"input.tmpl","variable":"K","origin":{"kind":"set","method":"flag","source":"K","file":"","line":0},"shadowed":[{"kind":"envfile","method":"file","source":".env","file":".env","line":1}]}

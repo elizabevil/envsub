@@ -12,14 +12,26 @@ import (
 	"github.com/elizabevil/envsub/internal/values"
 )
 
-// --explain vocabulary (docs/07-serialization/13-materialization.md §15).
-const (
-	// explainMissing marks a referenced variable that resolved to nothing.
-	explainMissing = "missing"
-	// explainProcess marks a value read from the process environment through the
-	// @process namespace.
-	explainProcess = "process"
-)
+// explainFrame is one step of a value's lineage: which layering stage it came
+// through, how it entered that stage, the address within the stage, and where
+// that is on disk. Every field is always emitted, so a consumer needs no
+// presence checks (ADR-005 I4). The four fields answer four different questions;
+// for a file-backed frame Source and File hold the same path on purpose.
+type explainFrame struct {
+	// Kind is the layering stage: schema, values, envfile, set, process,
+	// assign or missing.
+	Kind string `json:"kind"`
+	// Method is how the value entered that stage: default, file, flag, json,
+	// env, assign or missing.
+	Method string `json:"method"`
+	// Source is the address within the stage: a file path, a schema pointer, an
+	// environment variable name, or the key itself.
+	Source string `json:"source"`
+	// File is the file the frame lives in, empty when it has none.
+	File string `json:"file"`
+	// Line is the 1-based line, 0 when unknown or not applicable.
+	Line int `json:"line"`
+}
 
 // explainRecord is one JSON line of the --explain report: where a referenced
 // variable resolved, never its value, because values may be secrets.
@@ -29,20 +41,12 @@ type explainRecord struct {
 	// Variable is the referenced path in its canonical spelling, so it can be
 	// pasted back into a template or used as an --explain=PATH filter.
 	Variable string `json:"variable"`
-	// Source is the human-readable origin: set, process, schema, missing, a
-	// file, or file:line.
-	Source string `json:"source"`
-	// Kind classifies the origin: set, process, schema, missing or the loader
-	// name of a value file (dotenv, yaml, json).
-	Kind string `json:"kind,omitempty"`
-	// File is the source file, when the origin is file-backed.
-	File string `json:"file,omitempty"`
-	// Line is the 1-based source line, when it is known. It is a pointer so the
-	// field is omitted identically by both JSON backends: encoding/json/v2 keeps
-	// a zero int under `omitempty` while sonic drops it (see jsonx tests).
-	Line *int `json:"line,omitempty"`
-	// Shadowed lists the origins the winner covered, closest first.
-	Shadowed []string `json:"shadowed,omitempty"`
+	// Origin is the winning frame: the last step of the lineage.
+	Origin explainFrame `json:"origin"`
+	// Shadowed lists the frames the winner covered, closest first, so that
+	// Shadowed followed by Origin is the whole lineage, lowest priority last.
+	// It is always present, empty when nothing was covered.
+	Shadowed []explainFrame `json:"shadowed"`
 }
 
 // explainRun collects origins for one render run. It is the load.Observer the
@@ -57,22 +61,39 @@ type explainRun struct {
 
 // AddEnv implements load.Observer.
 func (run *explainRun) AddEnv(name string) {
-	run.sources.addEnv(name, explainOrigin{kind: explainProcess})
+	run.sources.addEnv(name, explainOrigin{
+		kind:   string(values.SourceProcess),
+		method: string(values.MethodEnv),
+		source: name,
+	})
 }
 
 // AddRoot implements load.Observer.
 func (run *explainRun) AddRoot(path string, origin load.Origin) {
-	run.sources.addRoot(path, explainOrigin{
-		kind: string(origin.Kind),
-		file: origin.File,
-		line: origin.Line,
-	})
+	frame := explainOrigin{
+		kind:   string(origin.Kind),
+		method: string(origin.Method),
+		source: origin.Source,
+		file:   origin.File,
+		line:   origin.Line,
+	}
+	if frame.source == "" {
+		frame.source = origin.File
+	}
+	run.sources.addRoot(path, frame)
 }
 
-// explainOrigin is one recorded origin of a value.
+// explainOrigin is one recorded step of a value's lineage.
 type explainOrigin struct {
-	// kind is set, process, schema, missing or a loader name (dotenv, yaml, json).
+	// kind is the layering stage: schema, values, envfile, set, process or
+	// missing.
 	kind string
+	// method is how the value entered the stage: default, file, flag, json,
+	// env, assign or missing.
+	method string
+	// source is the address within the stage: a file path, a schema pointer, an
+	// environment variable name, or the key itself.
+	source string
 	// file is the source file, empty when the origin has none.
 	file string
 	// line is the 1-based source line, 0 when unknown.
@@ -84,17 +105,24 @@ func (o explainOrigin) valid() bool {
 	return o.kind != "" || o.file != ""
 }
 
-// source formats the origin the way the report renders it.
-func (o explainOrigin) source() string {
-	switch {
-	case o.file != "" && o.line > 0:
-		return fmt.Sprintf("%s:%d", o.file, o.line)
-	case o.file != "":
-		return o.file
-	case o.kind != "":
-		return o.kind
-	default:
-		return explainMissing
+// missingOrigin is the frame reported for a name that resolved to nothing.
+func missingOrigin() explainOrigin {
+	return explainOrigin{
+		kind:   string(values.SourceMissing),
+		method: string(values.MethodMissing),
+	}
+}
+
+// frame renders the origin as one report frame. Recording fills every field, so
+// the frame is a direct copy: a missing kind or method would be a bug in the
+// recording path, not something this layer should paper over.
+func (o explainOrigin) frame() explainFrame {
+	return explainFrame{
+		Kind:   o.kind,
+		Method: o.method,
+		Source: o.source,
+		File:   o.file,
+		Line:   o.line,
 	}
 }
 
@@ -132,7 +160,7 @@ func (e *explainer) addEnv(name string, origin explainOrigin) {
 
 // source returns the winning origin for a path and the origins it shadowed,
 // closest loser first.
-func (e explainer) source(path string, tree *values.Tree) (winner explainOrigin, shadowed []string) {
+func (e explainer) source(path string, tree *values.Tree) (winner explainOrigin, shadowed []explainFrame) {
 	// A namespace path reads only the process environment; any other path reads
 	// the root layering the observer recorded.
 	envName, rootKey := explainLookupKeys(path)
@@ -146,7 +174,7 @@ func (e explainer) source(path string, tree *values.Tree) (winner explainOrigin,
 	if len(candidates) > 0 {
 		winner = candidates[len(candidates)-1]
 		for i := len(candidates) - 2; i >= 0; i-- {
-			shadowed = append(shadowed, candidates[i].source())
+			shadowed = append(shadowed, candidates[i].frame())
 		}
 		return winner, shadowed
 	}
@@ -158,7 +186,7 @@ func (e explainer) source(path string, tree *values.Tree) (winner explainOrigin,
 			}
 		}
 	}
-	return explainOrigin{kind: explainMissing}, nil
+	return missingOrigin(), nil
 }
 
 // matches reports whether a reported name is selected by the --explain path
@@ -192,17 +220,13 @@ func explainTemplate(w io.Writer, pathEngine engine.PathEngine, req Request, tmp
 		}
 		seen[name] = true
 		origin, shadowed := run.sources.source(path, run.tree)
-		var line *int
-		if origin.line > 0 {
-			line = &origin.line
+		if shadowed == nil {
+			shadowed = []explainFrame{}
 		}
 		encoded, err := jsonx.Marshal(explainRecord{
 			Template: tmpl,
 			Variable: name,
-			Source:   origin.source(),
-			Kind:     origin.kind,
-			File:     origin.file,
-			Line:     line,
+			Origin:   origin.frame(),
 			Shadowed: shadowed,
 		})
 		if err != nil {
@@ -246,16 +270,30 @@ func explainLookupKeys(path string) (envName, rootKey string) {
 	return "", values.EncodeSegments(segments)
 }
 
-// metaOrigin formats a recorded origin as an explain origin.
+// metaOrigin turns a value's recorded metadata into a frame. It is the fallback
+// for values the layering did not report, for example a template assignment,
+// whose metadata carries the writing template and line.
 func metaOrigin(meta values.Meta) explainOrigin {
-	switch values.SourceKind(meta.Kind) {
-	case values.SourceEnv:
-		// The environment namespace reports as "process" even though its
-		// metadata kind is "env".
-		return explainOrigin{kind: explainProcess}
-	case "":
-		return explainOrigin{file: meta.File, line: meta.Line}
-	default:
-		return explainOrigin{kind: meta.Kind, file: meta.File, line: meta.Line}
+	kind := values.SourceKind(meta.Kind)
+	if kind == "" {
+		kind = values.SourceMissing
+	}
+	method := values.MethodMissing
+	switch kind {
+	case values.SourceValues, values.SourceEnvFile:
+		method = values.MethodFile
+	case values.SourceSet:
+		method = values.MethodFlag
+	case values.SourceSchema:
+		method = values.MethodDefault
+	case values.SourceProcess:
+		method = values.MethodEnv
+	}
+	return explainOrigin{
+		kind:   string(kind),
+		method: string(method),
+		source: meta.File,
+		file:   meta.File,
+		line:   meta.Line,
 	}
 }

@@ -1,1 +1,1 @@
-{"template":"input.tmpl","variable":"EXPLAIN_MISSING_VAR","source":"missing","kind":"missing"}
+{"template":"input.tmpl","variable":"EXPLAIN_MISSING_VAR","origin":{"kind":"missing","method":"missing","source":"","file":"","line":0},"shadowed":[]}

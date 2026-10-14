@@ -44,8 +44,13 @@ type Meta struct {
 	File string
 	// Line is the 1-based source line, 0 when unknown.
 	Line int
-	// Kind is the source category, e.g. "dotenv", "values", "set".
+	// Kind is the layering stage, e.g. "values", "envfile", "set".
 	Kind string
+	// Method is how the value entered that stage, e.g. "file", "flag".
+	Method string
+	// Source is the address within the stage: a file path, a schema pointer, an
+	// environment variable name, or the key itself.
+	Source string
 }
 
 // MetaRef is the closest known origin of a value.

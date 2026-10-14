@@ -7,5 +7,8 @@ string_prec_dotenv_over_values: ${string_prec_dotenv_over_values}
 string_prec_set_over_dotenv: ${string_prec_set_over_dotenv}
 string_prec_setjson_over_set: ${string_prec_setjson_over_set}
 string_prec_default_never_wins: ${string_prec_default_never_wins}
+# Four layers declare this key: schema default < values-base < values-prod < .env.
+# `just explain-sources` shows all of them as one lineage.
+string_prec_multi_layer: ${string_prec_multi_layer}
 string_prec_readonly_bare_name: ${string_prec_readonly}
 string_prec_readonly_process: ${@process.string_prec_readonly:-not-in-process}

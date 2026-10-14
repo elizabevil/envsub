@@ -65,13 +65,20 @@ It renders with `--explain` and prints the winning layer per key:
 ```text
 30 values referenced
 
-[yaml]
+[envfile]
+  from examples/data/app.env
+    string_prec_multi_layer   <- envfile/file examples/data/app.env:4   (covered: values/file examples/data/values-prod.yaml | values/file examples/data/values-base.yaml | schema/default #/properties/string_prec_multi_layer/default)
+
+[values]
   from examples/data/values-prod.yaml
-    string_type_root   (shadowed: examples/data/values-base.yaml)
-[schema]
-  from schema
-    string_prec_default_never_wins
+    string_type_root   <- values/file examples/data/values-prod.yaml   (covered: values/file examples/data/values-base.yaml)
 ```
+
+Each line reads `variable <- kind/method address (covered: the layers it shadowed)`.
+The chain is the model in
+[ADR-005](../docs/04-decisions/04-05-adr-005-explain-origin-model.md): `kind` is the layering
+stage, `method` is how the value entered it, and the address is a file, a schema pointer, an
+environment variable name or a key.
 
 `examples/justfile` is **not** part of `just check` (it builds the binary first); the guards in
 step 1 are, so a broken example is caught by `just check` even without running the recipes.
@@ -180,6 +187,7 @@ Rule ids come from [`docs/07-serialization/00-index.md`](../docs/07-serializatio
 | SC1–SC9 schema keywords, aliases, defaults, `$ref` limits | `data/schema.yaml`, `unknown-keywords`, `failures` (`schema`) |
 | R1–R5 round-trip and consistency rules | `scenarios-json` + `scenarios-yaml` (same dataset, two encodings), `go test ./test/encoding/` |
 | G1–G22 known gaps | each gap names its own test in `docs/07-serialization/09-gaps.md`; `failures` covers the exit codes |
+| I1–I7 `--explain` 帧不变式（kind/method 闭集、地址、链序、被覆盖的 default） | `just explain-sources`（`string_prec_multi_layer` 的四层链）；`test/e2e` 的 `TestExplainFramesFollowADR005`；`schema_default_is_fallback` |
 | `@process` namespace and layering | `scenarios-with-prefix`, `scenarios-no-process`, `scenarios-without-process` |
 | Top-level special keys (`["a.b"]`) | library-level; `go test ./internal/values/` |
 | `--only-vars` / `--ignore-vars` | `filters` |

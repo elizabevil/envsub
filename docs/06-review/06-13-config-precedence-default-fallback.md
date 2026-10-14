@@ -104,5 +104,6 @@ envsub render --explain --env-file .env --schema schema.json input.tmpl
 
 - `[ASSUMPTION]` "环境值不符合 schema 类型时报错"是可接受的行为（不再被 default 顶掉）。验证方式：若
   试用反馈认为宿主环境不应导致失败，再评估"仅显式来源触发类型校验"。owner：技术负责人。
-- `[TODO]` 是否需要给 `--explain` 的 `shadowed` 也列出"存在但未生效的 default"（当前只记实际生效的来源）。
+- `[已决]` 已列出：schema `default` 作为最低层**先播种**，被覆盖时出现在 `shadowed` 链尾，
+  以 JSON 指针标识（`#/properties/K/default`），见 ADR-005 与 `schema_default_is_fallback` fixture。
   owner：产品/技术负责人。

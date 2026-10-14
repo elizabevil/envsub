@@ -32,10 +32,13 @@ func TestExplainTemplateWritesJSONL(t *testing.T) {
 	t.Parallel()
 	run := explainRun{sources: explainer{
 		root: map[string][]explainOrigin{
-			"A": {{kind: "set"}},
-			"K": {{kind: "values", file: "values.yaml"}, {kind: "dotenv", file: ".env", line: 1}},
+			"A": {{kind: "set", method: "flag", source: "A"}},
+			"K": {
+				{kind: "values", method: "file", source: "values.yaml", file: "values.yaml"},
+				{kind: "envfile", method: "file", source: ".env", file: ".env", line: 1},
+			},
 		},
-		env: map[string][]explainOrigin{"K": {{kind: "process"}}},
+		env: map[string][]explainOrigin{"K": {{kind: "process", method: "env", source: "K"}}},
 	}}
 	req := Request{Explain: Explain{Enabled: true}}
 	eng := stubPathEngine{paths: []string{"@process.K", "A", "K", "NOPE"}}
@@ -45,10 +48,10 @@ func TestExplainTemplateWritesJSONL(t *testing.T) {
 		t.Fatalf("explainTemplate() error = %v", err)
 	}
 	want := strings.Join([]string{
-		`{"template":"app.tmpl","variable":"@process.K","source":"process","kind":"process"}`,
-		`{"template":"app.tmpl","variable":"A","source":"set","kind":"set"}`,
-		`{"template":"app.tmpl","variable":"K","source":".env:1","kind":"dotenv","file":".env","line":1,"shadowed":["values.yaml"]}`,
-		`{"template":"app.tmpl","variable":"NOPE","source":"missing","kind":"missing"}`,
+		`{"template":"app.tmpl","variable":"@process.K","origin":{"kind":"process","method":"env","source":"K","file":"","line":0},"shadowed":[]}`,
+		`{"template":"app.tmpl","variable":"A","origin":{"kind":"set","method":"flag","source":"A","file":"","line":0},"shadowed":[]}`,
+		`{"template":"app.tmpl","variable":"K","origin":{"kind":"envfile","method":"file","source":".env","file":".env","line":1},"shadowed":[{"kind":"values","method":"file","source":"values.yaml","file":"values.yaml","line":0}]}`,
+		`{"template":"app.tmpl","variable":"NOPE","origin":{"kind":"missing","method":"missing","source":"","file":"","line":0},"shadowed":[]}`,
 	}, "\n") + "\n"
 	if got.String() != want {
 		t.Fatalf("explainTemplate() =\n%swant\n%s", got.String(), want)
@@ -62,7 +65,7 @@ func TestExplainTemplateFiltersByExactPath(t *testing.T) {
 	t.Parallel()
 	run := explainRun{sources: explainer{
 		root: map[string][]explainOrigin{
-			"app.port": {{kind: "values", file: "values.yaml"}},
+			"app.port": {{kind: "values", method: "file", source: "values.yaml", file: "values.yaml"}},
 		},
 	}}
 	req := Request{Explain: Explain{Enabled: true, Paths: []string{"app.port", "app.port.x"}}}
@@ -73,8 +76,8 @@ func TestExplainTemplateFiltersByExactPath(t *testing.T) {
 		t.Fatalf("explainTemplate() error = %v", err)
 	}
 	want := strings.Join([]string{
-		`{"template":"app.tmpl","variable":"app.port","source":"values.yaml","kind":"values","file":"values.yaml"}`,
-		`{"template":"app.tmpl","variable":"app.port.x","source":"missing","kind":"missing"}`,
+		`{"template":"app.tmpl","variable":"app.port","origin":{"kind":"values","method":"file","source":"values.yaml","file":"values.yaml","line":0},"shadowed":[]}`,
+		`{"template":"app.tmpl","variable":"app.port.x","origin":{"kind":"missing","method":"missing","source":"","file":"","line":0},"shadowed":[]}`,
 	}, "\n") + "\n"
 	if got.String() != want {
 		t.Fatalf("explainTemplate() =\n%swant\n%s", got.String(), want)
@@ -158,13 +161,18 @@ func TestExplainerSource(t *testing.T) {
 	t.Parallel()
 	expl := explainer{
 		root: map[string][]explainOrigin{
-			"FROM_FILE": {{kind: "values", file: "values.yaml"}},
-			"K":         {{kind: "values", file: "values.yaml"}, {kind: "dotenv", file: "base.env", line: 1}, {kind: "dotenv", file: "debug.env", line: 2}, {kind: "set"}},
-			"DFLT":      {{kind: "schema"}},
+			"FROM_FILE": {{kind: "values", method: "file", source: "values.yaml", file: "values.yaml"}},
+			"K": {
+				{kind: "values", method: "file", source: "values.yaml", file: "values.yaml"},
+				{kind: "envfile", method: "file", source: "base.env", file: "base.env", line: 1},
+				{kind: "envfile", method: "file", source: "debug.env", file: "debug.env", line: 2},
+				{kind: "set", method: "flag", source: "K"},
+			},
+			"DFLT": {{kind: "schema", method: "default", source: "#/properties/DFLT/default", file: "schema.yaml"}},
 		},
 		env: map[string][]explainOrigin{
-			"K":    {{kind: "process"}},
-			"PROC": {{kind: "process"}},
+			"K":    {{kind: "process", method: "env", source: "K"}},
+			"PROC": {{kind: "process", method: "env", source: "PROC"}},
 		},
 	}
 
@@ -176,30 +184,34 @@ func TestExplainerSource(t *testing.T) {
 	}{
 		{
 			path:       "K",
-			wantSource: "set",
+			wantSource: "K",
 			wantKind:   "set",
 			// closest loser first: debug.env, base.env, values.yaml
-			wantShadowed: []string{"debug.env:2", "base.env:1", "values.yaml"},
+			wantShadowed: []string{"debug.env", "base.env", "values.yaml"},
 		},
 		{
 			path:       "@process.K",
-			wantSource: "process",
+			wantSource: "K",
 			wantKind:   "process",
 		},
 		{path: "FROM_FILE", wantSource: "values.yaml", wantKind: "values"},
-		{path: "PROC", wantSource: "missing", wantKind: "missing"},
-		{path: "DFLT", wantSource: "schema", wantKind: "schema"},
-		{path: "MISSING", wantSource: "missing", wantKind: "missing"},
+		{path: "PROC", wantSource: "", wantKind: "missing"},
+		{path: "DFLT", wantSource: "#/properties/DFLT/default", wantKind: "schema"},
+		{path: "MISSING", wantSource: "", wantKind: "missing"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.path, func(t *testing.T) {
 			t.Parallel()
 			origin, shadowed := expl.source(tt.path, nil)
-			if origin.source() != tt.wantSource || origin.kind != tt.wantKind {
+			if origin.source != tt.wantSource || origin.kind != tt.wantKind {
 				t.Fatalf("source(%q) = %+v, want source %q kind %q", tt.path, origin, tt.wantSource, tt.wantKind)
 			}
-			if !equalStrings(shadowed, tt.wantShadowed) {
-				t.Fatalf("source(%q) shadowed = %#v, want %#v", tt.path, shadowed, tt.wantShadowed)
+			got := make([]string, 0, len(shadowed))
+			for _, frame := range shadowed {
+				got = append(got, frame.Source)
+			}
+			if !equalStrings(got, tt.wantShadowed) {
+				t.Fatalf("source(%q) shadowed = %#v, want %#v", tt.path, got, tt.wantShadowed)
 			}
 		})
 	}
@@ -211,11 +223,11 @@ func TestExplainerSource(t *testing.T) {
 func TestExplainerSourceFallsBackToTreeMeta(t *testing.T) {
 	t.Parallel()
 	tree := values.NewTree()
-	tree.RecordEncodedMeta("K", values.Meta{Kind: "dotenv", File: ".env", Line: 4})
+	tree.RecordEncodedMeta("K", values.Meta{Kind: "envfile", File: ".env", Line: 4})
 
 	origin, shadowed := (explainer{}).source("K", tree)
-	if origin.kind != "dotenv" || origin.file != ".env" || origin.line != 4 {
-		t.Fatalf("source(K) = %+v, want dotenv .env:4", origin)
+	if origin.kind != "envfile" || origin.file != ".env" || origin.line != 4 {
+		t.Fatalf("source(K) = %+v, want envfile .env:4", origin)
 	}
 	if len(shadowed) != 0 {
 		t.Fatalf("source(K) shadowed = %#v, want none", shadowed)
@@ -231,19 +243,19 @@ func TestMetaOrigin(t *testing.T) {
 		wantKind   string
 		wantSource string
 	}{
-		{name: "dotenv keeps file and line", meta: values.Meta{Kind: "dotenv", File: ".env", Line: 3}, wantKind: "dotenv", wantSource: ".env:3"},
-		{name: "values file", meta: values.Meta{Kind: "yaml", File: "v.yaml"}, wantKind: "yaml", wantSource: "v.yaml"},
-		{name: "process", meta: values.Meta{Kind: "env"}, wantKind: "process", wantSource: "process"},
-		{name: "set", meta: values.Meta{Kind: "set"}, wantKind: "set", wantSource: "set"},
-		{name: "schema", meta: values.Meta{Kind: "schema"}, wantKind: "schema", wantSource: "schema"},
+		{name: "dotenv keeps file and line", meta: values.Meta{Kind: "envfile", File: ".env", Line: 3}, wantKind: "envfile", wantSource: ".env"},
+		{name: "values file", meta: values.Meta{Kind: "values", File: "v.yaml"}, wantKind: "values", wantSource: "v.yaml"},
+		{name: "process", meta: values.Meta{Kind: "process", File: "ENVSUB_X"}, wantKind: "process", wantSource: "ENVSUB_X"},
+		{name: "set", meta: values.Meta{Kind: "set"}, wantKind: "set", wantSource: ""},
+		{name: "schema", meta: values.Meta{Kind: "schema", File: "schema.yaml"}, wantKind: "schema", wantSource: "schema.yaml"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			origin := metaOrigin(tt.meta)
-			if origin.kind != tt.wantKind || origin.source() != tt.wantSource {
+			if origin.kind != tt.wantKind || origin.source != tt.wantSource {
 				t.Fatalf("metaOrigin(%+v) = %+v (%q), want kind %q source %q",
-					tt.meta, origin, origin.source(), tt.wantKind, tt.wantSource)
+					tt.meta, origin, origin.source, tt.wantKind, tt.wantSource)
 			}
 		})
 	}
@@ -288,15 +300,15 @@ func TestObserverRecordsThroughTheInterface(t *testing.T) {
 	run := explainRun{}
 	var observer load.Observer = &run
 	observer.AddEnv("FROM_PROCESS")
-	observer.AddRoot("K", load.Origin{Kind: values.SourceDotenv, File: ".env", Line: 1})
-	observer.AddRoot("K", load.Origin{Kind: values.SourceSet})
+	observer.AddRoot("K", load.Origin{Kind: values.SourceEnvFile, Method: values.MethodFile, Source: ".env", File: ".env", Line: 1})
+	observer.AddRoot("K", load.Origin{Kind: values.SourceSet, Method: values.MethodFlag, Source: "K"})
 
 	winner, shadowed := run.sources.source("K", run.tree)
 	if winner.kind != string(values.SourceSet) {
 		t.Fatalf("winner = %+v, want the set origin", winner)
 	}
-	if len(shadowed) != 1 || shadowed[0] != ".env:1" {
-		t.Fatalf("shadowed = %#v, want the dotenv origin", shadowed)
+	if len(shadowed) != 1 || shadowed[0].Kind != "envfile" || shadowed[0].File != ".env" || shadowed[0].Line != 1 {
+		t.Fatalf("shadowed = %#v, want the envfile frame", shadowed)
 	}
 	if got := run.sources.env["FROM_PROCESS"]; len(got) != 1 {
 		t.Fatalf("@process origins = %#v, want one", got)

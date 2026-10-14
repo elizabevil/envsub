@@ -75,8 +75,9 @@ schema default → yaml/json 值文件 → .env → --set/--set-json/--set-file 
 | `file` | 它的**物理位置**所在文件；无文件来源为 `""` | 是 |
 | `line` | 1 基行号；不可得为 `0` | 是 |
 
-`source` 与 `file` 在文件类来源上取值相同，但**不是重复表达**：`source` 是"哪一层的哪个来源"，
-`file`/`line` 是"去哪个文件的哪一行看"。反例是旧实现的
+`source` 与 `file` 在 `values`/`envfile` 两类帧上取值相同，但**不是重复表达**：`source` 是
+"哪一层的哪个来源"，`file`/`line` 是"去哪个文件的哪一行看"。`schema`/`process`/`set` 帧上两者
+取值不同或 `file` 为空，正说明它们是两个独立的问题。反例是旧实现的
 `{"source":"schema","kind":"schema"}`——那里 `source` 没有提供 `kind` 之外的任何信息。
 
 **禁止缺省**：五字段全部输出，空值用 `""`/`0`。
@@ -112,7 +113,7 @@ schema default → yaml/json 值文件 → .env → --set/--set-json/--set-file 
 |---|--------|
 | I1 | `kind` 属于闭集，`shadowed` 每帧同 |
 | I2 | `method` 属于该 `kind` 的允许集合（`set` 三种，其余一种） |
-| I3 | `source` 只表达地址：文件类等于 `file`，`process` 为环境变量名，`schema` 为指针，`set` 为键名 |
+| I3 | `source` 只表达地址：`values`/`envfile` 帧等于其 `file`；`schema` 为 JSON 指针、`process` 为环境变量名、`set` 为键名（这些帧的 `file` 与 `source` 不同，或 `file` 为空） |
 | I4 | 五个字段恒在，空值 `""`/`0`，不得 `omitempty` |
 | I5 | `origin` 是链尾，`shadowed` 近者在前，二者不重复同一帧 |
 | I6 | 被覆盖的 schema `default` 必须出现在链里 |

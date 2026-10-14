@@ -45,6 +45,9 @@ var errNotExpression = errors.New("empty expression")
 // default/existence operator, an optional inline type assertion and the
 // formatter pipeline steps.
 type expression struct {
+	// Offset is the byte offset of the ${...} span in the template, used to
+	// report the line an assignment writes from.
+	Offset int
 	// Path is the value path, before any operator.
 	Path string
 	// Op is the operator name, empty for a plain reference.

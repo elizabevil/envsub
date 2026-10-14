@@ -7,5 +7,8 @@ string_prec_dotenv_over_values: from-dotenv
 string_prec_set_over_dotenv: from-set
 string_prec_setjson_over_set: from-set-json
 string_prec_default_never_wins: from-set
+# Four layers declare this key: schema default < values-base < values-prod < .env.
+# `just explain-sources` shows all of them as one lineage.
+string_prec_multi_layer: from-dotenv
 string_prec_readonly_bare_name: prod-values
 string_prec_readonly_process: not-in-process

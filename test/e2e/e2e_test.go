@@ -3,6 +3,7 @@ package e2e_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -108,9 +109,9 @@ func TestExplainStdoutUnchanged(t *testing.T) {
 		t.Fatalf("--explain changed stdout: got %q, want %q", explained, plain)
 	}
 	for _, want := range []string{
-		`"variable":"A","source":"set"`,
-		`"variable":"B","source":"` + dotenv + `:1"`,
-		`"variable":"C","source":"missing"`,
+		`"variable":"A","origin":{"kind":"set","method":"flag","source":"A"`,
+		`"variable":"B","origin":{"kind":"envfile","method":"file","source":"` + dotenv + `"`,
+		`"variable":"C","origin":{"kind":"missing","method":"missing"`,
 	} {
 		if !strings.Contains(stderr, want) {
 			t.Fatalf("--explain report = %q, want it to contain %q", stderr, want)
@@ -136,8 +137,8 @@ func TestExplainValidateOnly(t *testing.T) {
 	if stdout != "" {
 		t.Fatalf("stdout = %q, want empty with --validate-only", stdout)
 	}
-	if !strings.Contains(stderr, `"variable":"A","source":"set"`) {
-		t.Fatalf("--explain report = %q, want it to contain %q", stderr, "A set")
+	if !strings.Contains(stderr, `"variable":"A","origin":{"kind":"set","method":"flag","source":"A"`) {
+		t.Fatalf("--explain report = %q, want the set frame for A", stderr)
 	}
 }
 
@@ -510,4 +511,109 @@ func testdataRoot() (string, error) {
 		return "", errors.New("runtime.Caller failed")
 	}
 	return filepath.Join(filepath.Dir(file), "testdata"), nil
+}
+
+// TestExplainFramesFollowADR005 pins the report's structure against the real
+// binary: every frame carries kind/method/source/file/line, kinds and methods
+// come from the closed sets, a file-backed frame names its file as the address,
+// and the lineage lists the layers a value came through, lowest priority last —
+// including a schema default a later layer covered.
+func TestExplainFramesFollowADR005(t *testing.T) {
+	t.Parallel()
+	dir := filepath.Join("testdata", "schema_default_is_fallback")
+	args, ok := readArgsFile(t, filepath.Join(dir, caseArgsFile))
+	if !ok {
+		t.Fatalf("%s has no %s", dir, caseArgsFile)
+	}
+	env, err := readEnvFile(filepath.Join(dir, caseEnvFile))
+	if err != nil {
+		t.Fatalf("read env: %v", err)
+	}
+	_, stderr, status := execute(t, dir, env, args)
+	if status != 0 {
+		t.Fatalf("exit = %d, want 0; stderr=%q", status, stderr)
+	}
+
+	type frame struct {
+		Kind   string `json:"kind"`
+		Method string `json:"method"`
+		Source string `json:"source"`
+		File   string `json:"file"`
+		Line   int    `json:"line"`
+	}
+	type record struct {
+		Variable string  `json:"variable"`
+		Origin   frame   `json:"origin"`
+		Shadowed []frame `json:"shadowed"`
+	}
+
+	kinds := map[string]bool{
+		"schema": true, "values": true, "envfile": true,
+		"set": true, "process": true, "assign": true, "missing": true,
+	}
+	methods := map[string]bool{
+		"default": true, "file": true, "flag": true, "json": true,
+		"env": true, "assign": true, "missing": true,
+	}
+
+	var reports []record
+	for _, line := range strings.Split(strings.TrimSpace(stderr), "\n") {
+		if line == "" {
+			continue
+		}
+		var decoded record
+		if err := json.Unmarshal([]byte(line), &decoded); err != nil {
+			t.Fatalf("decode explain line %q: %v", line, err)
+		}
+		reports = append(reports, decoded)
+	}
+	if len(reports) != 2 {
+		t.Fatalf("explain lines = %d, want 2: %q", len(reports), stderr)
+	}
+
+	check := func(where string, f frame) {
+		t.Helper()
+		if !kinds[f.Kind] {
+			t.Errorf("%s kind = %q, want a member of the closed set", where, f.Kind)
+		}
+		if !methods[f.Method] {
+			t.Errorf("%s method = %q, want a member of the closed set", where, f.Method)
+		}
+		// values and envfile frames are located by the file they came from; the
+		// other kinds carry a pointer, a name or a key instead (ADR-005 I3).
+		if f.Kind == "values" || f.Kind == "envfile" {
+			if f.File == "" || f.Source != f.File {
+				t.Errorf("%s source = %q file = %q, want the file as the address", where, f.Source, f.File)
+			}
+		}
+	}
+
+	for _, report := range reports {
+		check(report.Variable+".origin", report.Origin)
+		for i, f := range report.Shadowed {
+			check(fmt.Sprintf("%s.shadowed[%d]", report.Variable, i), f)
+		}
+	}
+
+	// K: the .env layer wins, and the schema default it covered is still in the
+	// lineage, at the end.
+	k := reports[0]
+	if k.Origin.Kind != "envfile" || k.Origin.Line != 1 {
+		t.Errorf("K origin = %+v, want the envfile line 1", k.Origin)
+	}
+	if len(k.Shadowed) != 1 || k.Shadowed[0].Kind != "schema" {
+		t.Fatalf("K shadowed = %+v, want the schema default", k.Shadowed)
+	}
+	if want := "#/properties/K/default"; k.Shadowed[0].Source != want {
+		t.Errorf("K shadowed source = %q, want %q", k.Shadowed[0].Source, want)
+	}
+
+	// D: only the schema declares it, so the default is the whole lineage.
+	d := reports[1]
+	if d.Origin.Kind != "schema" || d.Origin.Method != "default" || d.Origin.Source != "#/properties/D/default" {
+		t.Errorf("D origin = %+v, want the schema default pointer", d.Origin)
+	}
+	if len(d.Shadowed) != 0 {
+		t.Errorf("D shadowed = %+v, want none", d.Shadowed)
+	}
 }

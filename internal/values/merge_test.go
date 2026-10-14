@@ -136,13 +136,13 @@ func TestParseAssignment(t *testing.T) {
 func TestStore(t *testing.T) {
 	t.Parallel()
 	tree := values.NewTree()
-	if err := tree.Store("app.port", 8080); err != nil {
+	if err := tree.Store("app.port", 8080, values.Origin{Kind: values.SourceSet, Method: values.MethodFlag, Source: "app.port"}); err != nil {
 		t.Fatalf("Store() error = %v", err)
 	}
 	assertResolved(t, tree, "app.port", 8080)
 
 	list := []any{"a"}
-	if err := tree.Store("app.list", list); err != nil {
+	if err := tree.Store("app.list", list, values.Origin{Kind: values.SourceSet, Method: values.MethodFlag, Source: "app.list"}); err != nil {
 		t.Fatalf("Store() error = %v", err)
 	}
 	list[0] = "mutated"

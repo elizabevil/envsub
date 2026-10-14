@@ -8,20 +8,44 @@ import (
 	"github.com/elizabevil/envsub/internal/jsonx"
 )
 
-// SourceKind names the category of a value origin.
+// SourceKind names the layering stage a value came through. It is stable: a new
+// way to supply a value extends SourceMethod, not this list
+// (docs/04-decisions/04-05-adr-005-explain-origin-model.md).
 type SourceKind string
 
 const (
-	// SourceDotenv marks values loaded from a .env file.
-	SourceDotenv SourceKind = "dotenv"
-	// SourceValues marks values loaded from a YAML or JSON values file.
-	SourceValues SourceKind = "values"
-	// SourceSet marks values produced by CLI --set* flags.
-	SourceSet SourceKind = "set"
-	// SourceSchema marks values produced by schema defaults.
+	// SourceSchema marks a value filled by a schema `default`.
 	SourceSchema SourceKind = "schema"
-	// SourceEnv marks values read from the OS environment.
-	SourceEnv SourceKind = "env"
+	// SourceValues marks a value loaded from a YAML or JSON values file.
+	SourceValues SourceKind = "values"
+	// SourceEnvFile marks a value loaded from a .env file.
+	SourceEnvFile SourceKind = "envfile"
+	// SourceSet marks a value supplied on the command line.
+	SourceSet SourceKind = "set"
+	// SourceProcess marks a value read through the @process namespace.
+	SourceProcess SourceKind = "process"
+	// SourceMissing marks a referenced name that resolved to nothing.
+	SourceMissing SourceKind = "missing"
+)
+
+// SourceMethod names how a value entered its stage: which flag, which form.
+type SourceMethod string
+
+const (
+	// MethodDefault is a schema default.
+	MethodDefault SourceMethod = "default"
+	// MethodFile is content read from a file (values file, .env, --set-file).
+	MethodFile SourceMethod = "file"
+	// MethodFlag is a literal on the command line (--set).
+	MethodFlag SourceMethod = "flag"
+	// MethodJSON is a JSON literal on the command line (--set-json).
+	MethodJSON SourceMethod = "json"
+	// MethodEnv is a process environment variable.
+	MethodEnv SourceMethod = "env"
+	// MethodAssign is a value written back by a template assignment.
+	MethodAssign SourceMethod = "assign"
+	// MethodMissing is a name that resolved to nothing.
+	MethodMissing SourceMethod = "missing"
 )
 
 // ErrInvalidJSON marks a --set-json value that is not a valid JSON document.
@@ -42,12 +66,17 @@ const (
 
 // Origin describes where an assignment came from.
 type Origin struct {
+	// Kind is the layering stage, for example values or set.
+	Kind SourceKind
+	// Method is how the value entered that stage, for example flag or file.
+	Method SourceMethod
+	// Source is the address within the stage: a key name, a file path, or a
+	// schema pointer. Empty when the stage has no address beyond the key.
+	Source string
 	// File is the source file, empty for values without a file origin.
 	File string
 	// Line is the 1-based source line, 0 when unknown.
 	Line int
-	// Kind is the source category, for example values or --set.
-	Kind SourceKind
 }
 
 // assignmentSeparator splits KEY=VALUE on the command line and in .env files.
@@ -88,8 +117,9 @@ func (t *Tree) SetPath(rawPath, value string, mode SetMode, origin Origin) error
 // Store writes a resolved value into the root namespace, creating intermediate
 // objects. It is used by the template assignment operators := and =, which
 // per the design only affect the current render and never touch the process
-// environment.
-func (t *Tree) Store(rawPath string, value any) error {
+// environment. The origin names the template and line that wrote the value, so
+// --explain can report an assignment like any other source (ADR-005).
+func (t *Tree) Store(rawPath string, value any, origin Origin) error {
 	segments, err := ParsePath(rawPath)
 	if err != nil {
 		return fmt.Errorf("invalid path %q: %w", rawPath, err)
@@ -100,6 +130,13 @@ func (t *Tree) Store(rawPath string, value any) error {
 	if err := assignPath(t.Root, segments, CloneValue(value)); err != nil {
 		return fmt.Errorf("assign %s: %w", rawPath, err)
 	}
+	t.RecordEncodedMeta(EncodeSegments(segments), Meta{
+		Kind:   string(origin.Kind),
+		Method: string(origin.Method),
+		Source: origin.Source,
+		File:   origin.File,
+		Line:   origin.Line,
+	})
 	t.MarkMutated()
 	return nil
 }

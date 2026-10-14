@@ -65,8 +65,8 @@ last-updated: 2026-10-10
 
 ### JSONL 契约（与 `13-materialization.md` §15 一致）
 
-每条一行：`template`、`variable`、`source`、`kind`、`file`/`line`（仅文件来源）、`shadowed`
-（高→低，不截断）。**不输出值**（值可能是密钥）。`PATH` 是精确匹配的过滤器，只在模板已引用的
+每条一行：`template`、`variable`、`origin`、`shadowed`（高→低，不截断）；帧的字段为
+`kind`/`method`/`source`/`file`/`line`。**不输出值**（值可能是密钥）。详见 ADR-005。`PATH` 是精确匹配的过滤器，只在模板已引用的
 名字里筛选；`${env.NAME}` 与 `NAME` 归一后比较。`[FACT]`
 
 ## 5. 发现：json 两后端对 `omitempty` 数值 0 不一致（G20）
@@ -132,7 +132,8 @@ ls test/e2e/testdata/explain_*
 
 ## 8. 待确认（TODO）
 
-- `[TODO]` `shadowed` 目前是字符串数组；是否需要与主来源一样结构化为对象（`kind`/`file`/`line`）。
+- `[已决]` `shadowed` 已改为**结构化帧数组**，与胜出帧同构（`kind`/`method`/`source`/`file`/`line`），
+  见 ADR-005；`source` 与 `file` 不再互相重复表达（2026-10-13）。
   owner：产品/技术负责人。
 - ✅ **已决（2026-10-10）：暂不提供 `--explain-out`，也不加 table/YAML 等格式**；`--explain` 固定
   JSONL → stderr，落盘交给 shell 重定向。如后续确有"审计报告需要带模板汇总"的需求再重新评估。

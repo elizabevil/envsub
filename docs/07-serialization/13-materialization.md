@@ -446,7 +446,7 @@ ${app.hosts | join ","}      # a,b
 | 格式 | **JSONL**（每变量一行 JSON 对象），无其它格式 |
 | 退出码 | 不受影响（渲染照常执行；`--explain` 不改变任何取值行为） |
 | 与 `--validate-only` | 允许并用（先解释后校验，顺序固定） |
-| 与渲染的先后 | 报告在渲染循环**之前**写出：模板文本只读一次，避免 stdin/大文件被读两遍；e2e 的 stdout 与 stderr 断言不变（`06-review/06-17` D2） |
+| 与渲染的先后 | 报告在渲染循环**之前**写出：模板文本只读一次，避免 stdin/大文件被读两遍（`06-review/06-17` D2）。代价是模板赋值写回的值在本次报告里看不到（未决项，见下） |
 | 值 | **不输出值**（值可能是密钥），只输出来源 |
 | `--explain-out FILE` | **不提供**（2026-10-10 已决）：固定写 stderr，落盘用 shell 重定向 `2> explain.jsonl`；也不加 table/YAML 等格式 |
 
@@ -460,47 +460,73 @@ ${app.hosts | join ","}      # a,b
 
 ### 行格式（JSONL，稳定、可做 golden）
 
-每条一行，字段顺序固定：
+每条一行，字段顺序固定。模型与理由见
+[ADR-005](../04-decisions/04-05-adr-005-explain-origin-model.md)：`kind` 记**层位**，
+`method` 记**入口写法**，`source` 是该 kind 下的**地址**，`file`/`line` 是**物理位置**。
 
 ```json
-{"template":"a.tmpl","variable":"K","source":".env:1","kind":"dotenv","file":".env","line":1,"shadowed":["values"]}
-{"template":"a.tmpl","variable":"@process.PORT","source":"process","kind":"process"}
+{"template":"a.tmpl","variable":"K","origin":{"kind":"envfile","method":"file","source":".env","file":".env","line":1},"shadowed":[{"kind":"schema","method":"default","source":"#/properties/K/default","file":"schema.json","line":0}]}
+{"template":"a.tmpl","variable":"@process.PORT","origin":{"kind":"process","method":"env","source":"PORT","file":"","line":0},"shadowed":[]}
 ```
 
 | 字段 | 含义 |
 |------|------|
-| `template` | 模板路径（stdin 为 `-`）；**单模板也输出**，不再有单模板/批量两种行格式 |
+| `template` | 模板路径（stdin 为 `-`）；**单模板也输出** |
 | `variable` | 模板里引用的路径的**规范拼写** |
-| `source` | 人读来源串，取值见下表 |
-| `kind` | `set` / `dotenv` / `yaml` / `json` / `schema` / `process` / `missing` |
-| `file` / `line` | 仅文件来源；`line` 未知或非文件来源时省略 |
-| `shadowed` | 被胜出者覆盖的来源，**按优先级从高到低**（最近的被覆盖者在前）；空则省略 |
+| `origin` | **胜出帧**：链尾（最高优先级） |
+| `shadowed` | 被胜出者覆盖的帧，**按优先级从高到低**；**恒输出**，无覆盖为 `[]` |
+
+帧的五个字段**恒在**（空值 `""`/`0`，不用 `omitempty`）：
+
+| 字段 | 含义 |
+|------|------|
+| `kind` | 层位：`schema` / `values` / `envfile` / `set` / `process` / `assign` / `missing` |
+| `method` | 入口写法：`default` / `file` / `flag` / `json` / `env` / `assign` / `missing` |
+| `source` | 地址：文件路径 · JSON 指针（`#/properties/K/default`）· 环境变量名 · 键名 · 模板路径 |
+| `file` | 物理位置所在文件；无文件来源为空 |
+| `line` | 1 基行号；不可得为 `0` |
+
+各 kind 的取值表：
+
+| kind | method | source | file / line |
+|------|--------|--------|-------------|
+| `schema` | `default` | JSON 指针 | schema 文件 / 0 |
+| `values` | `file` | 文件路径（yaml/json 由扩展名区分） | 该文件 / 0 |
+| `envfile` | `file` | 文件路径 | 该文件 / 有 |
+| `set` | `flag` \| `json` \| `file` | 键名 | `--set-file` 时=被读文件，否则空 |
+| `process` | `env` | 环境变量名 | 空 / 0 |
+| `assign` | `assign` | 模板路径 | 模板文件 / 有 |
+| `missing` | `missing` | 空 | 空 / 0 |
 
 - 顺序：**按模板中首次出现顺序**去重输出（确定性，不排序）；
-- `source` 取值：
+- 链**不截断**，且包含**被覆盖的 schema `default`**（`kind:"schema"` 帧在链尾）；
+- 多个 `.env`/多个 `-f` 时**必须体现"后覆盖前"**（按参数数组顺序）。
 
-| source | 含义 |
-|--------|------|
-| `set` | 来自 `--set` / `--set-json` |
-| `<file>:<line>` | 来自 `.env`（winning 文件与行号） |
-| `process` | 来自进程环境（含 `--process-env-prefix` 放行者） |
-| `<file>` | 来自值文件（YAML/JSON） |
-| `schema` | 来自 schema 的 `default` |
-| `missing` | 未解析到（与 `--on-missing` 无关，仅报告） |
+**当前限制**：`assign` 帧的元数据会写进值树，但报告在渲染循环**之前**写出，因此
+`${K:=v}` 写回的值在本次报告里仍显示为 `missing`（见 §16 未决）。
 
-- 遮蔽列表**不截断**（JSON 数组由消费方取舍）；多个 `.env` 时**必须体现"后覆盖前"**（参数数组顺序）。
+### 不变式（e2e 断言，见 `test/e2e` 的 `TestExplainFramesFollowADR005`）
+
+| # | 不变式 |
+|---|--------|
+| I1 | `kind` 属于闭集；`shadowed` 每帧同 |
+| I2 | `method` 属于该 kind 的允许集合 |
+| I3 | `source` 只表达地址：`values`/`envfile` 帧等于 `file`；`schema` 为指针、`process` 为变量名、`set` 为键名 |
+| I4 | 五个字段恒在，不得 `omitempty` |
+| I5 | `origin` 是链尾，`shadowed` 近者在前，二者不重复同一帧 |
+| I6 | 被覆盖的 schema `default` 必须出现在链里 |
+| I7 | 行信封只有 `template`、`variable`、`origin`、`shadowed`，且不输出值 |
 
 ### 数据来源（实现依据）
 
-已有 meta 足以支撑，无需新记账：
-
-| 来源 | 现有记录 |
+| 来源 | 记录方式 |
 |------|----------|
-| `.env` | 作为**根层**记录：`values.MergeInto` 写入 `values.Meta{File, Kind: dotenv}` |
-| `--set` | `values.SourceSet` |
-| 值文件 | `values.Meta{File: path, Kind: loader.Name}` |
-| schema default | `values.SourceSchema`（`ApplyDefaults` 写入） |
-| 进程环境 | 独立命名空间（`@process`）：无文件 meta ⇒ 判定为 `process` |
+| 值文件 | 加载器上报 `kind=values, method=file, source=路径` |
+| `.env` | `kind=envfile, method=file`，行号来自 dotenv 解析 |
+| `--set` / `--set-json` / `--set-file` | `kind=set`，`method` 分别为 `flag`/`json`/`file`；`--set-file` 另记被读文件 |
+| schema `default` | **先于其它层**播种 `kind=schema, method=default, source=JSON 指针`，因此被覆盖时仍在链尾 |
+| 进程环境 | `kind=process, method=env, source=环境变量名`（只记名字，不记值） |
+| 模板赋值 | 写回时记录 `kind=set, method=assign, source=模板路径`（链上可见需报告改到渲染后，见上文限制） |
 
 ### 实现进度
 
@@ -517,23 +543,20 @@ ${app.hosts | join ","}      # a,b
 - 报告写出时机：普通渲染在**渲染成功后**写出；与 `--validate-only` 并用时按固定顺序**先解释后校验**。
 - 遮蔽顺序：**从高到低**（最近的被覆盖者在前），与根层序（`--set`/`--set-json` > `--dotenv-file` > `-f/--values-file` > schema `default`，见 [`04-cli.md` §6.2](04-cli.md)）一致。`@process` 不参与该链。
 - 可省略的 `line` 用 `*int` + `omitempty`：两后端对 `omitempty` 数值 0 的处理不同（`encoding/json/v2` 保留、`sonic` 省略，见 `09-gaps.md` G20），指针形式才能让 JSON 在两种构建下一致。
-- 模板赋值（`:=`/`=`）写入的名字没有外部来源，报告为 `missing`（已知限制，规格未覆盖）。
+- 模板赋值（`:=`/`=`）现在会把模板与行号写入值树元数据；但报告在渲染循环**之前**写出，因此本次报告仍把该名字报为 `missing`。把报告移到渲染之后（并让 `--explain` 选择缓冲路径）是**未决项**。
 
 ### 测试要求（已落地）
 
-- ✅ `test/e2e/testdata/explain_env_file/`：`.env K=from_env_file`（模板 `${K}`）→
-  `source` 为 `.env:1`，`shadowed` 为 `["process"]`；
-- ✅ `test/e2e/testdata/explain_multi_env/`：`base.env` + `debug.env` 同键 → `source` 为 `debug.env:2`；
-- ✅ `test/e2e/testdata/explain_set_wins/`：`--set K=from_set` + `.env` + 进程 → `source` 为 `set`，`shadowed` 为 `[".env:1","process"]`；
-- ✅ `test/e2e/testdata/explain_missing/`：未定义变量 → `source` 为 `missing`；
-- ✅ `test/e2e/testdata/explain_batch/`：`--output-dir` + 两模板 → 每条记录带各自的 `template`；
-- ✅ `test/e2e/testdata/explain_path/`：`--explain=app.port` → 只输出 `app.port` 一条；
-- ✅ `test/e2e/testdata/explain_space_form/`：`--explain app.port`（空格）把 `app.port` 当模板名 → exit 5（钉住"路径必须写 `=`"）；
-- ✅ 单元测试：`internal/render/explain_test.go`（表驱动，含 JSONL 字段、精确匹配、来源栈优先级）；
-- ✅ 回归：`TestExplainStdoutUnchanged` 对拍加/不加 `--explain` 的 stdout **逐字节一致**。
+- ✅ 七个 fixture（`explain_env_file`/`explain_multi_env`/`explain_set_wins`/`explain_missing`/
+  `explain_batch`/`explain_path`/`explain_space_form`）覆盖来源、批量、过滤与空格形态；
+- ✅ `schema_default_is_fallback`：`K` 的链为 `envfile → schema`，`D` 只有 `schema`；
+- ✅ `TestExplainFramesFollowADR005`（e2e，真实二进制）：断言 I1–I7——闭集、`values`/`envfile`
+  的 `source` 等于 `file`、链序、被覆盖的 default 在链尾；
+- ✅ 单元测试：`internal/render/explain_test.go`（JSONL 帧字段、精确匹配、来源栈优先级、meta 回退）；
+- ✅ 回归：`TestExplainStdoutUnchanged` 对拍加/不加 `--explain` 的 stdout **逐字节一致**；
+- ✅ 示例：`just --justfile examples/justfile explain-sources` 渲染后由 `tools/digest --sources`
+  汇总，`string_prec_multi_layer` 演示 **4 层链**（default → values → values → .env）。
 
-> **实现状态**：`shadowed` 只反映根层序（`.env` 与进程环境不同格，因此不在同一列表里——
-> `explain_set_wins` 的 `shadowed` 为 `[".env:1"]`、`schema_default_is_fallback` 的 `K` 无 `shadowed`）；
-> `${@process.K}` 的 `variable` 报 `@process.K`、`kind` 为 `process`；`${env.K}` 的 `variable` 报 `env.K`
-> （`env` 已是普通根键，不再归一）。`variable` 采用**规范拼写**，可直接粘回模板或用作 `--explain=PATH`。
-> 复现：`go test -count=1 ./internal/render/ ./test/e2e/`。
+> **实现状态**：`shadowed` 现在包含全部被覆盖层（含 schema `default`）；`${@process.K}` 的
+> `variable` 报 `@process.K`、`origin` 为 `process/env` 且 `source` 为环境变量名；`variable` 采用
+> **规范拼写**，可直接粘回模板或用作 `--explain=PATH`。复现：`go test -count=1 ./test/e2e/`。

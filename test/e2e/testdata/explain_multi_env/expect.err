@@ -1,1 +1,1 @@
-{"template":"input.tmpl","variable":"K","source":"debug.env:2","kind":"dotenv","file":"debug.env","line":2,"shadowed":["base.env:1"]}
+{"template":"input.tmpl","variable":"K","origin":{"kind":"envfile","method":"file","source":"debug.env","file":"debug.env","line":2},"shadowed":[{"kind":"envfile","method":"file","source":"base.env","file":"base.env","line":1}]}

@@ -26,7 +26,10 @@ envsubst 的"超集"：单静态二进制、类型校验 + 多文件分层 + 受
 
 ### 2.1 `--explain`（JSONL，stderr）
 - 引擎侧 `engine.PathEngine` + `extended.Engine.Paths(src)` 已存在；本会话补渲染层与 CLI。
-- 输出：**固定 JSONL → stderr**，每变量一行。字段：`template`（单模板也输出）、`variable`（`${env.NAME}` 归一为 `NAME`）、`source`、`kind`（`set|dotenv|yaml|json|schema|process|missing`）、`file`/`line`（仅文件来源，`line` 用 `*int`）、`shadowed`（被覆盖来源，高→低，不截断）。
+- 输出：**固定 JSONL → stderr**，每变量一行。字段：`template`（单模板也输出）、`variable`
+  （规范拼写）、`origin`（胜出帧）、`shadowed`（被覆盖帧，高→低，不截断）；帧字段
+  `kind`（`schema|values|envfile|set|process|assign|missing`）、`method`
+  （`default|file|flag|json|env|assign|missing`）、`source`（地址）、`file`/`line`（物理位置）。
 - CLI：`--explain[=PATH]`（裸 = all，`*` 哨兵；`--explain=app.port` 精确匹配过滤，可重复）。
 - **已决：不提供 `--explain-out`**；落盘用 `2>`。`--explain` 不输出值（密钥安全）；stdout 逐字节不变。
 - 关键文件：[internal/render/explain.go](internal/render/explain.go)、[internal/render/render.go](internal/render/render.go)（`emitExplain`/`renderOne`）。

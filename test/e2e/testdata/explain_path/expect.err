@@ -1,1 +1,1 @@
-{"template":"input.tmpl","variable":"app.port","source":"values.yaml","kind":"yaml","file":"values.yaml"}
+{"template":"input.tmpl","variable":"app.port","origin":{"kind":"values","method":"file","source":"values.yaml","file":"values.yaml","line":0},"shadowed":[]}
