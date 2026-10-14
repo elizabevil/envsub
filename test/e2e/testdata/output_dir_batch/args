@@ -1,0 +1,9 @@
+render
+--set
+A=1
+--set
+B=2
+--output-dir
+result
+--recursive
+templates

@@ -1,0 +1,5 @@
+render
+-i
+-f
+values.yaml
+input.tmpl
