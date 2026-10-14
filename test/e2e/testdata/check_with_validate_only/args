@@ -1,0 +1,8 @@
+render
+-f
+values.yaml
+--check
+--validate-only
+-o
+out.txt
+input.tmpl

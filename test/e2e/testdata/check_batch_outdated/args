@@ -1,0 +1,8 @@
+render
+-f
+values.yaml
+--check
+--output-dir
+outdir
+templates/a.tmpl
+templates/b.tmpl
