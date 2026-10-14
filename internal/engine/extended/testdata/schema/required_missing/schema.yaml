@@ -1,0 +1,4 @@
+type: object
+required: [ port ]
+properties:
+  port: { type: integer }

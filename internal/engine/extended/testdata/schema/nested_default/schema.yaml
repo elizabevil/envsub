@@ -1,0 +1,6 @@
+type: object
+properties:
+  app:
+    type: object
+    properties:
+      port: { type: integer, default: 1 }

@@ -1,0 +1,4 @@
+type: object
+customKeyword: true
+properties:
+  a: { type: integer }

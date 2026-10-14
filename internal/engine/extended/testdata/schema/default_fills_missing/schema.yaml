@@ -1,0 +1,4 @@
+type: object
+properties:
+  port: { type: integer, default: 8080 }
+  ratio: { type: number, default: 0.5 }
