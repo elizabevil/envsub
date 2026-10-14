@@ -1,0 +1,16 @@
+# 类型保留用例：整数、浮点、布尔、字符串、null、引号数字
+int: 8080
+big: 12345678901234567890
+huge: 123456789012345678901234567890
+float: 1.5
+bool: true
+string: plain text
+quoted_number: "8080"
+empty:
+nested:
+  list:
+    - 1
+    - two
+    - false
+  object:
+    inner: value

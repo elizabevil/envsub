@@ -1,0 +1,10 @@
+enabled: true
+hosts:
+  - a.internal
+  - b.internal
+labels:
+  tier: backend
+  zone: eu
+missing: null
+name: checkout
+port: 8080

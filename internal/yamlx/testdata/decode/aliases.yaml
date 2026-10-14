@@ -1,0 +1,7 @@
+defaults: &defaults
+  host: localhost
+  port: 8080
+service:
+  <<: *defaults
+  port: 9090
+alias: *defaults
