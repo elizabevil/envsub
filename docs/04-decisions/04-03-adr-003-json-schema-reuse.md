@@ -57,8 +57,9 @@ Accepted（已确认），来源：需求提出者确认采用该方案，2026-0
 - 正面：可直接复用 JSON Schema、Helm/K8s 生态经验、成熟校验库；减少自研语法与校验器成本。`[INFERENCE]`
 - 负面：需要薄适配层处理别名、默认值、未知关键字、YAML 归一化与字符串物化；JSON Schema 2020-12 的未知关键字规范行为（MUST
   refuse）默认被放宽。`[INFERENCE]`
-- 风险：未实现的 standard keyword 可能被静默忽略，造成校验假通过；需要通过文档与可选 `--unknown-keywords=warn|error` 缓解。
-  `[TODO]` owner：技术负责人。
+- 已缓解：`--unknown-keywords=ignore|warn|error` 已实现（`schema.ParseUnknownPolicy`、`load.Spec.UnknownKeywords`、
+  `render.Policies.SchemaUnknown`），默认 `ignore` 时仍会把未知关键字记入日志；规则见 `04-cli.md`。
+  残留风险：JSON Schema 2020-12 的未知关键字规范行为默认被放宽属**有意选择**。`[FACT]`
 - 兼容性：可为将来兼容 Helm `values.schema.json` 留出路径。`[INFERENCE]`
 
 ## 7. 相关文档

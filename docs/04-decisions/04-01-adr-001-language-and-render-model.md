@@ -67,15 +67,18 @@ Accepted（已确认），来源：需求提出者确认继续使用 Go 作为 v
   `[INFERENCE]`（依据：决策内容）
 - 负面：Go 二进制体积可能大于 Rust 优化结果；双模式/多文件合并会增加测试矩阵；结构化渲染若设计过度会偏离 envsubst 简洁性。
   `[INFERENCE]`（依据：语言与功能复杂度）
-- 风险：团队 Go 能力、schema 表达力、数组/深合并语义、默认值语法、兼容测试覆盖不足。`[TODO]` 均需在 Design Doc
-  中定义并验证，owner：技术负责人。
+- 风险（已在设计文档与规则中定义并验证）：schema 表达力与数组/深合并语义见 `03-03-values-merge-and-schema.md`、
+  默认值与物化见 `03-02-value-model-and-template-syntax.md` 与 `07-serialization/13-materialization.md`、
+  兼容测试覆盖见 `05-02` 测试矩阵与 `04-02` 的试用反馈项。`[FACT]`
+  残留：团队 Go 能力属组织问题，跟踪方式为代码评审（见 `01-context` 的范围文档）。
 
 ## 7. 相关文档
 
 - `docs/00-raw/00-00-index.md`
 - `docs/01-context/01-00-index.md`
 - `docs/04-decisions/04-02-adr-002-compatibility-and-migration.md`
-- 待创建：Design Doc、PRD、任务拆分。`[TODO]` owner：技术负责人/产品负责人。
+- 已创建：设计文档 `03-design/03-00-index.md` 起、PRD `02-product/02-03-prd.md`、
+  任务拆分 `05-tasks/05-01-p0-task-breakdown.md` 与 `05-tasks/05-04-p1-p2-task-breakdown.md`。`[FACT]`
 
 ## 非目标（Non-Goals）
 

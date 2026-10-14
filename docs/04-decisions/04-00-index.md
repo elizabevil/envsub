@@ -17,4 +17,4 @@ last-updated: 2026-09-29
 
 - 本索引不产生新决策。`[ASSUMPTION]`
 - 不替代 ADR 的人工评审。`[INFERENCE]`
-- 不展开 ADR 之外的实现细节。`[TODO]`
+- 不展开 ADR 之外的实现细节。`[FACT]`

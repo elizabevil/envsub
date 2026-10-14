@@ -59,14 +59,16 @@ Accepted（已确认），来源：需求提出者确认其余推荐项，2026-0
 
 - 正面：核心依赖少而明确；CLI、YAML、Schema、测试分层清晰；P0 可以快速落地。`[INFERENCE]`
 - 负面：Cobra 会增加一定二进制体积；自研 `.env` 解析器需要额外测试与维护。`[INFERENCE]`
-- 风险：YAML 归一化边界、Cobra 依赖升级、`.env` 解析器边界 case。`[TODO]` owner：技术负责人。
+- 现状：YAML 归一化边界由 `test/yamlx/` 的等价性/差异断言与基准钉住；`.env` 解析器由
+  `internal/source` 单测与 fuzz 目标覆盖（`test/fuzz/`，4 个目标）；Cobra 升级策略**不作承诺**（见第 7 节）。
+  `[FACT]`
 
 ## 7. 待确认问题
 
-- `sonic` 后端的多平台**运行时**兼容性（Windows/macOS/arm64 实机运行）仍待验证；
-  交叉编译已在 linux/amd64、linux/arm64、darwin/arm64、windows/amd64 通过（2026-10-08）。`[TODO]`
-  owner：技术负责人。
-- GoReleaser 与 GitHub Actions 的具体发布流程。`[TODO]` owner：技术负责人。
+- **待办**：`sonic` 后端的多平台**运行时**兼容性（Windows/macOS/arm64 实机运行）尚未验证。
+  交叉编译已在 linux/amd64、linux/arm64、darwin/arm64、windows/amd64 通过（2026-10-08）。
+  触发条件：有实机或 CI 矩阵 runner 时执行；owner：技术负责人。`[TODO]`
+- 发布流程已落地（未引入 GoReleaser）。`[FACT]` owner：技术负责人。
   （2026-10-08：已用 GitHub Actions 落地，未引入 GoReleaser——`release.yml` 矩阵构建 5 个目标，
   `supply-chain` job 产出 `SHA256SUMS` 与 SPDX SBOM，tag 推送创建 draft release；
   checksums/SBOM 由 `anchore/sbom-action` 与 `sha256sum` 负责，见 05-01「供应链基础」。）
@@ -242,10 +244,11 @@ Unicode）逐一编码后再解码比对，树完全相等。`[FACT]`
 - 超出 uint64 的整数在两种格式下的取直（JSON 裸数字、YAML 当前为带引号字符串）以及
   `nil`/空集合语义：规则已定案（精确整数 N1；typed nil 遵循库默认 `{}`/`[]`），规范性文本见
   [序列化规则](../07-serialization/00-index.md)（方案选型记录见其附录 A）。
-  实现清单见 [序列化规则第 14 节](../07-serialization/00-index.md)。`[TODO]`
+  实现见 [序列化规则第 14 节](../07-serialization/00-index.md)（两个命名空间、根/`@process` 读取规则），
+  测试见 `13-materialization.md` §14 与 e2e fixture。`[FACT]`
 
 ## 非目标（Non-Goals）
 
 - 本 ADR 不定义功能需求。`[ASSUMPTION]`
 - 不在 P0 引入 P1/P2 依赖。`[FACT]`
-- 不承诺依赖版本升级策略，后续可另开 ADR。`[TODO]`
+- 不承诺依赖版本升级策略；若将来需要承诺，另开 ADR。`[FACT]`

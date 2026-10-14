@@ -195,20 +195,27 @@ TASK-017 → TASK-019 → TASK-020 → TASK-021 → TASK-022 → TASK-024 → TA
 
 > 优化与规则差异的待办清单见 [05-03 待办工作交接](05-03-pending-work.md)（自包含，可冷启动接手）。
 
-## 本轮核实发现的缺口（建议排入 P0 收尾）
+## 本轮核实发现的缺口（状态：3 项待办、3 项已闭环）
 
-1. **Fuzz 未落地**：`05-02` 第 1 节把扫描器/表达式/`.env` 的 Fuzz 列为测试策略，仓库当前 `func Fuzz` 数量为 0。
-2. **TASK-026 无发布**：仓库无 tag、无试用反馈记录；`examples/` 已可运行，可作为试用输入。
-3. **应用层无单元测试**：`internal/app` 与 `cmd/envsub` 覆盖率为 0%（当前仅由 E2E 间接覆盖），
-   建议补最小装配测试或把 E2E 覆盖率纳入统计。
-4. **版本 `gitVersion` 语义重复**：从构建信息读到的版本仍可能带工具链 `+dirty` 后缀，与
-   `gitTreeState` 表达同一信息，待确认是否剥离。
-5. **sonic 后端运行时未验证**：交叉编译已覆盖 4 个平台，但 Windows/macOS 实机运行仍是
-   ADR-004 第 7 节的 TODO。
-6. **序列化规则实现中**：[序列化规则](../07-serialization/00-index.md) 条款已全部定案。已完成
-   第 1/3/4/5/6 步（nil 遵循库默认 `{}`/`[]`、`codec.ExactInt` 精确整数贯通编码/解码/物化/schema 边界、
-   sonic typed nil 归一化与非法 UTF-8 双向拒绝、断言与 golden 更新，两后端 22 包全绿）；待办为
-   `NaN`/`±Inf` 拒绝（第 7 步）、`uint` 类型名（第 9 步）与 §3 类型表逐行测试（第 8 步）。`[TODO]` owner：需求提出者
+**仍待办**（各有 owner 与触发条件）：
+
+1. **TASK-026 试用发布未开始**：仓库无 tag、无试用反馈记录；`examples/` 已可运行，可作为试用输入。
+   owner：产品负责人（与 `04-02` ADR 的落地验证同源）。
+2. **`gitVersion` 与 `gitTreeState` 可能语义重复**：`internal/version/version.go` 只输出
+   `GitVersion`（`debug.ReadBuildInfo` 的模块版本）与 `GitTreeState`（clean/dirty），**未做 `+dirty` 后缀剥离**；
+   是否剥离待定。owner：技术负责人。
+3. **`sonic` 后端实机运行未验证**：交叉编译已覆盖 linux/amd64、linux/arm64、darwin/arm64、windows/amd64，
+   但 Windows/macOS 实机运行仍未验证（ADR-004 §7）。触发条件：有实机或 CI 矩阵 runner；owner：技术负责人。
+
+**已闭环**（保留结论，避免重复排查）：
+
+4. **Fuzz 已落地**：`test/fuzz/fuzz_test.go` 有 4 个 `func Fuzz` 目标（扫描器/表达式/`.env`/数值），
+   `test/justfile` 的 `test` 目标含 `test-fuzz`。
+5. **应用层单测已补**：`internal/app/app_test.go`、`cmd/envsub/main_test.go` 覆盖参数装配、输入/输出形态、
+   `--validate-only`、`--explain`、退出码 2/3/4/5/6 与诊断文案（覆盖率见 `05-03` §8）。
+6. **序列化规则收尾完成**：第 7 步 `NaN`/`±Inf` 拒绝已实现（`09-gaps` G5：解码拒绝 + `codec.RejectNonFinite`
+   的编码侧拒绝）；第 8 步 §3 类型表逐行测试——`01-types.md` 的 8 条规则行全部带证据列与 ✅；
+   第 9 步 `uint` 类型名已定为**不提供**并从落地步骤中删除（`00-index` 变更记录）。
 
 （原"TASK-023 缺门禁"已解决：`test/perf/` + CI job `perf`，见 TASK-023 行与"性能实测"。
 原"TASK-024 供应链空白"已解决：CI job `security` + release job `supply-chain`，见"供应链基础"。）

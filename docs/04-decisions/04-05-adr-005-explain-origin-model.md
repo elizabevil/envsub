@@ -135,7 +135,7 @@ schema default → yaml/json 值文件 → .env → --set/--set-json/--set-file 
 | 产品 | `internal/render/explain.go` 重构为帧结构；`load` 观察者需上报 schema `default` 帧（当前 default 只报最终生效项）与 `--set-file` 的被读文件；`values` 的 kind 常量改为 kind+method 两段 |
 | 契约 | `--explain` JSONL 字段不兼容变更（已决：不保留旧形状） |
 | 测试 | 7 个 e2e `explain_*` fixture 重生成；补 `shadowed` **顺序**与**多层链**断言（`05-02` 登记的缺口）；补 I1–I5 |
-| 文档 | `13-materialization.md` §15 重写；`06-11`/`06-13`/`06-14` 的 `[TODO]` 转正并更新字段表；`05-03` 待办 I 状态更新 |
+| 文档 | ✅ 已执行：`13-materialization.md` §15 重写；`06-11`/`06-13`/`06-14` 的 `[TODO]` 转正并更新字段表；`05-03` 待办 I 标记完成 |
 | 展示 | `examples/tools/digest --sources` 按新结构打印，路径归一为**仓库根相对** |
 
 ## 7. 实施说明与未决
