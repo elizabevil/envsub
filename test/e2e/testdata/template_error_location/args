@@ -1,0 +1,4 @@
+render
+--set
+NAME=x
+input.tmpl

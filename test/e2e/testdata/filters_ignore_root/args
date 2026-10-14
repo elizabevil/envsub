@@ -1,0 +1,6 @@
+render
+-f
+values.yaml
+--ignore-vars
+string_type_root
+input.tmpl

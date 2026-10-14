@@ -1,0 +1,5 @@
+render
+--log-level=debug
+-f
+values.yaml
+input.tmpl

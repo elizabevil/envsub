@@ -1,0 +1,7 @@
+render
+-f
+values.yaml
+--output-dir
+out
+missing.tmpl
+ok.tmpl

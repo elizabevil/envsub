@@ -1,0 +1,3 @@
+a=${MISSING}
+b=fallback
+c=world

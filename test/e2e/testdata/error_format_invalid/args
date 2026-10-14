@@ -1,0 +1,3 @@
+render
+--error-format=yaml
+input.tmpl

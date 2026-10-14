@@ -1,0 +1,2 @@
+a=kept
+b=${int_type_materialized}

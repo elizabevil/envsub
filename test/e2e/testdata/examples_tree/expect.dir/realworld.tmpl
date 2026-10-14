@@ -1,0 +1,13 @@
+# A realistic service configuration: the shape a user would actually render.
+#
+# `endpoints` and `labels` are inline scalars here because a one-line value reads
+# better in a service config; a nested multi-line block (with `toYaml align`) is
+# shown in templates/scenarios-yaml.tmpl (types.object_nested_block).
+service:
+  name: prod-string
+  replicas: 7
+  enabled: true
+  region: prod
+  endpoints: ["prod","a","c"]
+  labels: {"a":2,"m":3,"z":9}
+  started_by: from-process

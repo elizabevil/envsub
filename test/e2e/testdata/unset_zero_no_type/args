@@ -1,0 +1,3 @@
+render
+--on-missing=zero
+input.tmpl
