@@ -14,7 +14,10 @@ const ReportUnused = "unused"
 
 // RenderEngine is what the pipeline needs from a template engine: its name. The
 // buffered, streaming and path capabilities are discovered by type assertion on
-// the concrete value, so a test stand-in only has to provide Name.
+// the concrete value, so a test stand-in only has to provide Name. The name is
+// deliberate: `Engine` would collide with the engine package this file imports.
+//
+//nolint:revive // stutter is the point: render.RenderEngine reads better than a name clash
 type RenderEngine interface {
 	Name() string
 }

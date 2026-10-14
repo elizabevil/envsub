@@ -35,7 +35,7 @@ import (
 
 func main() {
 	if err := run(os.Args[1:], os.Stdout, os.Stderr); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
@@ -63,7 +63,7 @@ func run(args []string, stdout, stderr io.Writer) error {
 			return err
 		}
 		for _, entry := range entries {
-			fmt.Fprintf(stdout, "%s  %s\n", entry.hash, entry.path)
+			_, _ = fmt.Fprintf(stdout, "%s  %s\n", entry.hash, entry.path)
 		}
 		return nil
 	case *parse != "":
@@ -153,12 +153,12 @@ func compareTrees(expectDir, gotDir string, stdout io.Writer) error {
 	}
 	sort.Strings(problems)
 	for _, problem := range problems {
-		fmt.Fprintln(stdout, problem)
+		_, _ = fmt.Fprintln(stdout, problem)
 	}
 	if len(problems) > 0 {
 		return fmt.Errorf("%d file(s) do not match", len(problems))
 	}
-	fmt.Fprintf(stdout, "%d file(s) match\n", len(expect))
+	_, _ = fmt.Fprintf(stdout, "%d file(s) match\n", len(expect))
 	return nil
 }
 
@@ -184,13 +184,13 @@ func parseFile(format, path string, stdout io.Writer) error {
 		if err := json.Unmarshal(data, &decoded); err != nil {
 			return fmt.Errorf("%s is not valid JSON: %w", path, err)
 		}
-		fmt.Fprintf(stdout, "%s: valid JSON (%s)\n", path, summarize(decoded))
+		_, _ = fmt.Fprintf(stdout, "%s: valid JSON (%s)\n", path, summarize(decoded))
 	case "yaml":
 		var decoded any
 		if err := yamlx.Unmarshal(data, &decoded); err != nil {
 			return fmt.Errorf("%s is not valid YAML: %w", path, err)
 		}
-		fmt.Fprintf(stdout, "%s: valid YAML (%s)\n", path, summarize(decoded))
+		_, _ = fmt.Fprintf(stdout, "%s: valid YAML (%s)\n", path, summarize(decoded))
 	default:
 		return fmt.Errorf("unsupported --parse format %q: want json or yaml", format)
 	}
@@ -308,7 +308,7 @@ func summariseSources(path string, stdout io.Writer) error {
 		if err != nil {
 			return err
 		}
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 		reader = file
 	}
 
@@ -343,28 +343,28 @@ func summariseSources(path string, stdout io.Writer) error {
 		return entries[i].Variable < entries[j].Variable
 	})
 
-	fmt.Fprintf(stdout, "%d values referenced\n", len(entries))
+	_, _ = fmt.Fprintf(stdout, "%d values referenced\n", len(entries))
 	kind, source := "", ""
 	for _, entry := range entries {
 		if entry.Origin.Kind != kind {
 			kind, source = entry.Origin.Kind, ""
-			fmt.Fprintf(stdout, "\n[%s]\n", kind)
+			_, _ = fmt.Fprintf(stdout, "\n[%s]\n", kind)
 		}
 		if entry.Origin.Source != source {
 			source = entry.Origin.Source
 			if where := normalizePrefix(source); where != "" {
-				fmt.Fprintf(stdout, "  from %s\n", where)
+				_, _ = fmt.Fprintf(stdout, "  from %s\n", where)
 			}
 		}
-		fmt.Fprintf(stdout, "    %s   <- %s", entry.Variable, entry.Origin.where())
+		_, _ = fmt.Fprintf(stdout, "    %s   <- %s", entry.Variable, entry.Origin.where())
 		if len(entry.Shadowed) > 0 {
 			parts := make([]string, 0, len(entry.Shadowed))
 			for _, frame := range entry.Shadowed {
 				parts = append(parts, frame.where())
 			}
-			fmt.Fprintf(stdout, "   (covered: %s)", strings.Join(parts, " | "))
+			_, _ = fmt.Fprintf(stdout, "   (covered: %s)", strings.Join(parts, " | "))
 		}
-		fmt.Fprintln(stdout)
+		_, _ = fmt.Fprintln(stdout)
 	}
 	return nil
 }

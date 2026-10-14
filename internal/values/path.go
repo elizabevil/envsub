@@ -357,14 +357,16 @@ func malformedRootSegment(path string) string {
 // metadata key, which drops both.
 func Canonical(segments []Segment) string {
 	var b strings.Builder
-	// afterIndex allows the dot directly after a bracket, as in hosts[0].name.
+	// afterIndex allows the dot directly after a bracket, as in hosts[0].name; it
+	// is set by the bracket branch below and cleared at the end of each step.
 	afterElement := false
 	afterIndex := false
 	for _, segment := range segments {
 		switch {
 		case segment.IsIndex:
+			// The next segment always sees afterIndex, and the loop tail clears
+			// it, so no assignment is needed here.
 			fmt.Fprintf(&b, "[%d]", segment.Index)
-			afterIndex = true
 		case segment.IsNamespace:
 			b.WriteByte(namespaceSigil)
 			b.WriteString(segment.Key)

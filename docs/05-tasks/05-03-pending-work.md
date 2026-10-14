@@ -136,3 +136,41 @@
 | REQ-TPL-04 | include/partials | P1 | `--include-dir` 白名单、深度上限（候选 3 层）、循环检测与错误格式 |
 | REQ-TPL-05 | 受限条件/循环 | P1 | 保持"受限"的边界（无递归、无函数定义）与确定性 fixture |
 | REQ-OUT-03/04/05 | `--dry-run`/`--diff`/`--check` | P1 | 三者与 `--validate-only` 的差异；diff 是否内置实现 |
+
+## 待办 J：`just lint` 的工具链版本（已诊断，待环境侧处理）
+
+**现象**：`just lint` 报
+
+```text
+internal/diag/errors.go:6:2: could not import errors (... internal/goarch ... )
+  (cannot decode "internal/goarch", export data version 5 is greater than maximum supported version 4)
+1 issues: * typecheck: 1
+```
+
+**诊断**：不是代码问题，是**二进制与标准库的编译版本不一致**。系统
+`golangci-lint 2.13.2` 用 **go1.27.0** 构建，而项目工具链与标准库是 **go1.27.2**；
+它无法解码 1.27.2 产出的 export 数据（版本 5 > 它支持的最高 4）。
+
+**处置（本轮）**：在工作区内用项目同版本 Go 安装新构建的 linter 运行：
+
+```bash
+GOPATH=$PWD/.tmp/gopath GOBIN=$PWD/.tmp/gopath/bin \
+  go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
+GOLANGCI_LINT_CACHE=$PWD/.tmp/golangci-cache ./.tmp/gopath/bin/golangci-lint run ./...
+```
+
+结果 **0 issues**（修掉 18 项真实问题，见下）。`.tmp/` 已在忽略列表内，不影响仓库。
+
+**待办**：把系统 `golangci-lint` 换成与项目 Go 同版本构建的二进制（或在 `just lint`
+里检测版本并给出明确提示），否则 `just check` 的 lint 环节在本机不可用。
+
+## 本轮修复的 18 项 lint 问题（`golangci-lint v2.14.0`，配置不变）
+
+| 类别 | 数量 | 修复 |
+|------|------|------|
+| errcheck | 12 | `examples/tools/digest`：写 stdout/stderr 的 `fmt.Fprintf`/`Fprintln` 与 `file.Close` 显式 `_ =`（输出流错误无处上报，与既有取舍一致） |
+| unused | 1 | `internal/engine/extended/engine.go`：删除**重复的死代码** `pipelineWord` 自由函数（方法版在用；它比死代码多保留了 keep 信号语义） |
+| ineffassign | 1 | `internal/values/path.go` `Canonical`：`afterIndex = true` 在循环尾部必然被清除，属无效赋值，删除并注释说明 |
+| staticcheck | 1 | `internal/engine/extended/expression.go`：`switch { case field == alignArgument }` 改为 tagged switch |
+| revive | 2 | `test/fuzz`：`f.Fuzz` 回调未使用 `t` 的改为 `_` |
+| revive | 1 | `internal/render`：`RenderEngine` 名字有 stutter，但改为 `Engine` 会与导入的 engine 包冲突，保留并加 `//nolint:revive` 说明 |

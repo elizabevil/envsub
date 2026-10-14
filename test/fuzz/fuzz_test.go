@@ -23,7 +23,7 @@ func FuzzTemplateScanner(f *testing.F) {
 	} {
 		f.Add([]byte(seed))
 	}
-	f.Fuzz(func(t *testing.T, data []byte) {
+	f.Fuzz(func(_ *testing.T, data []byte) {
 		_, _ = extended.Scan(data)
 	})
 }
@@ -75,7 +75,7 @@ func FuzzDotenvParser(f *testing.F) {
 	} {
 		f.Add([]byte(seed))
 	}
-	f.Fuzz(func(t *testing.T, data []byte) {
+	f.Fuzz(func(_ *testing.T, data []byte) {
 		_, _ = source.ParseDotenv(data)
 	})
 }

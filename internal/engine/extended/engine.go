@@ -628,20 +628,6 @@ func (e *Engine) requiredError(ctx context.Context, expr expression, in engine.I
 	return diag.New(diag.KindMissing, "%s", msg)
 }
 
-// pipelineWord renders an operator's word and applies the expression's inline type
-// and formatter pipeline to it. A word is a value like any other: the pipeline says
-// what to do with whatever the expression produced, so ${A:-fallback | quote}
-// quotes the fallback and ${A:+set | toJson} JSON-encodes the alternate word. A
-// keep signal from inside the word propagates, so the whole enclosing placeholder
-// stays verbatim.
-func pipelineWord(ctx context.Context, e *Engine, expr expression, in engine.Input) (renderResult, error) {
-	rendered, err := e.renderBytes(ctx, []byte(expr.Word), in, false)
-	if err != nil {
-		return renderResult{}, err
-	}
-	return pipelineValue(ctx, expr, string(rendered), in)
-}
-
 // writeValue streams a resolved value, avoiding the intermediate string that
 // stringifyValue would allocate for the common scalar cases.
 func writeValue(w io.Writer, path string, value any, column int) error {

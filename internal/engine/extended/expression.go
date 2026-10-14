@@ -187,8 +187,8 @@ func parseStep(segment string) (step pipeline.Step, declared types.Declared, has
 		// order: `toYaml`, `toYaml 3`, `toYaml align`, `toYaml 3 align`.
 		step := pipeline.Step{Name: name}
 		for _, field := range strings.Fields(rest) {
-			switch {
-			case field == alignArgument:
+			switch field {
+			case alignArgument:
 				if step.Align {
 					return pipeline.Step{}, types.Declared{}, false, fmt.Errorf("toYaml repeats %q", alignArgument)
 				}
