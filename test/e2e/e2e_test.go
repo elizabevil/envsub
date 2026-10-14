@@ -617,3 +617,50 @@ func TestExplainFramesFollowADR005(t *testing.T) {
 		t.Errorf("D shadowed = %+v, want none", d.Shadowed)
 	}
 }
+
+// TestExplainReportsAssignmentOrigins pins the assign frame: a value a template
+// wrote with := or = is reported with the template and line that wrote it, which
+// is why the report runs after the render loop (ADR-005).
+func TestExplainReportsAssignmentOrigins(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	tmpl := filepath.Join(dir, "input.tmpl")
+	if err := os.WriteFile(tmpl, []byte("first=${K:=written}\nsecond=${K}\n"), 0o600); err != nil {
+		t.Fatalf("write template: %v", err)
+	}
+	stdout, stderr, status := execute(t, dir, nil, []string{"render", "--explain", "--no-process-env", tmpl})
+	if status != 0 {
+		t.Fatalf("exit = %d, want 0; stderr=%q", status, stderr)
+	}
+	if stdout != "first=written\nsecond=written\n" {
+		t.Fatalf("stdout = %q, want both references resolved", stdout)
+	}
+	want := `"origin":{"kind":"set","method":"assign","source":"` + tmpl + `","file":"` + tmpl + `","line":1}`
+	if !strings.Contains(stderr, want) {
+		t.Fatalf("--explain report = %q, want it to contain %q", stderr, want)
+	}
+}
+
+// TestExplainReportsBeforeAFailure pins that a failing render still explains what
+// it resolved: the report is the diagnostic, so it is written before the error
+// is returned.
+func TestExplainReportsBeforeAFailure(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	tmpl := filepath.Join(dir, "input.tmpl")
+	if err := os.WriteFile(tmpl, []byte("ok=${K:=written}\nmissing=${NO_SUCH_VAR}\n"), 0o600); err != nil {
+		t.Fatalf("write template: %v", err)
+	}
+	_, stderr, status := execute(t, dir, nil, []string{"render", "--explain", "--no-process-env", tmpl})
+	if status != 6 {
+		t.Fatalf("exit = %d, want 6 (missing); stderr=%q", status, stderr)
+	}
+	for _, want := range []string{
+		`"variable":"K","origin":{"kind":"set","method":"assign"`,
+		`"variable":"NO_SUCH_VAR","origin":{"kind":"missing","method":"missing"`,
+	} {
+		if !strings.Contains(stderr, want) {
+			t.Fatalf("--explain report = %q, want it to contain %q", stderr, want)
+		}
+	}
+}

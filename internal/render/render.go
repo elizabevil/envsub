@@ -63,11 +63,12 @@ func Run(ctx context.Context, eng RenderEngine, req Request) error {
 	if err != nil {
 		return err
 	}
-	// --explain reads every template before the loop; a second reader would
-	// consume stdin a second time and render nothing, so the reference scan
-	// reuses what --explain already read.
-	if req.Explain.Active() {
-		if err := req.reportSources(ctx, eng, templates, run); err != nil {
+	// --explain and --report=unused both need the template text; read every
+	// template once here and let both reuse it. A second reader would consume
+	// stdin twice and render nothing.
+	explainActive := req.Explain.Active()
+	if explainActive || req.Report.Unused() {
+		if err := req.readSources(ctx, templates); err != nil {
 			return err
 		}
 	}
@@ -96,19 +97,37 @@ func Run(ctx context.Context, eng RenderEngine, req Request) error {
 	}
 	logger.Debug(logRenderBatch, "templates", len(templates))
 
+	// The explain report runs after the loop, which needs the tree a render left
+	// behind. Buffering the template and the output is the price of reporting
+	// assignment origins; the streaming path cannot see them.
 	streamer, canStream := eng.(engine.StreamEngine)
 	reader, canStreamReader := eng.(engine.StreamReaderEngine)
+	if explainActive {
+		canStream, canStreamReader = false, false
+	}
 	rs := renderers{stream: streamer, canStream: canStream, reader: reader, canStreamReader: canStreamReader}
 	var failed []error
 	for i, tmpl := range templates {
 		dst := destination{writer: writer, stream: targets[i]}
 		if err := req.renderOne(ctx, eng, rs, tmpl, in, dst); err != nil {
 			if len(templates) == 1 {
+				if explainActive {
+					if reportErr := req.reportSources(eng, templates, run); reportErr != nil {
+						return reportErr
+					}
+				}
 				return err
 			}
 			logger.Error("render failed", "template", tmpl.Input, "error", err)
 			failed = append(failed, diag.At(err, tmpl.Input, 0))
 			continue
+		}
+	}
+	// The report is written even when a batch had failures: it explains what the
+	// render did manage to resolve, which is what a reader needs to diagnose.
+	if explainActive {
+		if err := req.reportSources(eng, templates, run); err != nil {
+			return err
 		}
 	}
 	// A batch fails as a whole, but each failure keeps its own classification, so
@@ -295,22 +314,31 @@ func (req Request) renderBuffered(ctx context.Context, eng RenderEngine, rs rend
 	return nil
 }
 
-// reportSources reads every template once and writes the --explain report for it.
-// The read has to happen before rendering: stdin cannot be read twice, so a
-// template that is also rendered must be read once and reused.
-func (req Request) reportSources(ctx context.Context, eng RenderEngine, templates []template, explain explainRun) error {
+// readSources reads every template once and keeps its text on the template. The
+// read has to happen before rendering: stdin cannot be read twice, so a template
+// that is also rendered must be read once and reused by --explain and by the
+// reference scan behind --report=unused.
+func (req Request) readSources(ctx context.Context, templates []template) error {
 	for i := range templates {
-		data := templates[i].Text
-		if data == nil {
-			read, err := readTemplate(templates[i].Input, os.Stdin)
-			if err != nil {
-				return err
-			}
-			data = read
-			templates[i].Text = data
+		if templates[i].Text != nil {
+			continue
 		}
+		data, err := readTemplate(templates[i].Input, os.Stdin)
+		if err != nil {
+			return err
+		}
+		templates[i].Text = data
 		logging.FromContext(ctx).Debug(logTemplateLoaded, "template", templates[i].Input, "bytes", len(data))
-		if err := req.emitExplain(eng, templates[i].Input, data, explain); err != nil {
+	}
+	return nil
+}
+
+// reportSources writes the --explain report for every template. It runs after the
+// render loop, because an assignment (${K:=v}) only publishes its value while the
+// template renders and the report must show that value's lineage (ADR-005).
+func (req Request) reportSources(eng RenderEngine, templates []template, explain explainRun) error {
+	for i := range templates {
+		if err := req.emitExplain(eng, templates[i].Input, templates[i].Text, explain); err != nil {
 			return err
 		}
 	}

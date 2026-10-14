@@ -278,21 +278,31 @@ func metaOrigin(meta values.Meta) explainOrigin {
 	if kind == "" {
 		kind = values.SourceMissing
 	}
-	method := values.MethodMissing
-	switch kind {
-	case values.SourceValues, values.SourceEnvFile:
-		method = values.MethodFile
-	case values.SourceSet:
-		method = values.MethodFlag
-	case values.SourceSchema:
-		method = values.MethodDefault
-	case values.SourceProcess:
-		method = values.MethodEnv
+	// Prefer the method the writer recorded; only infer it when the metadata
+	// predates it (a set value written outside the loader).
+	method := values.SourceMethod(meta.Method)
+	if method == "" {
+		switch kind {
+		case values.SourceValues, values.SourceEnvFile:
+			method = values.MethodFile
+		case values.SourceSet:
+			method = values.MethodFlag
+		case values.SourceSchema:
+			method = values.MethodDefault
+		case values.SourceProcess:
+			method = values.MethodEnv
+		default:
+			method = values.MethodMissing
+		}
+	}
+	source := meta.Source
+	if source == "" {
+		source = meta.File
 	}
 	return explainOrigin{
 		kind:   string(kind),
 		method: string(method),
-		source: meta.File,
+		source: source,
 		file:   meta.File,
 		line:   meta.Line,
 	}

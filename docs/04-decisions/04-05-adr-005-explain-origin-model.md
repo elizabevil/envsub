@@ -138,8 +138,10 @@ schema default → yaml/json 值文件 → .env → --set/--set-json/--set-file 
 | 文档 | `13-materialization.md` §15 重写；`06-11`/`06-13`/`06-14` 的 `[TODO]` 转正并更新字段表；`05-03` 待办 I 状态更新 |
 | 展示 | `examples/tools/digest --sources` 按新结构打印，路径归一为**仓库根相对** |
 
-## 7. 未决
+## 7. 实施说明与未决
 
-- 值文件（`values`）是否补行号：需加载器记录位置，成本较高，暂记 `line: 0`；
-- `schema` 帧的 `file`/`line` 取 schema 文件路径与 `0`（JSON 无行概念），若将来在 schema 内联
-  记录键的行号再更新。
+- 报告在**渲染循环之后**写出（渲染失败时先写报告再返回错误），这样 `${K:=v}` 写回的值也在链上；
+  `--explain` 因此读取模板文本并走缓冲路径，与 `--report=unused` 相同。`[已决 2026-10-13]`
+- 值文件（`values`）的行号仍为 `0`：需加载器记录位置，成本较高。`[未决]`
+- `schema` 帧的 `file` 取 schema 文件路径、`line` 为 `0`（JSON 无行概念）；若将来在 schema
+  内联记录键的行号再更新。`[未决]`

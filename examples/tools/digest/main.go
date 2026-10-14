@@ -28,6 +28,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/elizabevil/envsub/internal/yamlx"
 )
@@ -241,38 +242,58 @@ type explainFrame struct {
 	Line   int    `json:"line"`
 }
 
-// where renders a frame as one compact line: "kind/method source:line". File
-// paths are shown relative to the repository root so the report reads the same on
-// every machine and can be pasted into an issue.
+// where renders a frame as one compact line: "kind/method source:line". Paths are
+// shown relative to the repository root so the report reads the same on every
+// machine and can be pasted into an issue.
 func (f explainFrame) where() string {
-	loc := relativeToRepo(f.Source)
-	if loc == "" {
-		loc = relativeToRepo(f.File)
+	location := normalizePrefix(f.Source)
+	if location == "" {
+		location = normalizePrefix(f.File)
 	}
-	if loc == "" {
+	if location == "" {
 		return f.Kind + "/" + f.Method
 	}
 	if f.Line > 0 {
-		return f.Kind + "/" + f.Method + " " + loc + ":" + strconv.Itoa(f.Line)
+		return f.Kind + "/" + f.Method + " " + location + ":" + strconv.Itoa(f.Line)
 	}
-	return f.Kind + "/" + f.Method + " " + loc
+	return f.Kind + "/" + f.Method + " " + location
 }
 
-// relativeToRepo trims the repository root prefix from a path so the report does
-// not leak the local checkout location.
-func relativeToRepo(path string) string {
+// repoRoot is the working directory when it holds go.mod, computed once. The
+// examples run the tool from the repository root, so this is the prefix to strip.
+var repoRoot = sync.OnceValue(func() string {
+	dir, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return ""
+		}
+		dir = parent
+	}
+})
+
+// normalizePrefix makes a path relative to the repository root when it is inside
+// it, so a report never leaks the local checkout location. A path outside the
+// root (or when the root is unknown) is returned unchanged.
+func normalizePrefix(path string) string {
 	if path == "" {
 		return ""
 	}
-	for _, marker := range []string{"/examples/", "/test/", "/internal/", "/docs/"} {
-		if index := strings.Index(path, marker); index >= 0 {
-			return path[index+1:]
-		}
+	root := repoRoot()
+	if root == "" {
+		return path
 	}
-	if index := strings.Index(path, "/examples"); index > 0 {
-		return path[index+1:]
+	relative, err := filepath.Rel(root, path)
+	if err != nil || strings.HasPrefix(relative, "..") {
+		return path
 	}
-	return path
+	return filepath.ToSlash(relative)
 }
 
 // summariseSources reads an --explain log and prints the provenance of every
@@ -331,7 +352,7 @@ func summariseSources(path string, stdout io.Writer) error {
 		}
 		if entry.Origin.Source != source {
 			source = entry.Origin.Source
-			if where := relativeToRepo(source); where != "" {
+			if where := normalizePrefix(source); where != "" {
 				fmt.Fprintf(stdout, "  from %s\n", where)
 			}
 		}
