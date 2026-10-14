@@ -15,6 +15,11 @@ export GOCACHE := env("GOCACHE", justfile_directory() / ".tmp/gocache")
 export GOTMPDIR := env("GOTMPDIR", justfile_directory() / ".tmp/gotmp")
 export GOLANGCI_LINT_CACHE := env("GOLANGCI_LINT_CACHE", justfile_directory() / ".tmp/golangci-cache")
 
+# The linter is built from source into .tmp/bin because a prebuilt release is
+# compiled with an older Go than this repository uses (see the script).
+lintPin := "v2.14.0"
+lintTool := "bash " + (justfile_directory() / "tools" / "lint" / "golangci-lint.sh")
+
 # Local builds and release artifacts share one output directory.
 exe := "dist/envsub"
 ldflags := "-s -w"
@@ -88,14 +93,14 @@ vet: caches
     go vet ./...
 
 lint: caches
-    golangci-lint run ./...
+    {{ lintTool }} run ./...
 
 tidy: caches
     go mod tidy
 
 # check is the local gate: formatting (Go and just), vet, unit/fixture tests and
 # the end-to-end suite.
-check: caches fmt-check fmt-just vet test test-e2e
+check: caches fmt-check fmt-just vet lint test test-e2e
 
 # --- tests ------------------------------------------------------------------
 
@@ -104,6 +109,7 @@ test: caches
 
 test-race: caches
     go test -race -count=1 ./...
+    go test -race -count=1 -tags=sonic ./internal/jsonx/
 
 test-e2e: caches
     cd test && just test-e2e

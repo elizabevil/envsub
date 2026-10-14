@@ -137,32 +137,30 @@
 | REQ-TPL-05 | 受限条件/循环 | P1 | 保持"受限"的边界（无递归、无函数定义）与确定性 fixture |
 | REQ-OUT-03/04/05 | `--dry-run`/`--diff`/`--check` | P1 | 三者与 `--validate-only` 的差异；diff 是否内置实现 |
 
-## 待办 O：`just lint` 的工具链版本（已诊断，待环境侧处理）
+## 待办 O：`just lint` 的工具链版本（已解决）
 
-**现象**：`just lint` 报
+**问题**：系统预装的 `golangci-lint`（2.13.2）用 **go1.27.0** 构建，而项目工具链与标准库是
+**go1.27.2**；类型检查器只能读它自己那代或更早的 export 数据，于是报
 
 ```text
-internal/diag/errors.go:6:2: could not import errors (... internal/goarch ... )
-  (cannot decode "internal/goarch", export data version 5 is greater than maximum supported version 4)
-1 issues: * typecheck: 1
+cannot decode "internal/goarch", export data version 5 is greater than maximum supported version 4
 ```
 
-**诊断**：不是代码问题，是**二进制与标准库的编译版本不一致**。系统
-`golangci-lint 2.13.2` 用 **go1.27.0** 构建，而项目工具链与标准库是 **go1.27.2**；
-它无法解码 1.27.2 产出的 export 数据（版本 5 > 它支持的最高 4）。
+**另一个环境约束**：本机 `$HOME` 下的默认缓存（`~/.cache/go-build`、`~/.cache/golangci-lint`、
+`$GOMODCACHE`）**全部只读**，因此工具与缓存只能放工作区内（仓库既有约定已如此：`justfile`
+顶部把 `GOCACHE`/`GOTMPDIR`/`GOLANGCI_LINT_CACHE` 指到 `.tmp/`）。
 
-**处置（本轮）**：在工作区内用项目同版本 Go 安装新构建的 linter 运行：
+**解决**：`tools/lint/golangci-lint.sh` 负责"版本不符则从源码构建一次，之后直接复用"：
 
-```bash
-GOPATH=$PWD/.tmp/gopath GOBIN=$PWD/.tmp/gopath/bin \
-  go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
-GOLANGCI_LINT_CACHE=$PWD/.tmp/golangci-cache ./.tmp/gopath/bin/golangci-lint run ./...
-```
+- 固定版本 + 固定工具链：脚本内 `GOTOOLCHAIN=go1.27.2`、`GOBIN=.tmp/bin`；
+- 模块与构建缓存固定在 `.tmp/gopath`、`.tmp/gocache`（不读写调用方的 `HOME`）；
+- 版本已在 `.tmp/bin` 时**零下载、零重建**（实测第二次 0.47s，二进制时间戳不变）；
+- 首次构建约 16s；`.tmp/` 已被 gitignore。
+- `justfile` 的 `lintPin`（`v2.14.0`）与脚本里的 `version` 必须同步改。
 
-结果 **0 issues**（修掉 18 项真实问题，见下）。`.tmp/` 已在忽略列表内，不影响仓库。
+**lint 已进入静态测试**：`just check` 现在是
+`caches fmt-check fmt-just vet lint test test-e2e`，lint 失败即门禁失败。
 
-**待办**：把系统 `golangci-lint` 换成与项目 Go 同版本构建的二进制（或在 `just lint`
-里检测版本并给出明确提示），否则 `just check` 的 lint 环节在本机不可用。
 
 ## 本轮修复的 18 项 lint 问题（`golangci-lint v2.14.0`，配置不变）
 
