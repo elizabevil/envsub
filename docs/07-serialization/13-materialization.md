@@ -302,10 +302,10 @@ ${app.hosts | join ","}      # a,b
 - **限制进程环境的开关（语义已澄清）**：`--no-process-env` 让 `@process` 为空；`--process-env-prefix PREFIX` 只把带该前缀的**进程**变量放进 `@process`（白名单，保留原名）；两者互斥（usage，exit 2）。**`.env` 文件完全不受这两个开关影响**（它进根）。`[FACT]`
 - **`--process-env-prefix` 的精确语义**：它只是**进程环境变量名的白名单闸门**，**不拼接、不剥离**前缀——`APP_PORT` 以原名 `APP_PORT` 入表，模板用 `${@process.APP_PORT}` 精确读取；`--process-env-prefix APP_` 不会让顶层属性 `port` 或 `${@process.port}` 命中 `APP_PORT`。`[FACT]`（fixture `env_prefix`、`env_prefix_positive`）
 
-## 13. 环境变量映射（需求讨论，待评审决断）
+## 13. 环境变量映射（当前不提供；替代做法见下）
 
 > **前置**：根是唯一配置面（`.env` 的顶层键写入根）；进程环境只读，仅经 `${@process.NAME}`
-> 读取（见 §14）。本节讨论的是**显式映射**（例如把 `APP_PORT` 写回 `app.port`），属独立后续议题。
+> 读取（见 §14）。本节回答的是"要不要把 `APP_PORT` 自动或显式映射到 `app.port`"。
 
 ### 现状：环境进入值树的两条路
 
@@ -318,28 +318,37 @@ ${app.hosts | join ","}      # a,b
 `APP_PORT` 不会被当成 `app.port`。推导被否决的理由是它无法表达多对多映射（同一个 `PORT` 可能
 对应 `app.port` 或 `mongo.port`），并且会让同名无关进程变量意外命中。
 
-### 候选方案：显式映射
+### `.env` 的能力边界（实测）与替代做法
 
-| 方案 | 做法 | 优点 | 代价 |
-|------|------|------|------|
-| **A（推荐）** | `--env-map ENV=path`（可重复）或 `--env-map-file map.yaml`（`ENV: path`）；只读取映射到的名字 | 零歧义、支持任意自定义名、白名单即映射表 | 新选项 + 文档 + fixture |
-| B | 前缀 + **剥离**（`--process-env-prefix APP_` 下 `APP_PORT` → `PORT`） | 名字更短 | 与点号路径叠加仍二义（`app.port` vs `app_port`） |
-| C | 不做映射，维持上面两条路 | 零新增 | 需要映射的项目要自己写值文件 |
+`.env` 的键**不含点号**（`app.port=8080` → `parse ...: invalid key "app.port"`），也不做改名，
+因此它覆盖的是"顶层同名"这一类；其余场景用现有显式手段：
 
-### 待决点（请评审决定）
+| 场景 | `.env` 能否满足 | 替代做法 |
+|------|------------------|----------|
+| 目标就是顶层同名键（schema 属性 `PORT` ← `.env` 的 `PORT`） | ✅ | — |
+| 目标在**嵌套路径**（`APP_PORT` → `app.port`） | ❌ | `--set app.port=$APP_PORT`（shell 展开；注意 `--set` 属最高层，会压过 `.env` 与值文件）；需要保密时用 `--set-file` |
+| **改名**（`MY_SERVICE_PORT` → `port`） | ❌ | 同上（`--set` / `--set-file`），或直接写值文件 |
+| 白名单 / 防污染 | ⚠️ 间接（`.env` 里只写想要的行） | `--process-env-prefix` 限进程环境白名单 + 模板里显式读取 `${@process.X}` |
 
-1. 主契约选 **A / B / C**？
-2. 映射写在哪里：CLI `--env-map`、映射文件（便于版本化），还是两者都支持？
-3. **优先级次序**：显式映射 / `--set` / `.env` / 值文件谁先谁后？
-4. 映射目标路径在 schema/值树中不存在（拼错）→ 报错（推荐）还是告警？
-5. 若选 A，`--process-env-prefix` 的定位是否简化为"仅诊断/审计"（白名单由映射表承担）？
+### 立场与触发条件
 
-### 评审结论与实测事实
+**当前不提供** `--env-map` / `--env-map-file` 这类显式映射选项：上面的替代做法已覆盖已知用法，
+且新选项会引入一份需要版本化、需要定优先级的映射表。`[FACT]`
 
-**结论**：**不保留 `路径 → env 名` 推导**（隐式逻辑，容易造成误判），环境读取只有上面的两条路；
-"这个值来自 `.env` 还是宿主环境"由 `--explain` 回答（帧里的 `kind`/`method`/`file`/`line`，见 §15 与 ADR-005）。
+若出现真实需求且替代做法被判定不可接受，按以下顺序推进。
+`[TODO]` 触发条件：出现"必须把环境变量映射到嵌套路径/改名"的真实需求且 `--set`/`--set-file` 被判定不可接受；owner：产品/技术负责人。
 
-实测（CLI 冒烟）：
+1. 在 `02-05` 立项（形态：**方案 A** —— `--env-map ENV=path` 可重复 + `--env-map-file map.yaml`；
+   **不采用前缀剥离**，它会把手点号歧义请回来）；
+2. 立项时先定：映射表与 `--set`/`.env`/值文件的**优先级**、映射目标不存在时的处理（报错/告警）、
+   以及 `--process-env-prefix` 是否退化为纯诊断；
+3. 若需求实际上是"配置值内部派生/复用"（而不只是环境变量），走更通用的**值引用/插值**
+   （`REQ-SRC-08`，设计材料见 `05-tasks/05-03-pending-work.md` §14）。
+
+### 实测事实（当前行为）
+
+"这个值来自 `.env` 还是宿主环境"由 `--explain` 回答（帧里的 `kind`/`method`/`file`/`line`，
+见 §15 与 ADR-005）。
 
 | 场景 | 模板 | 结果 |
 |------|------|------|
@@ -350,6 +359,7 @@ ${app.hosts | join ","}      # a,b
 | 进程环境 `APP_PORT=9090` | `${app.port:-none}` | **`none`** ⇒ 无路径推导，无关变量不会被吃 |
 | `--set K=from_set` + `.env K=from_env_file` + 进程 `K=from_process` | `${K}` | **`from_set`**（最高层） |
 | `.env K=from_env_file` + 进程 `K=from_process` | `${K}` 得 `from_env_file`，`${@process.K}` 得 `from_process` | fixture `env_file_wins` 钉住两者互不干扰 |
+| `.env` 写 `app.port=8080` | 任意 | **报错**：`invalid key "app.port"`（键不含点号，见上表） |
 
 ## 14. 两个命名空间
 
