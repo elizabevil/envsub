@@ -77,7 +77,7 @@ func matchesPattern(path, pattern string) bool {
 	if pattern == "" {
 		return false
 	}
-	if !strings.Contains(pattern, pathSeparator) {
+	if !strings.ContainsRune(pattern, values.PathSeparator) {
 		return values.RootSegment(path) == pattern
 	}
 	return matchesPathPrefix(path, pattern) || matchesPathPrefix(filterKey(path), pattern)
@@ -85,7 +85,7 @@ func matchesPattern(path, pattern string) bool {
 
 // matchesPathPrefix reports whether key equals pattern or extends it as a prefix.
 func matchesPathPrefix(key, pattern string) bool {
-	return key != "" && (key == pattern || strings.HasPrefix(key, pattern+pathSeparator))
+	return key != "" && (key == pattern || strings.HasPrefix(key, pattern+string(values.PathSeparator)))
 }
 
 // filterKey is the unquoted comparison key of a path, empty when it is invalid.
@@ -100,9 +100,6 @@ func filterKey(path string) string {
 	}
 	return values.EncodeSegments(segments)
 }
-
-// pathSeparator separates the named segments of a filter pattern.
-const pathSeparator = "."
 
 // Input is one render: the template, the values it resolves against and the
 // policies that apply.

@@ -21,7 +21,11 @@ type Segment struct {
 
 // Template path syntax.
 const (
-	pathSeparator  = '.'
+	// PathSeparator separates the named segments of a path (app.port). It is
+	// exported because callers outside this package that build or match paths
+	// (schema diagnostics, --only-vars filters) must use the same grammar rather
+	// than a literal of their own.
+	PathSeparator  = '.'
 	indexOpen      = '['
 	indexClose     = ']'
 	quoteChar      = '"'
@@ -85,7 +89,7 @@ func (p *pathParser) parsePrefix(collect bool) ([]Segment, error) {
 		// used to grow once per segment (three reallocations for a five-segment
 		// path).
 		segments = make([]Segment, 0,
-			strings.Count(p.input, string(pathSeparator))+strings.Count(p.input, string(indexOpen))+2)
+			strings.Count(p.input, string(PathSeparator))+strings.Count(p.input, string(indexOpen))+2)
 	}
 
 	var err error
@@ -115,7 +119,7 @@ func (p *pathParser) parseNamespace(segments []Segment, collect bool) ([]Segment
 	if collect {
 		segments = append(segments, Segment{Key: name, IsNamespace: true})
 	}
-	if p.pos < len(p.input) && p.input[p.pos] == pathSeparator {
+	if p.pos < len(p.input) && p.input[p.pos] == PathSeparator {
 		p.pos++
 		return p.parseElementTail(segments, collect)
 	}
@@ -142,7 +146,7 @@ func (p *pathParser) parseRootSegments(segments []Segment, collect bool) ([]Segm
 		switch p.input[p.pos] {
 		case indexOpen:
 			return p.parseIndexTail(segments, collect)
-		case pathSeparator:
+		case PathSeparator:
 			p.pos++
 			return p.parseElementTail(segments, collect)
 		default:
@@ -167,14 +171,14 @@ func (p *pathParser) parseElementTail(segments []Segment, collect bool) ([]Segme
 			return segments, nil
 		}
 		switch p.input[p.pos] {
-		case pathSeparator:
+		case PathSeparator:
 			p.pos++
 		case indexOpen:
 			segments, err = p.parseIndexTail(segments, collect)
 			if err != nil {
 				return nil, err
 			}
-			if p.pos >= len(p.input) || p.input[p.pos] != pathSeparator {
+			if p.pos >= len(p.input) || p.input[p.pos] != PathSeparator {
 				return segments, nil
 			}
 			p.pos++
@@ -325,7 +329,7 @@ func EnvKey(segments []Segment) (string, bool) {
 	if len(parts) == 0 {
 		return "", false
 	}
-	return strings.Join(parts, string(pathSeparator)), true
+	return strings.Join(parts, string(PathSeparator)), true
 }
 
 // RootSegment returns the first segment as the --only-vars/--ignore-vars filters
@@ -344,7 +348,7 @@ func RootSegment(path string) string {
 
 // malformedRootSegment extracts the root of a path the parser rejected.
 func malformedRootSegment(path string) string {
-	root, _, _ := strings.Cut(path, string(pathSeparator))
+	root, _, _ := strings.Cut(path, string(PathSeparator))
 	if open := strings.IndexByte(root, indexOpen); open >= 0 {
 		root = root[:open]
 	}
@@ -372,7 +376,7 @@ func Canonical(segments []Segment) string {
 			b.WriteString(segment.Key)
 			afterElement = true
 		case (afterElement || afterIndex) && IsSimpleIdentifier(segment.Key):
-			b.WriteByte(pathSeparator)
+			b.WriteByte(PathSeparator)
 			b.WriteString(segment.Key)
 			afterElement = true
 		case IsSimpleIdentifier(segment.Key):
@@ -388,6 +392,53 @@ func Canonical(segments []Segment) string {
 		afterIndex = false
 	}
 	return b.String()
+}
+
+// JoinPath appends a named key to a dotted path. The result is the same grammar
+// ParsePath reads, so callers that build a path never need the separator itself.
+func JoinPath(prefix, key string) string {
+	if prefix == "" {
+		return key
+	}
+	return prefix + string(PathSeparator) + key
+}
+
+// JoinIndex appends an array index to a path, as in extra[0].
+func JoinIndex(prefix string, index int) string {
+	return fmt.Sprintf(indexPathFormat, prefix, index)
+}
+
+// ParentPath drops the last segment of a path, returning "" for a root path or a
+// spelling the grammar rejects. The result is the canonical spelling, so it is
+// itself a valid path: a quoted key keeps its brackets and can be walked again.
+func ParentPath(path string) string {
+	segments, err := ParsePath(path)
+	if err != nil || len(segments) < 2 {
+		return ""
+	}
+	return Canonical(segments[:len(segments)-1])
+}
+
+// IsBelow reports whether path addresses a value strictly under prefix. Segments
+// are compared, not string prefixes, so ["a.b"].c and a.b.c agree. A spelling the
+// grammar rejects is never below anything.
+func IsBelow(path, prefix string) bool {
+	pathSegments, err := ParsePath(path)
+	if err != nil {
+		return false
+	}
+	prefixSegments, err := ParsePath(prefix)
+	if err != nil || len(pathSegments) <= len(prefixSegments) {
+		return false
+	}
+	for i, segment := range prefixSegments {
+		if pathSegments[i].Key != segment.Key ||
+			pathSegments[i].Index != segment.Index ||
+			pathSegments[i].IsIndex != segment.IsIndex {
+			return false
+		}
+	}
+	return true
 }
 
 // writeQuotedKey appends one bracketed key segment.

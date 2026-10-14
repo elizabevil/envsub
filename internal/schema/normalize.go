@@ -77,7 +77,7 @@ func normalizeSchema(node any, path string) (unknown []string, err error) {
 			return nil, err
 		}
 		for _, key := range sortedKeys(typed) {
-			childPath := childKeywordPath(path, key)
+			childPath := values.JoinPath(path, key)
 			if nameValuedKeywords[key] {
 				// Descend into the name map without judging its keys.
 				childUnknown, err := normalizeNameMap(typed[key], childPath)
@@ -98,7 +98,7 @@ func normalizeSchema(node any, path string) (unknown []string, err error) {
 		}
 	case []any:
 		for i, child := range typed {
-			childUnknown, err := normalizeSchema(child, fmt.Sprintf(indexPathFormat, path, i))
+			childUnknown, err := normalizeSchema(child, values.JoinIndex(path, i))
 			if err != nil {
 				return nil, err
 			}
@@ -118,7 +118,7 @@ func normalizeNameMap(node any, path string) ([]string, error) {
 	}
 	var unknown []string
 	for _, key := range sortedKeys(object) {
-		childUnknown, err := normalizeSchema(object[key], childKeywordPath(path, key))
+		childUnknown, err := normalizeSchema(object[key], values.JoinPath(path, key))
 		if err != nil {
 			return nil, err
 		}
@@ -137,7 +137,7 @@ func normalizeTypeField(object map[string]any, path string) error {
 	case string:
 		normalized, items, err := normalizeTypeName(typed)
 		if err != nil {
-			return fmt.Errorf("%s: %w", childKeywordPath(path, keywordType), err)
+			return fmt.Errorf("%s: %w", values.JoinPath(path, keywordType), err)
 		}
 		object[keywordType] = normalized
 		if items != nil {
@@ -155,7 +155,7 @@ func normalizeTypeField(object map[string]any, path string) error {
 			}
 			canonical, _, err := normalizeTypeName(name)
 			if err != nil {
-				return fmt.Errorf("%s: %w", childKeywordPath(path, keywordType), err)
+				return fmt.Errorf("%s: %w", values.JoinPath(path, keywordType), err)
 			}
 			normalized = append(normalized, canonical)
 		}
@@ -195,13 +195,6 @@ func normalizeTypeName(raw string) (name string, items map[string]any, err error
 		return canonical, nil, nil
 	}
 	return "", nil, fmt.Errorf("unsupported type %q", raw)
-}
-
-func childKeywordPath(path, key string) string {
-	if path == "" {
-		return key
-	}
-	return path + pathSeparator + key
 }
 
 // convertScalar converts a raw string into the scalar type the schema

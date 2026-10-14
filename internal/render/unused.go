@@ -47,7 +47,7 @@ func collectUnused(tree *values.Tree, references map[string]bool) []string {
 	for reference := range used {
 		expanded[reference] = true
 		for _, leaf := range leaves {
-			if isBelow(leaf, reference) {
+			if values.IsBelow(leaf, reference) {
 				expanded[leaf] = true
 			}
 		}
@@ -56,7 +56,7 @@ func collectUnused(tree *values.Tree, references map[string]bool) []string {
 
 	out := make([]string, 0, len(leaves))
 	for _, leaf := range leaves {
-		if leaf == "" || referenced[normalizePrefix(leaf)] {
+		if leaf == "" || referenced[compareKey(leaf)] {
 			continue
 		}
 		if meta := tree.MetaFor(leaf); !meta.Found || !source.IsValueFileKind(meta.Meta.Kind) {
@@ -82,50 +82,26 @@ func sortedKeys(object map[string]any) []string {
 }
 
 // closeOverPrefixes returns the normalized spellings of every path and of every
-// prefix of it.
+// closeOverPrefixes returns the comparison key of every path and of every prefix
+// of it, so a reference to a subtree covers the leaves below it.
 func closeOverPrefixes(paths map[string]bool) map[string]bool {
 	closed := make(map[string]bool, len(paths))
 	for path := range paths {
-		for prefix := path; prefix != ""; prefix = parentPath(prefix) {
-			closed[normalizePrefix(prefix)] = true
+		for prefix := path; prefix != ""; prefix = values.ParentPath(prefix) {
+			closed[compareKey(prefix)] = true
 		}
 	}
 	return closed
 }
 
-// isBelow reports whether path addresses something under prefix.
-func isBelow(path, prefix string) bool {
-	return strings.HasPrefix(path, prefix+".") || strings.HasPrefix(path, prefix+"[")
-}
-
-// normalizePrefix rewrites the bracket-quoted form to dots, so ["a.b"].c and
-// a.b.c compare equal. Only a quoted key is rewritten: an index (extra[0]) and a
-// plain key keep their spelling. Everything before the bracket is copied as it
-// is, so a dot after it (["a.b"].c) needs no special case.
-func normalizePrefix(path string) string {
-	var b strings.Builder
-	for {
-		open := strings.IndexByte(path, '[')
-		if open < 0 || open+1 >= len(path) || path[open+1] != '"' {
-			b.WriteString(path)
-			return b.String()
-		}
-		b.WriteString(path[:open])
-		rest := path[open+2:]
-		end := strings.Index(rest, `"]`)
-		if end < 0 {
-			// An unterminated bracket is not a quoted key; keep it verbatim.
-			b.WriteString(path[open:])
-			return b.String()
-		}
-		if key := rest[:end]; key != "" {
-			if b.Len() > 0 {
-				b.WriteByte('.')
-			}
-			b.WriteString(key)
-		}
-		path = rest[end+2:]
+// compareKey is the unquoted comparison key of a path spelling, so ["a.b"].c and
+// a.b.c compare equal. A spelling the grammar rejects compares as itself.
+func compareKey(path string) string {
+	encoded, err := values.EncodePath(path)
+	if err != nil {
+		return path
 	}
+	return encoded
 }
 
 // writeUnused writes one path per line, already sorted, so the report can be
@@ -138,18 +114,4 @@ func writeUnused(w io.Writer, unused []string) error {
 		return diag.Wrap(diag.KindIO, fmt.Errorf("write unused report: %w", err))
 	}
 	return nil
-}
-
-// parentPath drops the last segment of a path, or returns "" for a root path. The
-// last segment decides the separator: a trailing bracket closes an index or a
-// quoted key (extra[0] -> extra), anything else sits after a dot
-// (app.port -> app).
-func parentPath(path string) string {
-	if strings.HasSuffix(path, "]") {
-		return path[:strings.LastIndexByte(path, '[')]
-	}
-	if index := strings.LastIndexByte(path, '.'); index > 0 {
-		return path[:index]
-	}
-	return ""
 }

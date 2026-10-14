@@ -1,8 +1,6 @@
 package schema
 
 import (
-	"fmt"
-
 	"github.com/elizabevil/envsub/internal/values"
 )
 
@@ -34,7 +32,7 @@ func walkProperties(tree *values.Tree, schemaNode any, node map[string]any, pref
 		if !ok {
 			continue
 		}
-		childPath := joinPath(prefix, key)
+		childPath := values.JoinPath(prefix, key)
 		value, exists := node[key]
 		if !exists {
 			replacement, stored, err := visitor.missing(tree, childPath, childSchema)
@@ -77,7 +75,7 @@ func walkItems(tree *values.Tree, schemaNode any, items []any, prefix string, vi
 		return nil
 	}
 	for i, item := range items {
-		itemPath := fmt.Sprintf(indexPathFormat, prefix, i)
+		itemPath := values.JoinIndex(prefix, i)
 		value := item
 		if text, isString := value.(string); isString {
 			converted, changed, err := visitor.text(tree, itemPath, itemSchema, text)

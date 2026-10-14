@@ -304,3 +304,95 @@ func TestRootSegment(t *testing.T) {
 		})
 	}
 }
+
+// TestJoinPath pins the dotted join: an empty prefix yields the key alone, so a
+// caller never has to special-case the root.
+func TestJoinPath(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct{ prefix, key, want string }{
+		{prefix: "", key: "app", want: "app"},
+		{prefix: "app", key: "port", want: "app.port"},
+		{prefix: "app.labels", key: "my-key", want: "app.labels.my-key"},
+	} {
+		if got := values.JoinPath(tc.prefix, tc.key); got != tc.want {
+			t.Errorf("JoinPath(%q, %q) = %q, want %q", tc.prefix, tc.key, got, tc.want)
+		}
+	}
+}
+
+// TestJoinIndex pins the bracket form, which re-parses as an index segment.
+func TestJoinIndex(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		prefix string
+		index  int
+		want   string
+	}{
+		{prefix: "extra", index: 0, want: "extra[0]"},
+		{prefix: "app.hosts", index: 12, want: "app.hosts[12]"},
+	} {
+		got := values.JoinIndex(tc.prefix, tc.index)
+		if got != tc.want {
+			t.Errorf("JoinIndex(%q, %d) = %q, want %q", tc.prefix, tc.index, got, tc.want)
+		}
+		segments, err := values.ParsePath(got)
+		if err != nil {
+			t.Fatalf("ParsePath(%q) error = %v", got, err)
+		}
+		if last := segments[len(segments)-1]; !last.IsIndex || last.Index != tc.index {
+			t.Errorf("ParsePath(%q) last segment = %+v, want index %d", got, last, tc.index)
+		}
+	}
+}
+
+// TestParentPath pins the walk used by closeOverPrefixes: the result is itself a
+// valid path (a quoted key keeps its brackets), and a root or malformed spelling
+// yields "".
+func TestParentPath(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct{ in, want string }{
+		{in: "", want: ""},
+		{in: "app", want: ""},
+		{in: "app.port", want: "app"},
+		{in: "app.port.deep", want: "app.port"},
+		{in: "extra[0]", want: "extra"},
+		{in: `app["my-key"]`, want: "app"},
+		{in: `app["my-key"].deep`, want: `app["my-key"]`},
+		{in: `["a.b"].c`, want: `["a.b"]`},
+		{in: `["unclosed`, want: ""},
+	} {
+		if got := values.ParentPath(tc.in); got != tc.want {
+			t.Errorf("ParentPath(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
+// TestIsBelow pins the segment comparison: a quoted key and its dot spelling are
+// the same address, an equal path is not below itself, and a malformed spelling
+// is below nothing.
+func TestIsBelow(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		path, prefix string
+		want         bool
+	}{
+		{path: "app.port", prefix: "app", want: true},
+		{path: "app.port.deep", prefix: "app.port", want: true},
+		{path: "extra[0]", prefix: "extra", want: true},
+		{path: `app["my-key"].deep`, prefix: `app["my-key"]`, want: true},
+		// The comparison key of a quoted key is not itself a path, so it cannot
+		// be used as a prefix: only grammar-valid spellings compare.
+		{path: `app["my-key"].deep`, prefix: "app.my-key", want: false},
+		{path: `app["a.b"]`, prefix: "app.a.b", want: false},
+		{path: "app", prefix: "app", want: false},
+		{path: "app.port", prefix: "app.port", want: false},
+		{path: "apple.port", prefix: "app", want: false},
+		{path: "app", prefix: "app.port", want: false},
+		{path: `["unclosed`, prefix: "app", want: false},
+		{path: "app.port", prefix: `["unclosed`, want: false},
+	} {
+		if got := values.IsBelow(tc.path, tc.prefix); got != tc.want {
+			t.Errorf("IsBelow(%q, %q) = %v, want %v", tc.path, tc.prefix, got, tc.want)
+		}
+	}
+}

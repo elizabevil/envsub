@@ -75,10 +75,5 @@ func sortedKeys(object map[string]any) []string {
 	return keys
 }
 
-// joinPath appends one key to a dotted template path.
-func joinPath(prefix, key string) string {
-	if prefix == "" {
-		return key
-	}
-	return prefix + pathSeparator + key
-}
+// Path joining lives in the value grammar: see values.JoinPath and
+// values.JoinIndex, which this package uses for instance and keyword paths.

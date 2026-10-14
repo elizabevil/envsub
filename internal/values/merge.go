@@ -31,7 +31,7 @@ func MergeInto(dst, src *Tree, meta Meta) {
 // per-key origins (a dotenv key keeps its own line number).
 func mergeMap(dst, src *Tree, target, incoming map[string]any, prefix string, meta Meta) {
 	for key, value := range incoming {
-		child := joinMetaKey(prefix, key)
+		child := JoinPath(prefix, key)
 		dst.meta[child] = srcMeta(src, child, meta)
 		incomingMap, isObject := value.(map[string]any)
 		if !isObject {
@@ -64,14 +64,6 @@ func srcMeta(src *Tree, key string, fallback Meta) Meta {
 		recorded.Kind = fallback.Kind
 	}
 	return recorded
-}
-
-// joinMetaKey appends a map key to an encoded path prefix.
-func joinMetaKey(prefix, key string) string {
-	if prefix == "" {
-		return key
-	}
-	return prefix + string(pathSeparator) + key
 }
 
 // CloneValue returns a deep copy of a JSON/YAML compatible value, so callers that
@@ -115,13 +107,13 @@ func collectMetaKeys(value any, prefix string, visit func(key string)) {
 	switch typed := value.(type) {
 	case map[string]any:
 		for _, key := range sortedKeys(typed) {
-			child := joinMetaKey(prefix, key)
+			child := JoinPath(prefix, key)
 			visit(child)
 			collectMetaKeys(typed[key], child, visit)
 		}
 	case []any:
 		for i, child := range typed {
-			childKey := fmt.Sprintf(indexPathFormat, prefix, i)
+			childKey := JoinIndex(prefix, i)
 			visit(childKey)
 			collectMetaKeys(child, childKey, visit)
 		}

@@ -98,7 +98,7 @@ func collectDefaultDecls(schemaNode any, encodedPath, pointer string, decls map[
 			if !ok {
 				continue
 			}
-			childPath := joinEncodedPath(encodedPath, key)
+			childPath := values.JoinPath(encodedPath, key)
 			childPointer := pointer + "/properties/" + escapePointerToken(key)
 			if _, hasDefault := childSchema[keywordDefault]; hasDefault {
 				decls[childPath] = childPointer + "/default"
@@ -106,14 +106,6 @@ func collectDefaultDecls(schemaNode any, encodedPath, pointer string, decls map[
 			collectDefaultDecls(childSchema, childPath, childPointer, decls)
 		}
 	}
-}
-
-// joinEncodedPath appends one key to an encoded path.
-func joinEncodedPath(prefix, key string) string {
-	if prefix == "" {
-		return key
-	}
-	return prefix + "." + key
 }
 
 // escapePointerToken escapes one JSON Pointer reference token (RFC 6901).

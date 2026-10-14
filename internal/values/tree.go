@@ -230,7 +230,7 @@ func (t *Tree) RecordMeta(rawPath string, meta Meta, index int) {
 		return
 	}
 	if index >= 0 {
-		key = fmt.Sprintf(indexPathFormat, key, index)
+		key = JoinIndex(key, index)
 	}
 	t.meta[key] = meta
 }
@@ -322,7 +322,7 @@ func EncodeSegments(segments []Segment) string {
 			continue
 		}
 		if b.Len() > 0 {
-			b.WriteByte(pathSeparator)
+			b.WriteByte(PathSeparator)
 		}
 		b.WriteString(segment.Key)
 	}
@@ -334,7 +334,7 @@ func trimMetaKey(key string) (string, bool) {
 	if key == "" {
 		return "", false
 	}
-	last := strings.LastIndexByte(key, pathSeparator)
+	last := strings.LastIndexByte(key, PathSeparator)
 	open := strings.LastIndexByte(key, indexOpen)
 	switch {
 	case last < 0 && open < 0:

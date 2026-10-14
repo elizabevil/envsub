@@ -12,14 +12,8 @@ const (
 // extensionPrefix marks vendor extension keywords, which are always allowed.
 const extensionPrefix = "x-"
 
-// pathSeparator joins schema keyword paths and instance paths in diagnostics.
-const pathSeparator = "."
-
 // pointerSeparator starts a JSON Pointer.
 const pointerSeparator = "/"
-
-// indexPathFormat builds the instance path of an array element.
-const indexPathFormat = "%s[%d]"
 
 // JSON boolean spellings a declared boolean accepts when it is converted from
 // its string form.
