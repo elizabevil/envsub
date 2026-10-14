@@ -14,25 +14,33 @@ import (
 func TestMetaKeysIsSortedAndComplete(t *testing.T) {
 	t.Parallel()
 	tree := values.NewTree()
-	for path, meta := range map[values.Key]values.Meta{
-		"b":    {File: "f.yaml", Line: 2, Kind: "yaml"},
-		"a[0]": {File: "f.yaml", Line: 3, Kind: "yaml"},
-		"a":    {File: "f.yaml", Line: 1, Kind: "yaml"},
+	for spelling, meta := range map[string]values.Meta{
+		"b":    {File: "f.yaml", Line: 2, Kind: values.SourceValues},
+		"a[0]": {File: "f.yaml", Line: 3, Kind: values.SourceValues},
+		"a":    {File: "f.yaml", Line: 1, Kind: values.SourceValues},
 	} {
-		tree.RecordMeta(path, meta)
+		tree.RecordMeta(metaSegments(t, spelling), meta)
 	}
-	got := tree.MetaKeys()
-	want := []values.Key{"a", "a[0]", "b"}
-	if len(got) != len(want) {
-		t.Fatalf("MetaKeys() = %v, want %v", got, want)
-	}
-	for i := range want {
-		if got[i] != want[i] {
-			t.Fatalf("MetaKeys() = %v, want %v", got, want)
+	got := map[string]values.Meta{}
+	tree.WalkMeta(func(path []values.Segment, meta values.Meta) {
+		got[values.CanonicalPath(path)] = meta
+	})
+	for spelling, want := range map[string]values.Meta{
+		"a":    {File: "f.yaml", Line: 1, Kind: values.SourceValues},
+		"a[0]": {File: "f.yaml", Line: 3, Kind: values.SourceValues},
+		"b":    {File: "f.yaml", Line: 2, Kind: values.SourceValues},
+	} {
+		if got[spelling] != want {
+			t.Errorf("WalkMeta() entry %q = %+v, want %+v", spelling, got[spelling], want)
 		}
 	}
-	if empty := values.NewTree().MetaKeys(); empty != nil {
-		t.Errorf("MetaKeys() on an empty tree = %v, want nil", empty)
+	if len(got) != 3 {
+		t.Errorf("WalkMeta() reported %d paths, want 3 (%v)", len(got), got)
+	}
+	if empty := values.NewTree(); empty != nil {
+		empty.WalkMeta(func([]values.Segment, values.Meta) {
+			t.Error("WalkMeta() on an empty tree reported an entry")
+		})
 	}
 }
 
@@ -42,15 +50,14 @@ func TestMetaKeysIsSortedAndComplete(t *testing.T) {
 func TestRecordMetaAddressesAnElement(t *testing.T) {
 	t.Parallel()
 	tree := values.NewTree()
-	element := values.JoinIndex("hosts", 0)
-	tree.RecordMeta(element, values.Meta{File: "f.yaml", Line: 4, Kind: "yaml"})
+	tree.RecordMeta(metaSegments(t, "hosts[0]"), values.Meta{File: "f.yaml", Line: 4, Kind: values.SourceValues})
 
-	meta, ok := tree.MetaAt(element)
+	meta, ok := tree.MetaAt("hosts[0]")
 	if !ok {
 		t.Fatal("MetaAt(hosts[0]) not found")
 	}
-	if meta.Line != 4 || meta.Kind != "yaml" {
-		t.Errorf("meta = %+v, want line 4 from f.yaml", meta)
+	if meta.Line != 4 || meta.Kind != values.SourceValues {
+		t.Errorf("meta = %+v, want line 4 from a value file", meta)
 	}
 	// The same origin is what an element lookup resolves to.
 	if ref := tree.MetaFor("hosts[0].name"); !ref.Found {

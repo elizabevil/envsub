@@ -2,8 +2,6 @@ package values
 
 import (
 	"fmt"
-	"slices"
-	"strings"
 )
 
 // Tree is the value tree a template resolves against: the merged root namespace
@@ -21,8 +19,9 @@ type Tree struct {
 	// supplies a root value.
 	Env map[string]string
 
-	// meta records where each value came from, keyed by encoded path.
-	meta map[Key]Meta
+	// meta mirrors the value tree: each node holds the origin recorded for the
+	// value at its path, so two paths can never share one entry.
+	meta *metaNode
 	// paths caches compiled paths: a template repeats the same handful of paths
 	// hundreds of thousands of times.
 	paths map[string]CompiledPath
@@ -41,6 +40,34 @@ type CompiledPath struct {
 	// envKey is the environment variable a namespace path addresses, empty for a
 	// root path.
 	envKey string
+}
+
+// metaNode is one node of the origin tree: the origin recorded for the value at
+// this path, plus the origin trees of its children. Parents are reached by
+// following segments, which is why no encoded spelling is needed to key origins.
+type metaNode struct {
+	// origin is the recorded origin, meaningful only when recorded is set.
+	origin Meta
+	// recorded reports whether origin was written for this path.
+	recorded bool
+	// children maps each segment to its child node.
+	children map[Segment]*metaNode
+}
+
+// child returns the node for seg, creating it when create is set.
+func (n *metaNode) child(seg Segment, create bool) *metaNode {
+	if child, ok := n.children[seg]; ok {
+		return child
+	}
+	if !create {
+		return nil
+	}
+	if n.children == nil {
+		n.children = map[Segment]*metaNode{}
+	}
+	child := &metaNode{}
+	n.children[seg] = child
+	return child
 }
 
 // Meta describes the origin of a single value.
@@ -71,7 +98,7 @@ func NewTree() *Tree {
 	return &Tree{
 		Root: map[string]any{},
 		Env:  map[string]string{},
-		meta: map[Key]Meta{},
+		meta: &metaNode{},
 	}
 }
 
@@ -199,65 +226,95 @@ func (t *Tree) MarkMutated() {
 	t.mutated = true
 }
 
-// RecordMeta remembers where the value at key came from. The caller supplies the
-// encoded key, so a path with an array element is addressed by JoinIndex and no
-// separate index argument is needed.
-func (t *Tree) RecordMeta(key Key, meta Meta) {
-	if key == "" {
+// RecordMeta remembers where the value at path came from.
+func (t *Tree) RecordMeta(path []Segment, meta Meta) {
+	if len(path) == 0 {
 		return
 	}
 	if t.meta == nil {
-		t.meta = map[Key]Meta{}
+		t.meta = &metaNode{}
 	}
-	t.meta[key] = meta
+	node := t.meta
+	for _, seg := range path {
+		node = node.child(seg, true)
+	}
+	node.origin = meta
+	node.recorded = true
 }
 
-// MetaKeys returns the encoded keys that have a recorded origin, sorted.
-//
-// Preallocating and sorting beats slices.Sorted(maps.Keys(...)): the iterator form
-// cannot size the slice and allocates 7 times more for 8 keys (measured).
-func (t *Tree) MetaKeys() []Key {
-	if len(t.meta) == 0 {
-		return nil
+// MetaAt returns the origin recorded exactly for rawPath, if any.
+func (t *Tree) MetaAt(rawPath string) (Meta, bool) {
+	segments, err := ParsePath(rawPath)
+	if err != nil {
+		return Meta{}, false
 	}
-	keys := make([]Key, 0, len(t.meta))
-	for key := range t.meta {
-		keys = append(keys, key)
-	}
-	slices.Sort(keys)
-	return keys
+	return t.metaAt(segments)
 }
 
-// MetaAt returns the recorded origin for an encoded key.
-func (t *Tree) MetaAt(key Key) (Meta, bool) {
-	meta, ok := t.meta[key]
-	return meta, ok
+// metaAt returns the origin recorded exactly for path.
+func (t *Tree) metaAt(path []Segment) (Meta, bool) {
+	node := t.nodeAt(path)
+	if node == nil || !node.recorded {
+		return Meta{}, false
+	}
+	return node.origin, true
 }
 
-// MetaFor returns the closest recorded origin for a raw template path.
+// WalkMeta calls visit for every recorded path, in the tree's order.
+func (t *Tree) WalkMeta(visit func(path []Segment, meta Meta)) {
+	walkRecordedPaths(t.meta, nil, func(path []Segment) {
+		node := t.nodeAt(path)
+		visit(path, node.origin)
+	})
+}
+
+// MetaFor returns the closest recorded origin for rawPath: the origin of the path
+// itself, else of its closest recorded ancestor.
 func (t *Tree) MetaFor(rawPath string) MetaRef {
-	key, err := EncodePath(rawPath)
+	segments, err := ParsePath(rawPath)
 	if err != nil {
 		return MetaRef{}
 	}
-	return t.MetaForKey(key)
-}
-
-// MetaForKey returns the closest recorded origin for an encoded key, walking from
-// the most specific path prefix to the least specific one.
-func (t *Tree) MetaForKey(key Key) MetaRef {
-	if len(t.meta) == 0 {
+	node := t.meta
+	var found *metaNode
+	for _, seg := range segments {
+		node = node.child(seg, false)
+		if node == nil {
+			break
+		}
+		if node.recorded {
+			found = node
+		}
+	}
+	if found == nil {
 		return MetaRef{}
 	}
-	for {
-		if meta, ok := t.meta[key]; ok {
-			return MetaRef{Meta: meta, Found: true}
+	return MetaRef{Meta: found.origin, Found: true}
+}
+
+// nodeAt returns the node for path, or nil when the tree does not reach it.
+func (t *Tree) nodeAt(path []Segment) *metaNode {
+	node := t.meta
+	for _, seg := range path {
+		node = node.child(seg, false)
+		if node == nil {
+			return nil
 		}
-		trimmed, ok := trimMetaKey(key)
-		if !ok {
-			return MetaRef{}
-		}
-		key = trimmed
+	}
+	return node
+}
+
+// walkRecordedPaths walks the origin tree, reporting every recorded path. The
+// order is the map's, which is fine because MetaPaths sorts the spellings.
+func walkRecordedPaths(node *metaNode, prefix []Segment, visit func(path []Segment)) {
+	if node == nil {
+		return
+	}
+	if node.recorded {
+		visit(prefix)
+	}
+	for seg, child := range node.children {
+		walkRecordedPaths(child, AppendSegment(prefix, seg), visit)
 	}
 }
 
@@ -267,52 +324,4 @@ type Loader interface {
 	Name() string
 	// Load parses data and returns the values it defines.
 	Load(data []byte) (*Tree, error)
-}
-
-// EncodePath converts a raw template path into its encoded key: dots between
-// named segments, [i] for an index, no @ sigil and no quotes. It is the spelling
-// metadata is keyed by and the spelling --only-vars filters compare, so a quoted
-// key and its dot spelling agree.
-func EncodePath(rawPath string) (Key, error) {
-	segments, err := ParsePath(rawPath)
-	if err != nil {
-		return "", err
-	}
-	return EncodeSegments(segments), nil
-}
-
-// EncodeSegments converts parsed segments into an encoded key: dots between named
-// segments, [i] for an index, and no quotes. Callers that already hold segments
-// (the --explain lookup) avoid re-parsing. Use CanonicalPath for a spelling a reader
-// can paste back into a template.
-func EncodeSegments(segments []Segment) Key {
-	var b strings.Builder
-	for _, segment := range segments {
-		if segment.IsIndex {
-			fmt.Fprintf(&b, indexFormat, segment.Index)
-			continue
-		}
-		if b.Len() > 0 {
-			b.WriteByte(PathSeparator)
-		}
-		b.WriteString(segment.Key)
-	}
-	return Key(b.String())
-}
-
-// trimMetaKey removes the last path segment of an encoded key.
-func trimMetaKey(key Key) (Key, bool) {
-	if key == "" {
-		return "", false
-	}
-	last := strings.LastIndexByte(string(key), PathSeparator)
-	open := strings.LastIndexByte(string(key), indexOpen)
-	switch {
-	case last < 0 && open < 0:
-		return "", false
-	case open > last:
-		return key[:open], true
-	default:
-		return key[:last], true
-	}
 }

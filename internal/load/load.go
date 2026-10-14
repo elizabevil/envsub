@@ -50,8 +50,8 @@ type Result struct {
 type Observer interface {
 	// AddEnv reports a process environment variable.
 	AddEnv(name string)
-	// AddRoot reports an encoded root key and the source it came from.
-	AddRoot(path values.Key, origin Origin)
+	// AddRoot reports the canonical spelling of a root path and its source.
+	AddRoot(path string, origin Origin)
 }
 
 // Origin is where a contributed value came from: the layering stage, how the
@@ -145,7 +145,7 @@ func Load(ctx context.Context, spec Spec, observer Observer) (*Result, error) {
 			observer.AddRoot(applied.Key, Origin{
 				Kind:   values.SourceSet,
 				Method: applied.Method,
-				Source: string(applied.Key),
+				Source: applied.Key,
 				File:   applied.File,
 			})
 		}
@@ -175,16 +175,15 @@ func loadInto(tree *values.Tree, loader source.Loader, path string, observer Obs
 	}
 	// The entries carry the origin the loader recorded: a dotenv key keeps its own
 	// line number.
-	for _, key := range loaded.MetaKeys() {
-		meta, _ := loaded.MetaAt(key)
-		observer.AddRoot(key, Origin{
+	loaded.WalkMeta(func(segments []values.Segment, meta values.Meta) {
+		observer.AddRoot(values.CanonicalPath(segments), Origin{
 			Kind:   loader.Kind,
 			Method: values.MethodFile,
 			Source: path,
 			File:   meta.File,
 			Line:   meta.Line,
 		})
-	}
+	})
 	return nil
 }
 
@@ -216,8 +215,8 @@ func mapToAny(root map[string]any) any {
 // setApplied is one --set* assignment that reached the tree, with the method it
 // used and, for --set-file, the file it read.
 type setApplied struct {
-	// Key is the encoded root path the assignment wrote.
-	Key values.Key
+	// Key is the canonical spelling of the root path the assignment wrote.
+	Key string
 	// Method is flag, json or file.
 	Method values.SourceMethod
 	// File is the file --set-file read, empty for the other two.
@@ -256,7 +255,7 @@ func applySets(tree *values.Tree, spec Spec) ([]setApplied, error) {
 // a string. One trailing newline is dropped, because a file created by an editor
 // or a secret store ends with one; any other byte is kept, so a multi-line value
 // survives intact.
-func setOneFile(tree *values.Tree, assignment string) (values.Key, string, error) {
+func setOneFile(tree *values.Tree, assignment string) (string, string, error) {
 	key, path, err := values.ParseAssignment(assignment)
 	if err != nil {
 		return "", "", diag.Wrap(diag.KindUsage, err)
@@ -270,15 +269,15 @@ func setOneFile(tree *values.Tree, assignment string) (values.Key, string, error
 	if err := tree.SetPath(key, text, values.SetString, origin); err != nil {
 		return "", "", diag.Wrap(diag.KindUsage, err)
 	}
-	encoded, err := values.EncodePath(key)
+	segments, err := values.ParsePath(key)
 	if err != nil {
 		return "", "", diag.Wrap(diag.KindUsage, err)
 	}
-	return encoded, path, nil
+	return values.CanonicalPath(segments), path, nil
 }
 
-// setOne writes one --set assignment into the root and returns its encoded path.
-func setOne(tree *values.Tree, assignment string, mode values.SetMode) (values.Key, error) {
+// setOne writes one --set assignment into the root and returns its canonical path.
+func setOne(tree *values.Tree, assignment string, mode values.SetMode) (string, error) {
 	key, value, err := values.ParseAssignment(assignment)
 	if err != nil {
 		return "", diag.Wrap(diag.KindUsage, err)
@@ -299,11 +298,11 @@ func setOne(tree *values.Tree, assignment string, mode values.SetMode) (values.K
 		}
 		return "", diag.Wrap(diag.KindUsage, err)
 	}
-	encoded, err := values.EncodePath(key)
+	segments, err := values.ParsePath(key)
 	if err != nil {
 		return "", diag.Wrap(diag.KindUsage, err)
 	}
-	return encoded, nil
+	return values.CanonicalPath(segments), nil
 }
 
 // schemaFileError names the schema in a read failure. The shared loader reports a

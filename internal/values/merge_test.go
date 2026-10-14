@@ -1,6 +1,7 @@
 package values_test
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/elizabevil/envsub/internal/values"
@@ -62,7 +63,7 @@ func TestMergeIntoDoesNotAlias(t *testing.T) {
 func TestMetaForWalksParents(t *testing.T) {
 	t.Parallel()
 	tree := values.NewTree()
-	tree.RecordMeta("app", values.Meta{File: "v.yaml", Kind: "values"})
+	tree.RecordMeta(metaSegments(t, "app"), values.Meta{File: "v.yaml", Kind: "values"})
 
 	meta := tree.MetaFor("app.port.deep")
 	if !meta.Found || meta.Meta.File != "v.yaml" {
@@ -168,28 +169,78 @@ func TestDescribeMeta(t *testing.T) {
 	}
 }
 
-func TestEncodePath(t *testing.T) {
+// TestCanonicalSpellingIsTheIdentity pins the invariant that removed the encoded
+// key: a canonical spelling is injective (a literal dotted key is not the same
+// path as the nested one), it parses back to the segments it came from, and two
+// such paths never share one origin entry.
+func TestCanonicalSpellingIsTheIdentity(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
+		name string
 		raw  string
 		want string
 	}{
-		{raw: "app.port", want: "app.port"},
-		{raw: `app["my-key"]`, want: "app.my-key"},
-		{raw: "hosts[0].name", want: "hosts[0].name"},
+		{name: "nested", raw: "a.b.c", want: "a.b.c"},
+		{name: "literal dotted key", raw: `["a.b.c"]`, want: `["a.b.c"]`},
+		{name: "literal bracket key", raw: `a["b[0]"]`, want: `a["b[0]"]`},
+		{name: "index", raw: "hosts[0]", want: "hosts[0]"},
+		{name: "quoted numeric key", raw: `hosts["0"]`, want: `hosts["0"]`},
+		{name: "empty key", raw: `[""]`, want: `[""]`},
+		{name: "quoted key with quote", raw: `a["b\"c"]`, want: `a["b\"c"]`},
 	}
 	for _, tt := range tests {
-
-		t.Run(tt.raw, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got, err := values.EncodePath(tt.raw)
+			segments, err := values.ParsePath(tt.raw)
 			if err != nil {
-				t.Fatalf("EncodePath(%q) error = %v", tt.raw, err)
+				t.Fatalf("ParsePath(%q) error = %v", tt.raw, err)
 			}
-			if string(got) != tt.want {
-				t.Fatalf("EncodePath(%q) = %q, want %q", tt.raw, got, tt.want)
+			canonical := values.CanonicalPath(segments)
+			if canonical != tt.want {
+				t.Fatalf("CanonicalPath(%q) = %q, want %q", tt.raw, canonical, tt.want)
+			}
+			reparsed, err := values.ParsePath(canonical)
+			if err != nil {
+				t.Fatalf("ParsePath(%q) error = %v", canonical, err)
+			}
+			if !reflect.DeepEqual(reparsed, segments) {
+				t.Fatalf("round trip = %+v, want %+v", reparsed, segments)
 			}
 		})
+	}
+	// The pairs below are exactly what the encoded key conflated: the literal key
+	// must spell differently from the nested path (or from an index).
+	pairs := [][2]string{{"a.b.c", `["a.b.c"]`}, {"hosts[0]", `hosts["0"]`}, {"a.b", `["a.b"]`}}
+	for _, pair := range pairs {
+		left, err := values.ParsePath(pair[0])
+		if err != nil {
+			t.Fatalf("ParsePath(%q) error = %v", pair[0], err)
+		}
+		right, err := values.ParsePath(pair[1])
+		if err != nil {
+			t.Fatalf("ParsePath(%q) error = %v", pair[1], err)
+		}
+		leftSpelling, rightSpelling := values.CanonicalPath(left), values.CanonicalPath(right)
+		if leftSpelling == rightSpelling {
+			t.Errorf("%q and %q share the spelling %q", pair[0], pair[1], leftSpelling)
+		}
+	}
+}
+
+// TestMetaDistinguishesLiteralAndNestedKeys pins the bug the structural metadata
+// removed: a literal dotted key and the nested path spelled the same way kept one
+// origin, so --explain named the wrong file.
+func TestMetaDistinguishesLiteralAndNestedKeys(t *testing.T) {
+	t.Parallel()
+	tree := values.NewTree()
+	tree.RecordMeta(metaSegments(t, "a.b.c"), values.Meta{File: "nested.yaml", Kind: values.SourceValues})
+	tree.RecordMeta(metaSegments(t, `["a.b.c"]`), values.Meta{File: "dotted.json", Kind: values.SourceValues})
+
+	if ref := tree.MetaFor("a.b.c"); ref.Meta.File != "nested.yaml" {
+		t.Errorf("MetaFor(a.b.c).File = %q, want nested.yaml", ref.Meta.File)
+	}
+	if ref := tree.MetaFor(`["a.b.c"]`); ref.Meta.File != "dotted.json" {
+		t.Errorf(`MetaFor(["a.b.c"]).File = %q, want dotted.json`, ref.Meta.File)
 	}
 }
 
@@ -205,4 +256,14 @@ func assertResolved(t *testing.T, tree *values.Tree, path string, want any) {
 	if got != want {
 		t.Fatalf("Resolve(%q) = %#v (type %T), want %#v (type %T)", path, got, got, want, want)
 	}
+}
+
+// metaSegments parses a spelling into the segments the metadata API takes.
+func metaSegments(t *testing.T, spelling string) []values.Segment {
+	t.Helper()
+	segments, err := values.ParsePath(spelling)
+	if err != nil {
+		t.Fatalf("ParsePath(%q) error = %v", spelling, err)
+	}
+	return segments
 }

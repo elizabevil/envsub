@@ -204,7 +204,7 @@ func TestMaterialize(t *testing.T) {
 	tree.Root["hosts"] = `["a","b"]`
 	tree.Root["app"] = `{"port":1}`
 	tree.Root["name"] = `["not","parsed"]`
-	tree.RecordMeta("hosts", values.Meta{File: ".env", Line: 3, Kind: values.SourceEnvFile})
+	tree.RecordMeta(metaSegments(t, "hosts"), values.Meta{File: ".env", Line: 3, Kind: values.SourceEnvFile})
 
 	if err := sch.Materialize(tree); err != nil {
 		t.Fatalf("Materialize() error = %v", err)
@@ -236,7 +236,7 @@ func TestMaterializeErrorMentionsOrigin(t *testing.T) {
 	}
 	tree := values.NewTree()
 	tree.Root["hosts"] = "not json"
-	tree.RecordMeta("hosts", values.Meta{File: ".env", Line: 7, Kind: values.SourceEnvFile})
+	tree.RecordMeta(metaSegments(t, "hosts"), values.Meta{File: ".env", Line: 7, Kind: values.SourceEnvFile})
 
 	err = sch.Materialize(tree)
 	if err == nil {
@@ -441,4 +441,14 @@ func TestLoadRejectsNonStringUnionMember(t *testing.T) {
 	if _, err := schema.Load(context.Background(), raw, "schema.yaml", schema.UnknownIgnore); err == nil {
 		t.Fatal("Load() error = nil, want a metaschema error for a non-string union member")
 	}
+}
+
+// metaSegments parses a spelling into the segments the metadata API takes.
+func metaSegments(t *testing.T, spelling string) []values.Segment {
+	t.Helper()
+	segments, err := values.ParsePath(spelling)
+	if err != nil {
+		t.Fatalf("ParsePath(%q) error = %v", spelling, err)
+	}
+	return segments
 }

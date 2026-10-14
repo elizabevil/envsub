@@ -253,3 +253,13 @@ func readOptionalString(t *testing.T, path string) string {
 	}
 	return strings.TrimSpace(string(data))
 }
+
+// metaSegments parses a spelling into the segments the metadata API takes.
+func metaSegments(t *testing.T, spelling string) []values.Segment {
+	t.Helper()
+	segments, err := values.ParsePath(spelling)
+	if err != nil {
+		t.Fatalf("ParsePath(%q) error = %v", spelling, err)
+	}
+	return segments
+}

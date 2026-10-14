@@ -307,51 +307,41 @@ func TestRootKey(t *testing.T) {
 
 // TestJoinPath pins the dotted join: an empty prefix yields the key alone, so a
 // caller never has to special-case the root.
-func TestJoinPath(t *testing.T) {
+// TestAppendSegment pins the copy-on-append contract: the returned path holds the
+// new segment and never aliases the array it came from.
+func TestAppendSegment(t *testing.T) {
 	t.Parallel()
-	for _, tc := range []struct {
-		prefix values.Key
-		key    string
-		want   values.Key
-	}{
-		{prefix: "", key: "app", want: "app"},
-		{prefix: "app", key: "port", want: "app.port"},
-		{prefix: "app.labels", key: "my-key", want: "app.labels.my-key"},
-	} {
-		if got := values.JoinPath(tc.prefix, tc.key); got != tc.want {
-			t.Errorf("JoinPath(%q, %q) = %q, want %q", tc.prefix, tc.key, got, tc.want)
-		}
+	base := []values.Segment{{Key: "app"}}
+	child := values.AppendSegment(base, values.Segment{Key: "port"})
+	if values.CanonicalPath(child) != "app.port" {
+		t.Errorf("AppendSegment() = %q, want app.port", values.CanonicalPath(child))
+	}
+	if values.CanonicalPath(base) != "app" {
+		t.Errorf("AppendSegment() mutated its input: %q", values.CanonicalPath(base))
+	}
+	index := values.AppendSegment(base, values.Segment{IsIndex: true, Index: 12})
+	if values.CanonicalPath(index) != "app[12]" {
+		t.Errorf("AppendSegment(index) = %q, want app[12]", values.CanonicalPath(index))
 	}
 }
 
-// TestJoinIndex pins the bracket form, which re-parses as an index segment.
+// TestJoinIndex pins the diagnostic spelling of an array element.
 func TestJoinIndex(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
-		prefix values.Key
+		prefix string
 		index  int
-		want   values.Key
+		want   string
 	}{
-		{prefix: "extra", index: 0, want: "extra[0]"},
-		{prefix: "app.hosts", index: 12, want: "app.hosts[12]"},
+		{prefix: "", index: 0, want: "[0]"},
+		{prefix: "extra", index: 3, want: "extra[3]"},
 	} {
-		got := values.JoinIndex(tc.prefix, tc.index)
-		if got != tc.want {
+		if got := values.JoinIndex(tc.prefix, tc.index); got != tc.want {
 			t.Errorf("JoinIndex(%q, %d) = %q, want %q", tc.prefix, tc.index, got, tc.want)
-		}
-		segments, err := values.ParsePath(string(got))
-		if err != nil {
-			t.Fatalf("ParsePath(%q) error = %v", got, err)
-		}
-		if last := segments[len(segments)-1]; !last.IsIndex || last.Index != tc.index {
-			t.Errorf("ParsePath(%q) last segment = %+v, want index %d", got, last, tc.index)
 		}
 	}
 }
 
-// TestParentPath pins the walk used by closeOverPrefixes: the result is itself a
-// valid path (a quoted key keeps its brackets), and a root or malformed spelling
-// yields "".
 func TestParentPath(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct{ in, want string }{

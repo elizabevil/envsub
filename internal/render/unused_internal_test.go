@@ -54,9 +54,9 @@ func TestCompareKey(t *testing.T) {
 		{in: "", want: ""},
 		{in: "app.port", want: "app.port"},
 		{in: "extra[0]", want: "extra[0]"},
-		{in: `["a.b"]`, want: "a.b"},
-		{in: `["a.b"].c`, want: "a.b.c"},
-		{in: `app["my-key"]`, want: "app.my-key"},
+		{in: `["a.b"]`, want: `["a.b"]`},
+		{in: `["a.b"].c`, want: `["a.b"].c`},
+		{in: `app["my-key"]`, want: `app["my-key"]`},
 		{in: `["unclosed`, want: `["unclosed`},
 	} {
 		if got := compareKey(tc.in); got != tc.want {

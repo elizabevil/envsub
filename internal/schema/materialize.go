@@ -17,13 +17,13 @@ func (s *Schema) Materialize(tree *values.Tree) error {
 	if s == nil {
 		return nil
 	}
-	return materializeNode(tree, s.effective(), tree.Root, "")
+	return materializeNode(tree, s.effective(), tree.Root, nil)
 }
 
 // materializeVisitor converts string values declared by the schema.
 type materializeVisitor struct{}
 
-func (materializeVisitor) missing(tree *values.Tree, path values.Key, childSchema map[string]any) (any, bool, error) {
+func (materializeVisitor) missing(tree *values.Tree, path []values.Segment, childSchema map[string]any) (any, bool, error) {
 	if !isObjectSchema(childSchema) {
 		return nil, false, nil
 	}
@@ -40,7 +40,7 @@ func (materializeVisitor) missing(tree *values.Tree, path values.Key, childSchem
 	return stub, true, nil
 }
 
-func (materializeVisitor) text(tree *values.Tree, path values.Key, childSchema map[string]any, value string) (any, bool, error) {
+func (materializeVisitor) text(tree *values.Tree, path []values.Segment, childSchema map[string]any, value string) (any, bool, error) {
 	converted, changed, err := convertDeclared(value, childSchema)
 	if err != nil {
 		return nil, false, diag.Wrap(diag.KindType, materializeError(tree, path, value, err))
@@ -49,7 +49,7 @@ func (materializeVisitor) text(tree *values.Tree, path values.Key, childSchema m
 }
 
 // materializeNode converts string values according to the schema.
-func materializeNode(tree *values.Tree, schemaNode any, node map[string]any, prefix values.Key) error {
+func materializeNode(tree *values.Tree, schemaNode any, node map[string]any, prefix []values.Segment) error {
 	return walkProperties(tree, schemaNode, node, prefix, materializeVisitor{})
 }
 
@@ -67,12 +67,12 @@ func isScalarType(declared string) bool {
 // materializeError attaches the origin of the offending value. The value itself
 // is deliberately left out: it may come from a .env file or --set-file and be a
 // secret, and diagnostics are the one place a value can leak.
-func materializeError(tree *values.Tree, path values.Key, _ string, err error) error {
-	location := values.DescribeMeta(tree.MetaForKey(path))
+func materializeError(tree *values.Tree, path []values.Segment, _ string, err error) error {
+	location := values.DescribeMeta(tree.MetaFor(values.CanonicalPath(path)))
 	if location == "" {
 		location = "unknown source"
 	}
-	return fmt.Errorf("%s at %s: %w", path, location, err)
+	return fmt.Errorf("%s at %s: %w", values.CanonicalPath(path), location, err)
 }
 
 // NormalizeString converts a string with the types the schema declares at path,

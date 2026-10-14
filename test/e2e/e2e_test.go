@@ -664,3 +664,75 @@ func TestExplainReportsBeforeAFailure(t *testing.T) {
 		}
 	}
 }
+
+// TestLiteralDottedKeyIsDistinctFromNestedPath pins the identity contract that
+// replaced the encoded key: a value file may define both the nested path a.b.c
+// and the literal key "a.b.c", and each keeps its own origin, its own filter
+// selection and its own unused verdict.
+func TestLiteralDottedKeyIsDistinctFromNestedPath(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	nested := filepath.Join(dir, "nested.yaml")
+	dotted := filepath.Join(dir, "dotted.json")
+	tmpl := filepath.Join(dir, "input.tmpl")
+	if err := os.WriteFile(nested, []byte("a:\n  b:\n    c: nested-value\n"), 0o600); err != nil {
+		t.Fatalf("write nested values: %v", err)
+	}
+	if err := os.WriteFile(dotted, []byte(`{"a.b.c":"dotted-value","d.b.c":"dead-value"}`), 0o600); err != nil {
+		t.Fatalf("write dotted values: %v", err)
+	}
+	if err := os.WriteFile(tmpl, []byte("${a.b.c} ${[\"a.b.c\"]}\n"), 0o600); err != nil {
+		t.Fatalf("write template: %v", err)
+	}
+
+	// The report must name the file each value actually came from: the nested path
+	// from the YAML file, the literal key from the JSON file, nothing shadowed.
+	stdout, stderr, status := execute(t, dir, nil, []string{
+		"render", "--no-process-env", "--explain", "-f", nested, "-f", dotted, tmpl,
+	})
+	if status != 0 {
+		t.Fatalf("exit = %d, want 0; stderr=%q", status, stderr)
+	}
+	if stdout != "nested-value dotted-value\n" {
+		t.Fatalf("stdout = %q, want both values", stdout)
+	}
+	for _, want := range []string{
+		`"variable":"a.b.c","origin":{"kind":"values","method":"file","source":"` + nested + `"`,
+		`"variable":"[\"a.b.c\"]","origin":{"kind":"values","method":"file","source":"` + dotted + `"`,
+		`"variable":"a.b.c","origin":{"kind":"values","method":"file","source":"` + nested + `","file":"` + nested + `","line":0},"shadowed":[]`,
+	} {
+		if !strings.Contains(stderr, want) {
+			t.Fatalf("--explain report = %q, want it to contain %q", stderr, want)
+		}
+	}
+
+	// A dotted pattern selects the nested path only; the literal key needs its own
+	// (quoted) spelling.
+	stdout, _, status = execute(t, dir, nil, []string{
+		"render", "--no-process-env", "--only-vars", "a.b.c", "-f", nested, "-f", dotted, tmpl,
+	})
+	if status != 0 {
+		t.Fatalf("exit = %d, want 0", status)
+	}
+	if stdout != `nested-value ${["a.b.c"]}`+"\n" {
+		t.Fatalf("stdout = %q, want the literal key left unselected", stdout)
+	}
+
+	// The literal key no template referenced is dead configuration, so the unused
+	// report must list it (d.b.c too).
+	used := filepath.Join(dir, "used.tmpl")
+	if err := os.WriteFile(used, []byte("${a.b.c}\n"), 0o600); err != nil {
+		t.Fatalf("write template: %v", err)
+	}
+	_, stderr, status = execute(t, dir, nil, []string{
+		"render", "--no-process-env", "--report", "unused", "-f", nested, "-f", dotted, used,
+	})
+	if status != 0 {
+		t.Fatalf("exit = %d, want 0; stderr=%q", status, stderr)
+	}
+	for _, want := range []string{`["a.b.c"]`, `["d.b.c"]`} {
+		if !strings.Contains(stderr, want) {
+			t.Fatalf("unused report = %q, want it to list %q", stderr, want)
+		}
+	}
+}

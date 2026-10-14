@@ -75,13 +75,12 @@ func (l Loader) ReadFile(path string) (*values.Tree, error) {
 	// Attach the file name to every value the loader produced. A dotenv file
 	// records one entry per key (so each key keeps its line number); structured
 	// value files record one entry per defined path.
-	for _, key := range tree.MetaKeys() {
-		meta, _ := tree.MetaAt(key)
+	tree.WalkMeta(func(segments []values.Segment, meta values.Meta) {
 		meta.File = path
 		if meta.Kind == "" {
 			meta.Kind = l.Kind
 		}
-		tree.RecordMeta(key, meta)
-	}
+		tree.RecordMeta(segments, meta)
+	})
 	return tree, nil
 }

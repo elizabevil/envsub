@@ -70,7 +70,7 @@ func (run *explainRun) AddEnv(name string) {
 }
 
 // AddRoot implements load.Observer.
-func (run *explainRun) AddRoot(path values.Key, origin load.Origin) {
+func (run *explainRun) AddRoot(path string, origin load.Origin) {
 	frame := explainOrigin{
 		kind:   origin.Kind,
 		method: origin.Method,
@@ -81,7 +81,7 @@ func (run *explainRun) AddRoot(path values.Key, origin load.Origin) {
 	if frame.source == "" {
 		frame.source = origin.File
 	}
-	run.sources.addRoot(string(path), frame)
+	run.sources.addRoot(path, frame)
 }
 
 // explainOrigin is one recorded step of a value's lineage.
@@ -264,7 +264,7 @@ func explainLookupKeys(path string) (envName, rootKey string) {
 		}
 		return name, ""
 	}
-	return "", string(values.EncodeSegments(segments))
+	return "", values.CanonicalPath(segments)
 }
 
 // metaOrigin turns a value's recorded metadata into a frame. It is the fallback

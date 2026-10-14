@@ -16,9 +16,9 @@ func MergeInto(dst, src *Tree, meta Meta) {
 		dst.Root = map[string]any{}
 	}
 	if dst.meta == nil {
-		dst.meta = map[Key]Meta{}
+		dst.meta = &metaNode{}
 	}
-	mergeMap(dst, src, dst.Root, src.Root, "", meta)
+	mergeMap(dst, src, dst.Root, src.Root, nil, meta)
 	// The process environment namespace is flat, so a plain overlay copy is the
 	// merge.
 	maps.Copy(dst.Env, src.Env)
@@ -27,10 +27,10 @@ func MergeInto(dst, src *Tree, meta Meta) {
 // mergeMap merges incoming into target, recording an origin for every encoded
 // path it defines. src is the tree the incoming values came from; it supplies the
 // per-key origins (a dotenv key keeps its own line number).
-func mergeMap(dst, src *Tree, target, incoming map[string]any, prefix Key, meta Meta) {
+func mergeMap(dst, src *Tree, target, incoming map[string]any, prefix []Segment, meta Meta) {
 	for key, value := range incoming {
-		child := JoinPath(prefix, key)
-		dst.meta[child] = srcMeta(src, child, meta)
+		child := AppendSegment(prefix, Segment{Key: key})
+		dst.RecordMeta(child, srcMeta(src, child, meta))
 		incomingMap, isObject := value.(map[string]any)
 		if !isObject {
 			target[key] = CloneValue(value)
@@ -50,8 +50,8 @@ func mergeMap(dst, src *Tree, target, incoming map[string]any, prefix Key, meta 
 // the uniform origin the caller passed for the fields the key did not record. The
 // two are combined because a dotenv key records its own line number but not the
 // file name, which only the caller knows.
-func srcMeta(src *Tree, key Key, fallback Meta) Meta {
-	recorded, ok := src.MetaAt(key)
+func srcMeta(src *Tree, path []Segment, fallback Meta) Meta {
+	recorded, ok := src.metaAt(path)
 	if !ok {
 		return fallback
 	}
@@ -92,28 +92,25 @@ func (t *Tree) SeedOrigins() {
 	if t.Root == nil {
 		return
 	}
-	if t.meta == nil {
-		t.meta = map[Key]Meta{}
-	}
-	collectMetaKeys(t.Root, "", func(key Key) {
-		t.meta[key] = Meta{}
+	collectMetaPaths(t.Root, nil, func(path []Segment) {
+		t.RecordMeta(path, Meta{})
 	})
 }
 
-// collectMetaKeys walks a JSON-compatible value and reports every encoded path.
-func collectMetaKeys(value any, prefix Key, visit func(key Key)) {
+// collectMetaPaths walks a JSON-compatible value and reports every path.
+func collectMetaPaths(value any, prefix []Segment, visit func(path []Segment)) {
 	switch typed := value.(type) {
 	case map[string]any:
 		for _, key := range utils.SortedKeys(typed) {
-			child := JoinPath(prefix, key)
+			child := AppendSegment(prefix, Segment{Key: key})
 			visit(child)
-			collectMetaKeys(typed[key], child, visit)
+			collectMetaPaths(typed[key], child, visit)
 		}
 	case []any:
 		for i, child := range typed {
-			childKey := JoinIndex(prefix, i)
-			visit(childKey)
-			collectMetaKeys(child, childKey, visit)
+			path := AppendSegment(prefix, Segment{IsIndex: true, Index: i})
+			visit(path)
+			collectMetaPaths(child, path, visit)
 		}
 	}
 }

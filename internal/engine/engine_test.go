@@ -60,8 +60,10 @@ func TestReplacesMatchesGrammarRoots(t *testing.T) {
 		{name: "namespace ignored by name", ignore: []string{"process"}, path: "@process.NAME", replaces: false},
 		{name: "namespace path prefix keeps the sigil", only: []string{"@process.NAME"}, path: "@process.NAME", replaces: true},
 		{name: "namespace without sigil does not match", only: []string{"process.NAME"}, path: "@process.NAME", replaces: false},
-		{name: "quoted top-level key by its key", only: []string{"a.b"}, path: `["a.b"].k`, replaces: true},
-		{name: "quoted top-level key prefix", only: []string{"a.b.k"}, path: `["a.b"].k`, replaces: true},
+		{name: "dotted pattern is not the literal dotted key", only: []string{"a.b"}, path: `["a.b"].k`, replaces: false},
+		{name: "dotted pattern prefix is not the literal dotted key", only: []string{"a.b.k"}, path: `["a.b"].k`, replaces: false},
+		{name: "literal dotted key selected by its own spelling", only: []string{`["a.b"]`}, path: `["a.b"].k`, replaces: true},
+		{name: "literal dotted key is not the nested path", only: []string{`["a.b"]`}, path: "a.b.k", replaces: false},
 		{name: "bare root does not reach inside", only: []string{"app"}, path: "app.port", replaces: true},
 		{name: "unrelated root", only: []string{"other"}, path: "app.port", replaces: false},
 	}

@@ -399,31 +399,26 @@ func CanonicalPath(segments []Segment) string {
 	return b.String()
 }
 
-// Key is the encoded address of a value in the root namespace: dots between named
-// segments, [i] for an index, no @ sigil and no quotes. Value metadata is keyed by
-// it, so a raw template path and an encoded key cannot be passed for one another
-// by mistake. Diagnostics that name schema locations use their own notation
-// (JSON Pointer) and only borrow IndexSuffix for the element bracket.
-type Key string
-
-// JoinPath appends a named key to an encoded path.
-func JoinPath(prefix Key, key string) Key {
-	if prefix == "" {
-		return Key(key)
-	}
-	return prefix + Key(PathSeparator) + Key(key)
+// AppendSegment returns path extended by seg, copying so the result never aliases
+// path's array. Callers that walk a document build every child path with it.
+func AppendSegment(path []Segment, seg Segment) []Segment {
+	extended := make([]Segment, len(path)+1)
+	copy(extended, path)
+	extended[len(path)] = seg
+	return extended
 }
 
 // IndexSuffix returns the bracket notation of one array element, as in "[0]". It
-// is the single definition of that spelling: JoinIndex builds value addresses
-// with it, schema diagnostics append it to keyword paths.
+// is the single definition of that spelling: diagnostics append it to a keyword
+// path, and nothing else spells an array element itself.
 func IndexSuffix(index int) string {
 	return fmt.Sprintf(indexFormat, index)
 }
 
-// JoinIndex appends an array index to an encoded path, as in extra[0].
-func JoinIndex(prefix Key, index int) Key {
-	return prefix + Key(IndexSuffix(index))
+// JoinIndex appends an array index to a dotted path, as in extra[0]. Diagnostics
+// that build a keyword path use it; value addresses carry segments instead.
+func JoinIndex(prefix string, index int) string {
+	return prefix + IndexSuffix(index)
 }
 
 // ParentPath drops the last segment of a path, returning "" for a root path or a

@@ -5,7 +5,6 @@ package engine
 import (
 	"context"
 	"io"
-	"strings"
 
 	"github.com/elizabevil/envsub/internal/types"
 	"github.com/elizabevil/envsub/internal/values"
@@ -70,35 +69,30 @@ func matchesAny(path string, patterns []string) bool {
 	return false
 }
 
-// matchesPattern reports whether one Only/Ignore pattern selects path. A pattern
-// with a dot matches the unquoted filter key, so a.b selects ["a.b"].k too; a
-// namespace keeps its @ sigil, because a bare process.NAME is a root path.
+// matchesPattern reports whether one Only/Ignore pattern selects path.
+//
+// A single bare name selects a root segment by name, so `app` selects app.port and
+// `process` selects the @process namespace. Any other pattern is compared segment
+// by segment, so a.b selects a.b and a.b.c but never ["a.b"].c, and a namespace
+// path keeps its @ sigil (process.NAME is a root path, @process.NAME is not).
 func matchesPattern(path, pattern string) bool {
-	if pattern == "" {
+	patternSegments, err := values.ParsePath(pattern)
+	if err != nil || len(patternSegments) == 0 {
 		return false
 	}
-	if !strings.ContainsRune(pattern, values.PathSeparator) {
-		return values.RootKey(path) == pattern
+	if len(patternSegments) == 1 && !patternSegments[0].IsNamespace {
+		return values.RootKey(path) == patternSegments[0].Key
 	}
-	return matchesPathPrefix(path, pattern) || matchesPathPrefix(filterKey(path), pattern)
-}
-
-// matchesPathPrefix reports whether key equals pattern or extends it as a prefix.
-func matchesPathPrefix(key, pattern string) bool {
-	return key != "" && (key == pattern || strings.HasPrefix(key, pattern+string(values.PathSeparator)))
-}
-
-// filterKey is the unquoted comparison key of a path, empty when it is invalid.
-// A namespace path keeps its @ sigil, which values.EncodePath drops.
-func filterKey(path string) string {
-	segments, err := values.ParsePath(path)
-	if err != nil {
-		return ""
+	pathSegments, err := values.ParsePath(path)
+	if err != nil || len(patternSegments) > len(pathSegments) {
+		return false
 	}
-	if values.Namespace(segments) != "" {
-		return values.CanonicalPath(segments)
+	for i, segment := range patternSegments {
+		if segment != pathSegments[i] {
+			return false
+		}
 	}
-	return string(values.EncodeSegments(segments))
+	return true
 }
 
 // Input is one render: the template, the values it resolves against and the

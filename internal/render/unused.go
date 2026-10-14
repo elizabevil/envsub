@@ -87,11 +87,11 @@ func closeOverPrefixes(paths map[string]bool) map[string]bool {
 // compareKey is the unquoted comparison key of a path spelling, so ["a.b"].c and
 // a.b.c compare equal. A spelling the grammar rejects compares as itself.
 func compareKey(path string) string {
-	encoded, err := values.EncodePath(path)
+	segments, err := values.ParsePath(path)
 	if err != nil {
 		return path
 	}
-	return string(encoded)
+	return values.CanonicalPath(segments)
 }
 
 // writeUnused writes one path per line, already sorted, so the report can be

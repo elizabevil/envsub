@@ -19,13 +19,13 @@ func (s *Schema) ApplyDefaults(tree *values.Tree) {
 	if s == nil || tree.Root == nil {
 		return
 	}
-	applyDefaults(tree, s.effective(), tree.Root, "")
+	applyDefaults(tree, s.effective(), tree.Root, nil)
 }
 
 // defaultsVisitor fills a missing key with the default its schema declares.
 type defaultsVisitor struct{}
 
-func (defaultsVisitor) missing(tree *values.Tree, path values.Key, childSchema map[string]any) (any, bool, error) {
+func (defaultsVisitor) missing(tree *values.Tree, path []values.Segment, childSchema map[string]any) (any, bool, error) {
 	defaultValue, hasDefault := childSchema[keywordDefault]
 	if !hasDefault {
 		return nil, false, nil
@@ -34,12 +34,12 @@ func (defaultsVisitor) missing(tree *values.Tree, path values.Key, childSchema m
 	return values.CloneValue(defaultValue), true, nil
 }
 
-func (defaultsVisitor) text(*values.Tree, values.Key, map[string]any, string) (any, bool, error) {
+func (defaultsVisitor) text(*values.Tree, []values.Segment, map[string]any, string) (any, bool, error) {
 	return nil, false, nil
 }
 
 // applyDefaults walks the schema and fills missing keys in the value tree.
-func applyDefaults(tree *values.Tree, schemaNode any, node map[string]any, prefix values.Key) {
+func applyDefaults(tree *values.Tree, schemaNode any, node map[string]any, prefix []values.Segment) {
 	_ = walkProperties(tree, schemaNode, node, prefix, defaultsVisitor{})
 }
 
@@ -65,8 +65,8 @@ func (s *Schema) DefaultOrigins() []DefaultOrigin {
 
 // DefaultOrigin is one declared schema default.
 type DefaultOrigin struct {
-	// Path is the encoded value path the default applies to.
-	Path values.Key
+	// Path is the canonical spelling of the value path the default applies to.
+	Path string
 	// Pointer is the JSON pointer of the declaration inside the schema document.
 	Pointer string
 	// Schema is the schema file, empty when the schema was not loaded from one.
@@ -74,21 +74,21 @@ type DefaultOrigin struct {
 }
 
 // DefaultDecls returns every location the schema declares a `default` for, keyed
-// by the encoded value path the walkers use. The pointer locates the declaration
+// by the canonical spelling of the value path the walkers use. The pointer locates the declaration
 // inside the schema document, so --explain can name where a default came from
 // even after a later layer covered it.
-func (s *Schema) DefaultDecls() map[values.Key]string {
+func (s *Schema) DefaultDecls() map[string]string {
 	if s == nil {
 		return nil
 	}
-	decls := map[values.Key]string{}
-	collectDefaultDecls(s.effective(), "", pointerPrefix, decls)
+	decls := map[string]string{}
+	collectDefaultDecls(s.effective(), nil, pointerPrefix, decls)
 	return decls
 }
 
 // collectDefaultDecls walks properties and items the way the walkers do, so the
 // keys it reports match the keys those walkers record metadata for.
-func collectDefaultDecls(schemaNode any, encodedPath values.Key, pointer string, decls map[values.Key]string) {
+func collectDefaultDecls(schemaNode any, path []values.Segment, pointer string, decls map[string]string) {
 	object, ok := schemaNode.(map[string]any)
 	if !ok {
 		return
@@ -99,10 +99,10 @@ func collectDefaultDecls(schemaNode any, encodedPath values.Key, pointer string,
 			if !ok {
 				continue
 			}
-			childPath := values.JoinPath(encodedPath, key)
+			childPath := values.AppendSegment(path, values.Segment{Key: key})
 			childPointer := pointer + "/properties/" + escapePointerToken(key)
 			if _, hasDefault := childSchema[keywordDefault]; hasDefault {
-				decls[childPath] = childPointer + "/default"
+				decls[values.CanonicalPath(childPath)] = childPointer + "/default"
 			}
 			collectDefaultDecls(childSchema, childPath, childPointer, decls)
 		}

@@ -132,8 +132,8 @@ func TestExplainNameAndLookupKeys(t *testing.T) {
 		{path: "env.K", wantName: "env.K", wantRootKey: "env.K"},
 		{path: "app.port", wantName: "app.port", wantRootKey: "app.port"},
 		{path: "hosts[0]", wantName: "hosts[0]", wantRootKey: "hosts[0]"},
-		{path: `["a.b"].k`, wantName: `["a.b"].k`, wantRootKey: "a.b.k"},
-		{path: `app["my key"]`, wantName: `app["my key"]`, wantRootKey: "app.my key"},
+		{path: `["a.b"].k`, wantName: `["a.b"].k`, wantRootKey: `["a.b"].k`},
+		{path: `app["my key"]`, wantName: `app["my key"]`, wantRootKey: `app["my key"]`},
 		// The report uses the canonical spelling, so a filter written the same way
 		// matches even when the template used a different but equivalent form.
 		{path: `  app.port  `, wantName: "app.port", wantRootKey: "app.port"},
@@ -223,7 +223,7 @@ func TestExplainerSource(t *testing.T) {
 func TestExplainerSourceFallsBackToTreeMeta(t *testing.T) {
 	t.Parallel()
 	tree := values.NewTree()
-	tree.RecordMeta("K", values.Meta{Kind: values.SourceEnvFile, File: ".env", Line: 4})
+	tree.RecordMeta(metaSegments(t, "K"), values.Meta{Kind: values.SourceEnvFile, File: ".env", Line: 4})
 
 	origin, shadowed := (explainer{}).source("K", tree)
 	if origin.kind != "envfile" || origin.file != ".env" || origin.line != 4 {
@@ -313,4 +313,14 @@ func TestObserverRecordsThroughTheInterface(t *testing.T) {
 	if got := run.sources.env["FROM_PROCESS"]; len(got) != 1 {
 		t.Fatalf("@process origins = %#v, want one", got)
 	}
+}
+
+// metaSegments parses a spelling into the segments the metadata API takes.
+func metaSegments(t *testing.T, spelling string) []values.Segment {
+	t.Helper()
+	segments, err := values.ParsePath(spelling)
+	if err != nil {
+		t.Fatalf("ParsePath(%q) error = %v", spelling, err)
+	}
+	return segments
 }
