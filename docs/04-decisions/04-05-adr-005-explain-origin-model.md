@@ -41,52 +41,82 @@ schema default → yaml/json 值文件 → .env → --set/--set-json/--set-file 
 - 报告给出现胜帧 `origin` 与它覆盖的帧 `shadowed`（**近者在前**）；
   于是 `shadowed + origin` 逆序即为完整链，`origin` 恒为链尾。
 
-### 4.2 每帧结构统一，字段职责互不重复
+### 4.2 kind 是层位，method 是入口写法
+
+`--set` / `--set-json` / `--set-file` 是**同一层的三种写法**（同一层位、同样覆盖值文件、互相顺序
+固定），因此不拆成多个 kind，而是 `kind` 记层位、`method` 记入口写法。层位集合稳定，
+新增语法只扩 `method`。
+
+| kind | method | `source`（该 kind 下的地址） | `file` | `line` |
+|------|--------|------------------------------|--------|--------|
+| `schema` | `default` | JSON 指针，如 `#/properties/K/default` | schema 文件 | 0 |
+| `values` | `file` | 文件路径（`.yaml`/`.yml`/`.json` 由扩展名区分） | 该文件 | 0 |
+| `envfile` | `file` | 文件路径 | 该文件 | 有 |
+| `set` | `flag` \| `json` \| `file` | 键名 | `--set-file` 时为被读文件，否则 `""` | 0 |
+| `process` | `env` | 环境变量名 | `""` | 0 |
+| `assign` | `assign` | 模板路径 | 模板文件 | 有 |
+| `missing` | `missing` | `""` | `""` | 0 |
+
+`set` 的三种 method 分别对应 `--set`（`flag`）、`--set-json`（`json`）、`--set-file`（`file`）；
+`--set-file` 的被读文件必须填入 `file`（当前实现丢失了它）。
+
+### 4.3 每帧结构统一，字段各回答一个问题
 
 ```json
-{"kind":"dotenv","source":"examples/data/app.env","file":"examples/data/app.env","line":4}
+{"kind":"values","method":"file","source":"examples/data/values-prod.yaml",
+ "file":"examples/data/values-prod.yaml","line":0}
 ```
 
-| 字段 | 含义 | 是否恒在 |
-|------|------|----------|
-| `kind` | 来源类别，闭集：`schema` `yaml` `json` `envfile` `set` `setfile` `process` `assign` `missing` | 是 |
-| `source` | 该类别的**唯一地址**，不重复 `file`/`line`：文件类给路径；`process` 给**环境变量名**；`schema` 给**指针**；`set`/`setfile` 给键名；`assign` 给模板路径 | 是 |
-| `file` | 该帧所在文件；无文件来源为空串 `""` | 是（无则空） |
-| `line` | 1 基行号；不可得或对同文件所有键相同者为 `0` | 是（无则 0） |
+| 字段 | 回答的问题 | 是否恒在 |
+|------|------------|----------|
+| `kind` | 它在**哪一层**（闭集） | 是 |
+| `method` | 它**怎么进来的**（该层的入口写法） | 是 |
+| `source` | 它的**地址**：同类来源中唯一标识它（文件路径 / 环境变量名 / JSON 指针 / 键名 / 模板路径） | 是 |
+| `file` | 它的**物理位置**所在文件；无文件来源为 `""` | 是 |
+| `line` | 1 基行号；不可得为 `0` | 是 |
 
-**禁止缺省**：所有帧的四个字段都输出，空值用 `""`/`0`，消费方不需要判空分支。
+`source` 与 `file` 在文件类来源上取值相同，但**不是重复表达**：`source` 是"哪一层的哪个来源"，
+`file`/`line` 是"去哪个文件的哪一行看"。反例是旧实现的
+`{"source":"schema","kind":"schema"}`——那里 `source` 没有提供 `kind` 之外的任何信息。
 
-### 4.3 行格式
+**禁止缺省**：五字段全部输出，空值用 `""`/`0`。
+
+### 4.4 行格式
 
 ```json
 {"template":"examples/templates/scenarios-json.tmpl","variable":"string_type_root",
- "origin":{"kind":"yaml","source":"examples/data/values-prod.yaml","file":"examples/data/values-prod.yaml","line":0},
+ "origin":{"kind":"values","method":"file","source":"examples/data/values-prod.yaml",
+           "file":"examples/data/values-prod.yaml","line":0},
  "shadowed":[
-   {"kind":"yaml","source":"examples/data/values-base.yaml","file":"examples/data/values-base.yaml","line":0},
-   {"kind":"schema","source":"#/properties/string_type_root/default","file":"examples/data/schema.yaml","line":0}
+   {"kind":"values","method":"file","source":"examples/data/values-base.yaml",
+    "file":"examples/data/values-base.yaml","line":0},
+   {"kind":"schema","method":"default","source":"#/properties/string_type_root/default",
+    "file":"examples/data/schema.yaml","line":0}
  ]}
 ```
 
-进程环境：
+`--set-file` 的键：
 
 ```json
-{"template":"in.tmpl","variable":"@process.ENVSUB_STRING",
- "origin":{"kind":"process","source":"ENVSUB_STRING","file":"","line":0},
+{"variable":"string_setfile_from_file",
+ "origin":{"kind":"set","method":"file","source":"string_setfile_from_file",
+           "file":"examples/secrets/tls.key","line":0},
  "shadowed":[]}
 ```
 
-约定：`template`/`variable` 仍是信封（一行一条）；`shadowed` **恒输出**，无被覆盖帧时为 `[]`。
-不输出值（值可能是密钥）。
+`shadowed` 恒输出，无被覆盖帧时为 `[]`；`origin` 恒为链尾。不输出值（值可能是密钥）。
 
-### 4.4 不变式（可直接写成断言）
+### 4.5 不变式（可直接写成断言）
 
 | # | 不变式 |
 |---|--------|
-| I1 | `origin.kind` 属于闭集；`shadowed` 的每一帧同样属于闭集 |
-| I2 | `origin` 是链尾（最高优先级），`shadowed` 近者在前，二者不重复同一帧 |
-| I3 | `source` 不与 `file`/`line` 重复表达：文件类帧的 `source == file` |
-| I4 | 任一帧的四个字段都存在（不得 `omitempty`） |
-| I5 | 若某路径在 schema 中有 `default` 且被覆盖，链中必须出现该 `schema` 帧 |
+| I1 | `kind` 属于闭集，`shadowed` 每帧同 |
+| I2 | `method` 属于该 `kind` 的允许集合（`set` 三种，其余一种） |
+| I3 | `source` 只表达地址：文件类等于 `file`，`process` 为环境变量名，`schema` 为指针，`set` 为键名 |
+| I4 | 五个字段恒在，空值 `""`/`0`，不得 `omitempty` |
+| I5 | `origin` 是链尾，`shadowed` 近者在前，二者不重复同一帧 |
+| I6 | 被覆盖的 schema `default` 必须出现在链里 |
+| I7 | 行信封只有 `template`、`variable`、`origin`、`shadowed`，且不输出值 |
 
 ## 5. 考虑的替代方案
 
@@ -101,7 +131,7 @@ schema default → yaml/json 值文件 → .env → --set/--set-json/--set-file 
 
 | 面 | 影响 |
 |----|------|
-| 产品 | `internal/render/explain.go` 重构记录结构；`load` 观察者需上报 schema `default` 帧（当前 default 不与来源关联）；`kind` 细分出 `envfile`/`setfile`/`assign` |
+| 产品 | `internal/render/explain.go` 重构为帧结构；`load` 观察者需上报 schema `default` 帧（当前 default 只报最终生效项）与 `--set-file` 的被读文件；`values` 的 kind 常量改为 kind+method 两段 |
 | 契约 | `--explain` JSONL 字段不兼容变更（已决：不保留旧形状） |
 | 测试 | 7 个 e2e `explain_*` fixture 重生成；补 `shadowed` **顺序**与**多层链**断言（`05-02` 登记的缺口）；补 I1–I5 |
 | 文档 | `13-materialization.md` §15 重写；`06-11`/`06-13`/`06-14` 的 `[TODO]` 转正并更新字段表；`05-03` 待办 I 状态更新 |
@@ -109,5 +139,6 @@ schema default → yaml/json 值文件 → .env → --set/--set-json/--set-file 
 
 ## 7. 未决
 
-- `assign`（模板内写回）是否单列 kind，还是并入 `set`（待实现时定，需模板行号）；
-- 值文件（yaml/json）是否补行号（需加载器记录位置，成本较高，暂记 `line: 0`）。
+- 值文件（`values`）是否补行号：需加载器记录位置，成本较高，暂记 `line: 0`；
+- `schema` 帧的 `file`/`line` 取 schema 文件路径与 `0`（JSON 无行概念），若将来在 schema 内联
+  记录键的行号再更新。
