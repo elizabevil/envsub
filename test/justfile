@@ -1,0 +1,46 @@
+set shell := ["bash", "-uc"]
+set tempdir := "/tmp"
+
+default:
+    @just --list
+
+test: test-e2e test-architecture test-examples test-fuzz
+
+test-e2e:
+    go test -count=1 -v ./e2e
+
+# Structural boundaries from docs/06-review/06-17 (import layering, CLI/runner split).
+test-architecture:
+    go test -count=1 -v ./architecture
+
+# The runnable example must map every documented rule family.
+test-examples:
+    go test -count=1 -v ./examples
+
+# Parser fuzz targets: seeds run as ordinary tests on every `just check`; this
+# recipe additionally fuzzes each target, which is what catches new panics.
+# The corpus lives in .tmp/ so a finding does not pollute the tracked tree.
+test-fuzz:
+    go test -count=1 ./fuzz
+    go test -run '^$' -fuzz '^FuzzTemplateScanner$' -fuzztime=30s ./fuzz
+    go test -run '^$' -fuzz '^FuzzTemplateSpans$' -fuzztime=30s ./fuzz
+    go test -run '^$' -fuzz '^FuzzPathParser$' -fuzztime=30s ./fuzz
+    go test -run '^$' -fuzz '^FuzzDotenvParser$' -fuzztime=30s ./fuzz
+
+fuzz-list:
+    @go test -list 'Fuzz.*' ./fuzz
+
+e2e-list:
+    @find e2e/testdata -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort
+
+# REF-04 performance gate; needs GNU envsubst (gettext-base) in PATH.
+test-perf:
+    go test -count=1 -v ./perf
+
+perf-list:
+    @go test -count=1 -v -list '.*' ./perf
+
+test-race:
+    go test -race -count=1 ./e2e
+
+test-all: test test-perf
