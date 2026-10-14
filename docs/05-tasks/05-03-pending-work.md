@@ -146,17 +146,22 @@
 cannot decode "internal/goarch", export data version 5 is greater than maximum supported version 4
 ```
 
-**另一个环境约束**：本机 `$HOME` 下的默认缓存（`~/.cache/go-build`、`~/.cache/golangci-lint`、
-`$GOMODCACHE`）**全部只读**，因此工具与缓存只能放工作区内（仓库既有约定已如此：`justfile`
-顶部把 `GOCACHE`/`GOTMPDIR`/`GOLANGCI_LINT_CACHE` 指到 `.tmp/`）。
+**环境约束（三条，共同决定工具只能放仓库内）**：
+
+| 位置 | 状态 | 后果 |
+|------|------|------|
+| `$HOME/.cache/go-build`、`$HOME/.cache/golangci-lint`、`$GOMODCACHE` | **只读** | 默认 `go build` 直接失败；默认缓存无法使用 |
+| `/tmp` | 可写，但**每次调用之间被清空**（tmpfs） | 工具放这里会每次重新下载+构建（约 45s） |
+| 仓库 `.tmp/` | 唯一**持久可写**处 | 工具与缓存只能放这里 |
 
 **解决**：`tools/lint/golangci-lint.sh` 负责"版本不符则从源码构建一次，之后直接复用"：
 
-- 固定版本 + 固定工具链：脚本内 `GOTOOLCHAIN=go1.27.2`、`GOBIN=.tmp/bin`；
-- 模块与构建缓存固定在 `.tmp/gopath`、`.tmp/gocache`（不读写调用方的 `HOME`）；
-- 版本已在 `.tmp/bin` 时**零下载、零重建**（实测第二次 0.47s，二进制时间戳不变）；
-- 首次构建约 16s；`.tmp/` 已被 gitignore。
-- `justfile` 的 `lintPin`（`v2.14.0`）与脚本里的 `version` 必须同步改。
+- 工具家目录固定为 `.tmp/lint/`（`bin/` + `gopath/` + `lintcache/`，约 430M），
+  可用 `LINT_HOME` 覆盖；Go 构建缓存与临时目录**与项目其余配方共用**
+  （`.tmp/gocache`、`.tmp/gotmp`），不重复占一份；`.tmp/` 已被 gitignore；
+- 脚本内固定 `GOTOOLCHAIN=go1.27.2`，不读写调用方的 `HOME`，也不改 `go env`；
+- 版本已就位时**零下载、零重建**（实测跨调用第二次 0.55s，二进制时间戳不变）；首次约 45s；
+- 版本号两处同步：`justfile` 的 `lintPin`（`v2.14.0`）与脚本内的 `version`。
 
 **lint 已进入静态测试**：`just check` 现在是
 `caches fmt-check fmt-just vet lint test test-e2e`，lint 失败即门禁失败。

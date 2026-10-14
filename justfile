@@ -15,8 +15,9 @@ export GOCACHE := env("GOCACHE", justfile_directory() / ".tmp/gocache")
 export GOTMPDIR := env("GOTMPDIR", justfile_directory() / ".tmp/gotmp")
 export GOLANGCI_LINT_CACHE := env("GOLANGCI_LINT_CACHE", justfile_directory() / ".tmp/golangci-cache")
 
-# The linter is built from source into .tmp/bin because a prebuilt release is
-# compiled with an older Go than this repository uses (see the script).
+# The linter is built from source into .tmp/lint because a prebuilt release is
+# compiled with an older Go than this repository uses, and this environment has no
+# other writable place that persists (see the script).
 lintPin := "v2.14.0"
 lintTool := "bash " + (justfile_directory() / "tools" / "lint" / "golangci-lint.sh")
 
