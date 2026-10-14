@@ -51,7 +51,27 @@ What each guard checks (they fail with a readable diff, not a silent pass):
 | `TestExampleFailureCasesMatchTheirExitCodes` | `cases/errors/*`: expected exit code, stderr fragment, empty stdout |
 
 The `scenarios-*`, `precedence` and `realworld` recipes do all three steps themselves:
-render → parse the output with `tools/digest` → `diff` against the golden.
+render → parse the output with `tools/digest` (using that template's `.parse` marker) →
+`diff` against the golden.
+
+To see where a golden's values actually came from, without re-deriving them by hand:
+
+```bash
+just --justfile examples/justfile explain-sources
+```
+
+It renders with `--explain` and prints the winning layer per key:
+
+```text
+30 values referenced
+
+[yaml]
+  from examples/data/values-prod.yaml
+    string_type_root   (shadowed: examples/data/values-base.yaml)
+[schema]
+  from schema
+    string_prec_default_never_wins
+```
 
 `examples/justfile` is **not** part of `just check` (it builds the binary first); the guards in
 step 1 are, so a broken example is caught by `just check` even without running the recipes.
@@ -61,7 +81,7 @@ step 1 are, so a broken example is caught by `just check` even without running t
 | Term | Meaning |
 |------|---------|
 | **golden** | The **final expected output** of a template, checked in and compared **byte for byte**. A golden is not a sample: it is the contract. `digest-update` rewrites it, and `git diff` is how you review that rewrite. |
-| `.parse` | The format the golden claims to be (`json` or `yaml`). The recipe proves it with a real parser, so "valid JSON" is enforced, not assumed. |
+| `.parse` | The format the golden claims to be (`json` or `yaml`). **The single source of truth for that claim**: `test/examples` and the recipes read this same file, so a real parser proves it on both sides. |
 | `.unused` | The expected `--report=unused` output for that template (the report goes to stderr). |
 | `expect.out` | Expected stdout of a **failure case** (`cases/errors/`), byte for byte. |
 | `expect.err` | A fragment that **must appear** in stderr (substring, not the whole text: messages may carry paths). |
@@ -84,7 +104,7 @@ Rule of thumb: **`data/` is input, `templates/*.tmpl` is what runs, `*.golden` i
 | `secrets/tls.key` | the value for `--set-file` | the `sets` group |
 | `templates/*.tmpl` | templates with placeholders | the matching recipe |
 | `templates/*.golden` | exact expected stdout for that template | `diff -u` in the recipe, and `test/examples` |
-| `templates/*.parse` | `json`/`yaml` the golden must parse as | `tools/digest --parse` |
+| `templates/*.parse` | `json`/`yaml` the golden must parse as (**single source**: recipes read it, `test/examples` enforces it) | `tools/digest --parse` and the guards |
 | `templates/unused.unused` | expected `--report=unused` report | `test/examples` |
 | `templates/batch/*.tmpl` | inputs for `--output-dir` | `auxiliary-batch` |
 | `templates/stdin.tmpl` | template delivered on stdin | `auxiliary-stdin` |
@@ -134,6 +154,7 @@ whole difference: data is what the flags read, templates are what the command re
 | `failures` | one case per exit code: 6, 3, 4, 4, 5, 2, 7 (outdated) and 7 (missing target) |
 | `acceptance` | the whole tree rendered and compared file by file |
 | `digest-update` | regenerate `templates/*.golden` and `out/` after an intended change |
+| `explain-sources` | where every rendered value came from (winning layer, file and line) |
 
 ## Rule families and where they are exercised
 

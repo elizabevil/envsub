@@ -254,20 +254,62 @@ func TestTemplateFormattersAreExercised(t *testing.T) {
 // TestScenariosParseAsTheirDeclaredFormat pins the two-template split: the JSON
 // template's output is valid JSON and the YAML template's is valid YAML, which is
 // what the parse marker next to each template claims.
+// TestScenariosParseAsTheirDeclaredFormat pins the `.parse` markers: every marker
+// names a real format, every marker has a template and a golden, and the golden
+// does not contradict its own marker. `just digest-update` and the recipes read
+// the same file, so this is the only place the format is declared.
 func TestScenariosParseAsTheirDeclaredFormat(t *testing.T) {
 	t.Parallel()
 	root := repoRoot(t)
-	for _, name := range []string{"scenarios-json", "scenarios-yaml"} {
-		marker := strings.TrimSpace(readFile(t, filepath.Join(root, "examples", "templates", name+".parse")))
+	templates := filepath.Join(root, "examples", "templates")
+	markers, err := filepath.Glob(filepath.Join(templates, "*.parse"))
+	if err != nil {
+		t.Fatalf("Glob(*.parse): %v", err)
+	}
+	if len(markers) == 0 {
+		t.Fatal("no .parse markers found")
+	}
+	for _, path := range markers {
+		name := strings.TrimSuffix(filepath.Base(path), ".parse")
+		marker := strings.TrimSpace(readFile(t, path))
 		if marker != "json" && marker != "yaml" {
-			t.Errorf("%s.parse = %q, want json or yaml", name, marker)
+			t.Errorf("%s = %q, want json or yaml", filepath.Base(path), marker)
+			continue
 		}
-		golden := readFile(t, filepath.Join(root, "examples", "templates", name+".golden"))
+		if _, err := os.Stat(filepath.Join(templates, name+".tmpl")); err != nil {
+			t.Errorf("%s.parse has no %s.tmpl", name, name)
+		}
+		golden := readFile(t, filepath.Join(templates, name+".golden"))
 		if marker == "json" && !strings.HasPrefix(strings.TrimSpace(golden), "{") {
 			t.Errorf("%s.golden does not look like a JSON object", name)
 		}
 		if marker == "yaml" && strings.HasPrefix(strings.TrimSpace(golden), "{") {
 			t.Errorf("%s.golden looks like JSON, not YAML", name)
+		}
+	}
+}
+
+// TestParseFamilyCoversEveryGoldenThatClaimsAFormat keeps the marker file in
+// step with the recipes: a template whose output is checked as JSON or YAML must
+// declare the format, otherwise only the recipe would know it.
+func TestParseFamilyCoversEveryGoldenThatClaimsAFormat(t *testing.T) {
+	t.Parallel()
+	root := repoRoot(t)
+	templates := filepath.Join(root, "examples", "templates")
+	required := map[string]string{
+		"scenarios-json": "json",
+		"scenarios-yaml": "yaml",
+		"realworld":      "yaml",
+	}
+	for name, want := range required {
+		path := filepath.Join(templates, name+".parse")
+		marker, err := os.ReadFile(path)
+		if err != nil {
+			t.Errorf("%s must declare its output format in %s.parse", name, name)
+			continue
+		}
+		if got := strings.TrimSpace(string(marker)); got != want {
+			t.Errorf("%s.parse = %q, want %q", name, got, want)
 		}
 	}
 }

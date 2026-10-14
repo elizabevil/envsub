@@ -10,9 +10,11 @@
 //	digest --parse json --file F     F must be valid JSON
 //	digest --parse yaml --file F     F must be valid YAML
 //	digest --digest DIR              print one line per file with its hash
+//	digest --sources FILE            summarise an --explain log: one line per value
 package main
 
 import (
+	"bufio"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -45,11 +47,14 @@ func run(args []string, stdout, stderr io.Writer) error {
 	parse := flags.String("parse", "", "format to parse: json or yaml")
 	file := flags.String("file", "", "file to parse, or - for stdin")
 	digestDir := flags.String("digest", "", "tree to describe")
+	sources := flags.String("sources", "", "explain log to summarise, or - for stdin")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
 
 	switch {
+	case *sources != "":
+		return summariseSources(*sources, stdout)
 	case *digestDir != "":
 		entries, err := treeDigest(*digestDir)
 		if err != nil {
@@ -216,4 +221,80 @@ func summarize(value any) string {
 	default:
 		return fmt.Sprintf("%T", value)
 	}
+}
+
+// explainEntry is one line of the --explain log.
+type explainEntry struct {
+	Template string   `json:"template"`
+	Variable string   `json:"variable"`
+	Source   string   `json:"source"`
+	Kind     string   `json:"kind"`
+	Shadowed []string `json:"shadowed"`
+}
+
+// summariseSources reads an --explain log and prints the provenance of every
+// value, so a reader can see where a golden's lines came from without running
+// the render again by hand. Lines are grouped by kind, then by winning source.
+func summariseSources(path string, stdout io.Writer) error {
+	var reader io.Reader
+	if path == "-" {
+		reader = os.Stdin
+	} else {
+		file, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+		reader = file
+	}
+
+	scanner := bufio.NewScanner(reader)
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	entries := make([]explainEntry, 0, 64)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		var entry explainEntry
+		if err := json.Unmarshal([]byte(line), &entry); err != nil {
+			return fmt.Errorf("explain line %d: %w", len(entries)+1, err)
+		}
+		entries = append(entries, entry)
+	}
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+	if len(entries) == 0 {
+		return fmt.Errorf("no explain entries in %s", path)
+	}
+
+	sort.Slice(entries, func(i, j int) bool {
+		if entries[i].Kind != entries[j].Kind {
+			return entries[i].Kind < entries[j].Kind
+		}
+		if entries[i].Source != entries[j].Source {
+			return entries[i].Source < entries[j].Source
+		}
+		return entries[i].Variable < entries[j].Variable
+	})
+
+	fmt.Fprintf(stdout, "%d values referenced\n", len(entries))
+	kind, source := "", ""
+	for _, entry := range entries {
+		if entry.Kind != kind {
+			kind, source = entry.Kind, ""
+			fmt.Fprintf(stdout, "\n[%s]\n", kind)
+		}
+		if entry.Source != source {
+			source = entry.Source
+			fmt.Fprintf(stdout, "  from %s\n", source)
+		}
+		fmt.Fprintf(stdout, "    %s", entry.Variable)
+		if len(entry.Shadowed) > 0 {
+			fmt.Fprintf(stdout, "   (shadowed: %s)", strings.Join(entry.Shadowed, ", "))
+		}
+		fmt.Fprintln(stdout)
+	}
+	return nil
 }

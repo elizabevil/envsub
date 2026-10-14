@@ -54,14 +54,16 @@ data:
 scenarios-json: ensure-binary
     @mkdir -p {{ work }}
     @env {{ process }} {{ bin }} render {{ sources }} {{ justfile_directory() }}/templates/scenarios-json.tmpl > {{ work }}/scenarios-json.out
-    @go run ./tools/digest --parse json --file {{ work }}/scenarios-json.out
+    @fmt=$(cat {{ justfile_directory() }}/templates/scenarios-json.parse); \
+        go run ./tools/digest --parse "$fmt" --file {{ work }}/scenarios-json.out
     @diff -u {{ justfile_directory() }}/templates/scenarios-json.golden {{ work }}/scenarios-json.out && echo "scenarios-json: matches golden"
 
 # YAML side: the same dataset, rendered as native YAML.
 scenarios-yaml: ensure-binary
     @mkdir -p {{ work }}
     @env {{ process }} {{ bin }} render {{ sources }} {{ justfile_directory() }}/templates/scenarios-yaml.tmpl > {{ work }}/scenarios-yaml.out
-    @go run ./tools/digest --parse yaml --file {{ work }}/scenarios-yaml.out
+    @fmt=$(cat {{ justfile_directory() }}/templates/scenarios-yaml.parse); \
+        go run ./tools/digest --parse "$fmt" --file {{ work }}/scenarios-yaml.out
     @diff -u {{ justfile_directory() }}/templates/scenarios-yaml.golden {{ work }}/scenarios-yaml.out && echo "scenarios-yaml: matches golden"
 
 # The same two templates without any process environment: @process is then empty.
@@ -87,8 +89,17 @@ precedence-two-dotenv: ensure-binary
 realworld: ensure-binary
     @mkdir -p {{ work }}
     @env {{ process }} {{ bin }} render {{ sources }} {{ justfile_directory() }}/templates/realworld.tmpl > {{ work }}/realworld.out
-    @go run ./tools/digest --parse yaml --file {{ work }}/realworld.out
+    @fmt=$(cat {{ justfile_directory() }}/templates/realworld.parse); \
+        go run ./tools/digest --parse "$fmt" --file {{ work }}/realworld.out
     @diff -u {{ justfile_directory() }}/templates/realworld.golden {{ work }}/realworld.out && echo "realworld: matches golden"
+
+# Where every value came from: the winning layer per key, with its file and line.
+# This is what makes a golden readable without re-deriving its values by hand.
+explain-sources: ensure-binary
+    @mkdir -p {{ work }}
+    @env {{ process }} {{ bin }} render {{ sources }} {{ justfile_directory() }}/templates/scenarios-json.tmpl \
+        --explain -o {{ work }}/explain.out 2> {{ work }}/explain.jsonl
+    @go run ./tools/digest --sources {{ work }}/explain.jsonl
 
 # A template that references only part of the dataset, for --report=unused.
 unused: ensure-binary
@@ -230,7 +241,7 @@ digest-update: ensure-binary
     @env {{ process }} {{ bin }} render {{ sources }} --output-dir {{ expected_out }} {{ justfile_directory() }}/templates/realworld.tmpl {{ justfile_directory() }}/templates/scenarios-yaml.tmpl
     @echo "updated templates/*.golden and out/"
 
-demo: scenarios-json scenarios-yaml filters unknown-keywords on-empty scenarios-with-prefix scenarios-no-process values-long-flag precedence precedence-two-dotenv realworld unused auxiliary-validate auxiliary-check auxiliary-explain auxiliary-stdin auxiliary-error-json auxiliary-batch auxiliary-in-place failures acceptance
+demo: scenarios-json scenarios-yaml explain-sources filters unknown-keywords on-empty scenarios-with-prefix scenarios-no-process values-long-flag precedence precedence-two-dotenv realworld unused auxiliary-validate auxiliary-check auxiliary-explain auxiliary-stdin auxiliary-error-json auxiliary-batch auxiliary-in-place failures acceptance
 
 clean:
     @rm -rf {{ work }}
