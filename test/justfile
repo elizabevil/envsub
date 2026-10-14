@@ -9,6 +9,11 @@ test: test-e2e test-architecture test-examples test-fuzz
 test-e2e:
     go test -count=1 -v ./e2e
 
+# One fixture by name, e.g. `just test-e2e-case check_outdated`. Cases live in
+# e2e/testdata/<name>; see e2e/README.md for the file format and exit codes.
+test-e2e-case NAME:
+    go test -count=1 -v -run 'TestE2E/{{ NAME }}' ./e2e
+
 # Structural boundaries from docs/06-review/06-17 (import layering, CLI/runner split).
 test-architecture:
     go test -count=1 -v ./architecture

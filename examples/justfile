@@ -7,6 +7,12 @@
 #   just demo             # every recipe in sequence
 #
 # Layout and naming: see README.md and ../docs/05-tasks/05-05-examples-and-test-architecture.md.
+#
+# To verify the examples after a change:
+#   go test ./test/examples/ -v      # structure + render every template against its golden
+#   just demo                        # every recipe in sequence
+#   just digest-update               # only for an intended change, then review `git diff examples/`
+# README.md §"How to verify an example" has the full checklist.
 set shell := ["bash", "-cu"]
 
 # Only the binary differs per platform; every recipe below is platform-neutral.

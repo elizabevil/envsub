@@ -11,6 +11,51 @@ just scenarios-json
 just demo          # run everything
 ```
 
+## How to verify an example
+
+Three layers, cheapest first. Run them after any change to `data/`, `templates/` or `cases/`.
+
+```bash
+# 1. Guards: structure + render every template against its golden (needs no just)
+go test ./test/examples/ -v
+
+# 2. Recipes: render one scenario and show the trees/diffs a human can read
+just --justfile examples/justfile scenarios-json
+just --justfile examples/justfile scenarios-yaml
+just --justfile examples/justfile precedence
+just --justfile examples/justfile realworld
+just --justfile examples/justfile failures      # one case per exit code
+just --justfile examples/justfile unused        # --report=unused
+just --justfile examples/justfile auxiliary-check   # compare out/ with --check (exit 7 = outdated)
+just --justfile examples/justfile acceptance        # whole out/ tree, file by file
+just --justfile examples/justfile demo              # every recipe in sequence
+
+# 3. Only after an intended change: rewrite the expectations, then review the diff
+just --justfile examples/justfile digest-update
+git diff examples/
+go test ./test/examples/ && just --justfile examples/justfile demo
+```
+
+What each guard checks (they fail with a readable diff, not a silent pass):
+
+| Guard | Checks |
+|-------|--------|
+| `TestDatasetNamesFollowTheConvention` | every key is `<type>_<source>_<effect>` with a known word |
+| `TestDatasetCoversEveryDimension` | each type × each source has at least one key |
+| `TestRuleFamiliesAreMapped` | every rule family (O1–O9, P1–P8, …) names where it is exercised |
+| `TestExamplesCoverEveryRegisteredFlag` | every registered CLI flag is used somewhere |
+| `TestTemplateFormattersAreExercised` | all six formatters appear in a template |
+| `TestScenariosParseAsTheirDeclaredFormat` | `<name>.parse` agrees with the rendered output |
+| `TestExampleTemplatesMatchTheirGolden` | renders every template and compares byte-for-byte with `<name>.golden`, then parses it |
+| `TestExampleUnusedReportMatchesItsExpectation` | `--report=unused` stdout and stderr |
+| `TestExampleFailureCasesMatchTheirExitCodes` | `cases/errors/*`: expected exit code, stderr fragment, empty stdout |
+
+The `scenarios-*`, `precedence` and `realworld` recipes do all three steps themselves:
+render → parse the output with `tools/digest` → `diff` against the golden.
+
+`examples/justfile` is **not** part of `just check` (it builds the binary first); the guards in
+step 1 are, so a broken example is caught by `just check` even without running the recipes.
+
 ## Layout
 
 | Path | Holds | Why it is separate |

@@ -72,6 +72,17 @@ last-updated: 2026-10-08
 
 ## 4. Fixture 约定
 
+每层的**文件格式与运行方式以该层自己的 README 为准**（避免本文件与实现漂移）：
+
+| 层 | 运行方式 | 格式与期望文件 |
+|----|----------|----------------|
+| 引擎用例 | `just --justfile test/justfile test-e2e` 之外的 `go test ./internal/engine/extended/` | `internal/engine/extended/testdata/README.md` |
+| CLI 端到端 | `just --justfile test/justfile test-e2e`（单个：`test-e2e-case NAME`） | `test/e2e/README.md`（含 7 个退出码含义） |
+| 可运行示例 | `go test ./test/examples/ -v`；配方：`just demo` | `examples/README.md` §"How to verify an example" |
+| 编解码对拍 | `just --justfile test/justfile test` 或 `go test ./test/jsonx/ ./test/yamlx/ ./test/encoding/` | 各包内测试文件 |
+
+
+
 建议目录结构：
 
 ```text
