@@ -1,0 +1,6 @@
+a="fallback"
+b="alternate"
+c="fallback"
+d="written"
+# The stored value is the word itself, not its formatted form.
+e=written

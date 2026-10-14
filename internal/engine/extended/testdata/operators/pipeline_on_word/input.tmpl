@@ -1,0 +1,6 @@
+a=${MISSING:-fallback | quote}
+b=${PRESENT:+alternate | toJson}
+c=${MISSING-fallback | quote}
+d=${ASSIGNED:=written | quote}
+# The stored value is the word itself, not its formatted form.
+e=${ASSIGNED}
