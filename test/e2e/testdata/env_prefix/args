@@ -1,0 +1,6 @@
+render
+--process-env-prefix
+ENVSUB_FIXTURE_ONLY_
+--dotenv-file
+.env
+input.tmpl

@@ -1,0 +1,4 @@
+render
+--process-env-prefix
+ENVSUB_FIXTURE_
+input.tmpl
