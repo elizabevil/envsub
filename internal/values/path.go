@@ -35,8 +35,11 @@ const (
 	// of a path, so it can never collide with an object key.
 	namespaceSigil = '@'
 	// envNamespace is the only namespace: the read-only process environment.
-	envNamespace    = "process"
-	indexPathFormat = "%s[%d]"
+	envNamespace = "process"
+	// indexFormat is the bracket notation of one array element([0]); IndexSuffix
+	// exposes it so a caller that builds a diagnostic address uses the same
+	// spelling as the value grammar.
+	indexFormat = "[%d]"
 )
 
 // ParsePath parses a path like app.port, hosts[0], app["my-key"], ["a.b"].k or
@@ -372,7 +375,7 @@ func CanonicalPath(segments []Segment) string {
 		case segment.IsIndex:
 			// The next segment always sees afterIndex, and the loop tail clears
 			// it, so no assignment is needed here.
-			fmt.Fprintf(&b, "[%d]", segment.Index)
+			fmt.Fprintf(&b, indexFormat, segment.Index)
 		case segment.IsNamespace:
 			b.WriteByte(namespaceSigil)
 			b.WriteString(segment.Key)
@@ -396,9 +399,11 @@ func CanonicalPath(segments []Segment) string {
 	return b.String()
 }
 
-// Key is the encoded address of a value: dots between named segments, [i] for an
-// index, no @ sigil and no quotes. Metadata is keyed by Key, so a raw template
-// path and an encoded key cannot be passed for one another by mistake.
+// Key is the encoded address of a value in the root namespace: dots between named
+// segments, [i] for an index, no @ sigil and no quotes. Value metadata is keyed by
+// it, so a raw template path and an encoded key cannot be passed for one another
+// by mistake. Diagnostics that name schema locations use their own notation
+// (JSON Pointer) and only borrow IndexSuffix for the element bracket.
 type Key string
 
 // JoinPath appends a named key to an encoded path.
@@ -409,9 +414,16 @@ func JoinPath(prefix Key, key string) Key {
 	return prefix + Key(PathSeparator) + Key(key)
 }
 
+// IndexSuffix returns the bracket notation of one array element, as in "[0]". It
+// is the single definition of that spelling: JoinIndex builds value addresses
+// with it, schema diagnostics append it to keyword paths.
+func IndexSuffix(index int) string {
+	return fmt.Sprintf(indexFormat, index)
+}
+
 // JoinIndex appends an array index to an encoded path, as in extra[0].
 func JoinIndex(prefix Key, index int) Key {
-	return Key(fmt.Sprintf(indexPathFormat, prefix, index))
+	return prefix + Key(IndexSuffix(index))
 }
 
 // ParentPath drops the last segment of a path, returning "" for a root path or a

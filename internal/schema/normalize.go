@@ -67,17 +67,33 @@ var knownKeywords = map[string]bool{
 	"format": true, "contentEncoding": true, "contentMediaType": true, "contentSchema": true,
 }
 
+// keywordPath appends one keyword to a schema keyword path (properties.type).
+// Keyword paths name schema locations in diagnostics: they are not value
+// addresses, so they stay text and share only the separator and the element
+// bracket with the value grammar.
+func keywordPath(path, key string) string {
+	if path == "" {
+		return key
+	}
+	return path + string(values.PathSeparator) + key
+}
+
+// keywordIndex appends an array element to a schema keyword path.
+func keywordIndex(path string, index int) string {
+	return path + values.IndexSuffix(index)
+}
+
 // normalizeSchema rewrites Go-style type aliases into JSON Schema standard
 // types. It returns the sorted list of unknown non x-* keywords and fails when
 // a type name cannot be normalized.
-func normalizeSchema(node any, path values.Key) (unknown []string, err error) {
+func normalizeSchema(node any, path string) (unknown []string, err error) {
 	switch typed := node.(type) {
 	case map[string]any:
 		if err := normalizeTypeField(typed, path); err != nil {
 			return nil, err
 		}
 		for _, key := range sortedKeys(typed) {
-			childPath := values.JoinPath(path, key)
+			childPath := keywordPath(path, key)
 			if nameValuedKeywords[key] {
 				// Descend into the name map without judging its keys.
 				childUnknown, err := normalizeNameMap(typed[key], childPath)
@@ -88,8 +104,7 @@ func normalizeSchema(node any, path values.Key) (unknown []string, err error) {
 				continue
 			}
 			if !knownKeywords[key] && !strings.HasPrefix(key, extensionPrefix) {
-				// The list is diagnostic text, so the address is flattened here.
-				unknown = append(unknown, string(childPath))
+				unknown = append(unknown, childPath)
 			}
 			childUnknown, err := normalizeSchema(typed[key], childPath)
 			if err != nil {
@@ -99,7 +114,7 @@ func normalizeSchema(node any, path values.Key) (unknown []string, err error) {
 		}
 	case []any:
 		for i, child := range typed {
-			childUnknown, err := normalizeSchema(child, values.JoinIndex(path, i))
+			childUnknown, err := normalizeSchema(child, keywordIndex(path, i))
 			if err != nil {
 				return nil, err
 			}
@@ -112,14 +127,14 @@ func normalizeSchema(node any, path values.Key) (unknown []string, err error) {
 
 // normalizeNameMap normalizes the schemas stored under a name-valued keyword
 // such as properties, where each child key is a user-chosen name.
-func normalizeNameMap(node any, path values.Key) ([]string, error) {
+func normalizeNameMap(node any, path string) ([]string, error) {
 	object, ok := node.(map[string]any)
 	if !ok {
 		return nil, nil
 	}
 	var unknown []string
 	for _, key := range sortedKeys(object) {
-		childUnknown, err := normalizeSchema(object[key], values.JoinPath(path, key))
+		childUnknown, err := normalizeSchema(object[key], keywordPath(path, key))
 		if err != nil {
 			return nil, err
 		}
@@ -129,7 +144,7 @@ func normalizeNameMap(node any, path values.Key) ([]string, error) {
 }
 
 // normalizeTypeField rewrites the type keyword of one schema object.
-func normalizeTypeField(object map[string]any, path values.Key) error {
+func normalizeTypeField(object map[string]any, path string) error {
 	raw, ok := object[keywordType]
 	if !ok {
 		return nil
@@ -138,7 +153,7 @@ func normalizeTypeField(object map[string]any, path values.Key) error {
 	case string:
 		normalized, items, err := normalizeTypeName(typed)
 		if err != nil {
-			return fmt.Errorf("%s: %w", values.JoinPath(path, keywordType), err)
+			return fmt.Errorf("%s: %w", keywordPath(path, keywordType), err)
 		}
 		object[keywordType] = normalized
 		if items != nil {
@@ -156,7 +171,7 @@ func normalizeTypeField(object map[string]any, path values.Key) error {
 			}
 			canonical, _, err := normalizeTypeName(name)
 			if err != nil {
-				return fmt.Errorf("%s: %w", values.JoinPath(path, keywordType), err)
+				return fmt.Errorf("%s: %w", keywordPath(path, keywordType), err)
 			}
 			normalized = append(normalized, canonical)
 		}

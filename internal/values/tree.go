@@ -289,7 +289,7 @@ func EncodeSegments(segments []Segment) Key {
 	var b strings.Builder
 	for _, segment := range segments {
 		if segment.IsIndex {
-			fmt.Fprintf(&b, "[%d]", segment.Index)
+			fmt.Fprintf(&b, indexFormat, segment.Index)
 			continue
 		}
 		if b.Len() > 0 {
