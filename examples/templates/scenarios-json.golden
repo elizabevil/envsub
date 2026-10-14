@@ -1,0 +1,67 @@
+{
+  "types": {
+    "string_type_root": "prod-string",
+    "int_type_materialized": 7,
+    "float_type_literal_kept": 1.50,
+    "bool_type_dotenv": true,
+    "array_type_json_joined": ["prod","a","c"],
+    "object_type_yaml_sorted": {"a":2,"m":3,"z":9},
+    "null_type_preserved": null
+  },
+  "sources": {
+    "string_src_from_default": "unreachable-because-values-provide",
+    "string_src_from_values": "from-values",
+    "string_src_from_dotenv": "from-dotenv",
+    "string_src_from_set": "from-set"
+  },
+  "precedence": {
+    "string_prec_dotenv_over_values": "from-dotenv",
+    "string_prec_set_over_dotenv": "from-set",
+    "string_prec_setjson_over_set": "from-set-json",
+    "string_prec_default_never_wins": "from-set"
+  },
+  "process": {
+    "string_process_explicit": "from-process",
+    "string_process_bare_miss": "fell-through",
+    "string_process_special": "dashed",
+    "int_process_materialized": 42,
+    "bool_process_materialized": true
+  },
+  "positions": {
+    "top_level": "prod-string",
+    "nested": {
+      "inner": "prod-string",
+      "in_array": ["prod-string", "prod-string"],
+      "default_word": "prod-string",
+      "formatter_arg": "prod${string_type_root}a${string_type_root}c"
+    }
+  },
+  "operators": {
+    "direct": "from-values",
+    "default_colon": "fallback",
+    "default_dash": "fallback",
+    "alternate_colon": "alt",
+    "alternate_plus": "alt",
+    "assign_colon": "written",
+    "assign_visible": "written",
+    "assign_no_overwrite": "from-values",
+    "default_no_write": "not-written",
+    "default_no_write_visible": "",
+    "escape_dollar": "$NAME",
+    "positional": "$1"
+  },
+  "schema": {
+    "int_schema_from_string": 8080,
+    "bool_schema_from_string": true,
+    "string_schema_enum_ok": "prod",
+    "array_schema_min_items": ["one","two"]
+  },
+  "pipeline": {
+    "join_default": "prod,a,c",
+    "join_custom": "prod,a,c",
+    "type_then_json": ["prod","a","c"],
+    "json_of_yaml": "a: 2\nm: 3\nz: 9",
+    "chained": "prod-a-c",
+    "quoted_scalar": "\"plain string with spaces\""
+  }
+}

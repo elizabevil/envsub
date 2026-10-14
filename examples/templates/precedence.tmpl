@@ -1,0 +1,11 @@
+# Precedence and layering, one line per rule (C4/C5/C10/G21).
+string_src_from_values: ${string_src_from_values}
+string_src_from_dotenv: ${string_src_from_dotenv}
+string_src_from_set: ${string_src_from_set}
+string_src_from_default: ${string_src_from_default}
+string_prec_dotenv_over_values: ${string_prec_dotenv_over_values}
+string_prec_set_over_dotenv: ${string_prec_set_over_dotenv}
+string_prec_setjson_over_set: ${string_prec_setjson_over_set}
+string_prec_default_never_wins: ${string_prec_default_never_wins}
+string_prec_readonly_bare_name: ${string_prec_readonly}
+string_prec_readonly_process: ${@process.string_prec_readonly:-not-in-process}

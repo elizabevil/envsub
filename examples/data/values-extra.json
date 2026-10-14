@@ -1,0 +1,6 @@
+{
+  "int_schema_from_string": "8080",
+  "big_int_exact": 12345678901234567890,
+  "float_json_literal": 1.50,
+  "array_json_exact": [1, 2, 3]
+}

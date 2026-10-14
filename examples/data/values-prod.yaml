@@ -1,0 +1,5 @@
+# L3 overlay: same key wins, maps merge by key, arrays replace.
+string_type_root: prod-string
+array_type_json_joined: [prod, a, c]
+object_type_yaml_sorted: {z: 9, m: 3}
+string_prec_readonly: prod-values

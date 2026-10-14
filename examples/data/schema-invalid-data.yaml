@@ -1,0 +1,4 @@
+# Feeds the same schema with values that must fail validation (exit 4).
+string_type_root: "!"            # violates minLength 2 and pattern
+float_type_literal_kept: 150     # violates exclusiveMaximum 100
+array_type_json_joined: [nope]   # violates prefixItems/const and minItems

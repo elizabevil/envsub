@@ -1,0 +1,238 @@
+# Runnable examples for envsub.
+#
+#   cd examples
+#   just                  # list the recipes
+#   just data             # what the shared dataset contains
+#   just render           # render everything into examples/out
+#   just demo             # every recipe in sequence
+#
+# Layout and naming: see README.md and ../docs/05-tasks/05-05-examples-and-test-architecture.md.
+set shell := ["bash", "-cu"]
+
+# Only the binary differs per platform; every recipe below is platform-neutral.
+root := justfile_directory() / ".."
+bin := if os_family() == "windows" { root / "dist" / "envsub.exe" } else { root / "dist" / "envsub" }
+work := root / ".tmp" / "examples"
+expected_out := justfile_directory() / "out"
+
+# The dataset is shared by every recipe; these flags never change inside a group.
+# Paths are absolute, so a recipe does not depend on the working directory.
+base := justfile_directory() / "data"
+values := "-f " + (base / "values-base.yaml") + " -f " + (base / "values-prod.yaml") + " -f " + (base / "values-extra.json")
+dotenv := "--dotenv-file " + (base / "app.env")
+schema := "--schema " + (base / "schema.yaml")
+# --set-json takes a JSON literal, which needs double quotes: build that one
+# argument at run time so no quoting layer has to survive the justfile parser.
+sets := "--set string_src_from_set=from-set --set string_prec_set_over_dotenv=from-set --set string_prec_default_never_wins=from-set --set-json $(printf %s 'string_prec_setjson_over_set=\"from-set-json\"') --set-file string_setfile_from_file=" + (justfile_directory() / "secrets" / "tls.key")
+# Every source at once: this is what "the same dataset" means for every recipe.
+sources := values + " " + dotenv + " " + schema + " --on-missing=empty " + sets
+# The process environment is pinned so @process results never depend on the machine.
+process := "ENVSUB_STRING=from-process ENVSUB_INT=42 ENVSUB_BOOL=true ENVSUB-DASHED=dashed"
+
+default:
+    @just --list
+
+# --- dataset -----------------------------------------------------------------
+
+# Show the shared dataset and the variable naming rules.
+data:
+    @echo "== data/ (values only, no placeholders)"
+    @ls -1 {{ base }}
+    @echo
+    @echo "== variable names are <type>_<source>_<effect>, e.g. int_process_materialized"
+    @grep -hoE '^[a-z]+_(type|src|prec|process|schema|fmt)_[a-z0-9_]+' {{ base }}/values-base.yaml | sort -u
+
+# --- rendering scenarios ------------------------------------------------------
+
+# JSON side: all types, sources, positions, operators and pipelines.
+scenarios-json: ensure-binary
+    @mkdir -p {{ work }}
+    @env {{ process }} {{ bin }} render {{ sources }} {{ justfile_directory() }}/templates/scenarios-json.tmpl > {{ work }}/scenarios-json.out
+    @go run ./tools/digest --parse json --file {{ work }}/scenarios-json.out
+    @diff -u {{ justfile_directory() }}/templates/scenarios-json.golden {{ work }}/scenarios-json.out && echo "scenarios-json: matches golden"
+
+# YAML side: the same dataset, rendered as native YAML.
+scenarios-yaml: ensure-binary
+    @mkdir -p {{ work }}
+    @env {{ process }} {{ bin }} render {{ sources }} {{ justfile_directory() }}/templates/scenarios-yaml.tmpl > {{ work }}/scenarios-yaml.out
+    @go run ./tools/digest --parse yaml --file {{ work }}/scenarios-yaml.out
+    @diff -u {{ justfile_directory() }}/templates/scenarios-yaml.golden {{ work }}/scenarios-yaml.out && echo "scenarios-yaml: matches golden"
+
+# The same two templates without any process environment: @process is then empty.
+scenarios-without-process: ensure-binary
+    @mkdir -p {{ work }}
+    @{{ bin }} render {{ sources }} {{ justfile_directory() }}/templates/scenarios-yaml.tmpl > {{ work }}/without-process.out
+    @echo "== @process is empty, so those keys fall back"
+    @grep -E "process:" -A 5 {{ work }}/without-process.out
+
+# Precedence: one line per layering rule (C4/C5/C10/G21).
+precedence: ensure-binary
+    @mkdir -p {{ work }}
+    @env {{ process }} {{ bin }} render {{ sources }} {{ justfile_directory() }}/templates/precedence.tmpl > {{ work }}/precedence.out
+    @diff -u {{ justfile_directory() }}/templates/precedence.golden {{ work }}/precedence.out && echo "precedence: matches golden"
+
+# The same template with a second --dotenv-file: a later file wins.
+precedence-two-dotenv: ensure-binary
+    @mkdir -p {{ work }}
+    @env {{ process }} {{ bin }} render {{ sources }} --dotenv-file {{ base }}/extra.env {{ justfile_directory() }}/templates/precedence.tmpl > {{ work }}/precedence-two-dotenv.out
+    @grep string_src_from_dotenv {{ work }}/precedence-two-dotenv.out
+
+# A realistic single service configuration.
+realworld: ensure-binary
+    @mkdir -p {{ work }}
+    @env {{ process }} {{ bin }} render {{ sources }} {{ justfile_directory() }}/templates/realworld.tmpl > {{ work }}/realworld.out
+    @go run ./tools/digest --parse yaml --file {{ work }}/realworld.out
+    @diff -u {{ justfile_directory() }}/templates/realworld.golden {{ work }}/realworld.out && echo "realworld: matches golden"
+
+# A template that references only part of the dataset, for --report=unused.
+unused: ensure-binary
+    @mkdir -p {{ work }}
+    @env {{ process }} {{ bin }} render {{ sources }} --report=unused {{ justfile_directory() }}/templates/unused.tmpl > {{ work }}/unused.out 2> {{ work }}/unused.report
+    @echo "== unused keys (the dataset is deliberately larger than this template)"
+    @cat {{ work }}/unused.report
+
+# --- auxiliary commands on the same dataset -----------------------------------
+
+# Validate only: no output is written.
+auxiliary-validate: ensure-binary
+    @env {{ process }} {{ bin }} render {{ sources }} --validate-only {{ justfile_directory() }}/templates/realworld.tmpl && echo "validate-only: ok, nothing written"
+
+# Compare with the checked-in tree. Exit 7 means the tree is outdated.
+auxiliary-check: ensure-binary
+    @mkdir -p {{ work }}/check
+    @cp {{ justfile_directory() }}/templates/realworld.tmpl {{ work }}/check/realworld.tmpl
+    @{{ bin }} render {{ sources }} --check -o {{ work }}/check/realworld.tmpl {{ justfile_directory() }}/templates/realworld.tmpl >/dev/null 2>&1; code=$?; \
+        if [ "$code" -eq 7 ]; then echo "check: correctly reported an outdated output (exit 7)"; \
+        else echo "check: want exit 7, got $code"; exit 1; fi
+    @echo "== and no file was written by --check:"
+    @head -1 {{ work }}/check/realworld.tmpl
+
+# Explain: where every value came from.
+auxiliary-explain: ensure-binary
+    @mkdir -p {{ work }}
+    @env {{ process }} {{ bin }} render {{ sources }} --explain {{ justfile_directory() }}/templates/realworld.tmpl 2> {{ work }}/explain.jsonl >/dev/null
+    @echo "== one JSON object per referenced variable"
+    @head -4 {{ work }}/explain.jsonl
+
+# stdin is read exactly once, even with two reports active.
+auxiliary-stdin: ensure-binary
+    @mkdir -p {{ work }}
+    @env {{ process }} {{ bin }} render {{ sources }} --explain --report=unused - < {{ justfile_directory() }}/templates/stdin.tmpl 2> {{ work }}/stdin.err
+    @echo "== reports went to stderr, the render to stdout"
+
+# Machine-readable errors.
+auxiliary-error-json: ensure-binary
+    @mkdir -p {{ work }}
+    @{{ bin }} render {{ sources }} --error-format=json {{ justfile_directory() }}/cases/errors/missing/input.tmpl 2>&1 | tail -1
+
+# Which references a filter substitutes, and which stay verbatim.
+filters: ensure-binary
+    @mkdir -p {{ work }}
+    @echo "== --only-vars string_type_root"
+    @env {{ process }} {{ bin }} render {{ sources }} --only-vars string_type_root {{ justfile_directory() }}/templates/filters.tmpl
+    @echo "== --ignore-vars string_type_root"
+    @env {{ process }} {{ bin }} render {{ sources }} --ignore-vars string_type_root {{ justfile_directory() }}/templates/filters.tmpl
+
+# The process environment narrowed to a prefix: only ENVSUB_* reaches @process.
+scenarios-with-prefix: ensure-binary
+    @mkdir -p {{ work }}
+    @env {{ process }} {{ bin }} render {{ sources }} --process-env-prefix ENVSUB_ {{ justfile_directory() }}/templates/scenarios-yaml.tmpl > {{ work }}/prefix.out
+    @grep -A 3 "^process:" {{ work }}/prefix.out
+
+# No process environment at all.
+scenarios-no-process: ensure-binary
+    @mkdir -p {{ work }}
+    @{{ bin }} render {{ sources }} --no-process-env {{ justfile_directory() }}/templates/scenarios-yaml.tmpl > {{ work }}/no-process.out
+    @grep -A 3 "^process:" {{ work }}/no-process.out
+
+# The long form of -f, on a template the shared source group does not cover.
+values-long-flag: ensure-binary
+    @env {{ process }} {{ bin }} render --values-file {{ base }}/values-base.yaml {{ justfile_directory() }}/templates/values-long-flag.tmpl
+
+# A batch render into a directory tree, with structured logs.
+auxiliary-batch: ensure-binary
+    @rm -rf {{ work }}/batch
+    @mkdir -p {{ work }}/batch
+    @{{ bin }} render {{ sources }} --log-level=info --output-dir {{ work }}/batch --recursive {{ justfile_directory() }}/templates/batch
+    @echo "== rendered tree:"
+    @find {{ work }}/batch -type f | sort
+
+# Atomic in-place rewrite of a copy.
+auxiliary-in-place: ensure-binary
+    @mkdir -p {{ work }}/inplace
+    @cp {{ justfile_directory() }}/templates/realworld.tmpl {{ work }}/inplace/realworld.tmpl
+    @{{ bin }} render {{ sources }} --in-place --log-level=debug {{ work }}/inplace/realworld.tmpl
+    @head -3 {{ work }}/inplace/realworld.tmpl
+
+# Schema keyword policies: one unknown keyword, three policies.
+unknown-keywords: ensure-binary
+    @mkdir -p {{ work }}
+    @echo "== one x-* keyword (always allowed) and one unknown non-x keyword per policy"
+    @env {{ process }} {{ bin }} render {{ sources }} --unknown-keywords=ignore {{ justfile_directory() }}/templates/realworld.tmpl >/dev/null && echo "ignore: accepted"
+    @env {{ process }} {{ bin }} render {{ sources }} --unknown-keywords=warn {{ justfile_directory() }}/templates/realworld.tmpl >/dev/null && echo "warn: reported, still rendered"
+
+# --on-empty: the two policies on the same data.
+on-empty: ensure-binary
+    @mkdir -p {{ work }}
+    @env {{ process }} {{ bin }} render {{ sources }} --on-empty=ok {{ justfile_directory() }}/templates/realworld.tmpl >/dev/null && echo "on-empty=ok: accepted"
+    @{{ bin }} render {{ sources }} --on-empty=error {{ justfile_directory() }}/cases/errors/missing/input.tmpl 2>&1 | tail -1
+
+# --- failure paths ------------------------------------------------------------
+
+# One case per exit code: 6 missing, 3 template, 4 type, 4 schema, 5 io, 2 usage, 7 check.
+failures: ensure-binary
+    @mkdir -p {{ work }}
+    @for case in missing syntax type schema io usage; do \
+        dir={{ justfile_directory() }}/cases/errors/$case; \
+        want=$(cat "$dir/expect.exit"); fragment=$(cat "$dir/expect.err"); \
+        extra="--set string_type_root=ok"; \
+        if [ "$case" = "schema" ]; then extra="--set string_type_root=!"; fi; \
+        if [ "$case" = "io" ]; then extra="--set-file string_setfile_from_file={{ justfile_directory() }}/secrets/absent.key"; fi; \
+        if [ "$case" = "usage" ]; then extra="--on-missing=bogus"; fi; \
+        if [ "$case" = "type" ]; then extra="--set bool_schema_from_string=not-a-bool"; fi; \
+        if [ "$case" = "missing" ]; then extra="--set string_type_root=ok --on-missing=error"; fi; \
+        {{ bin }} render -f {{ base }}/values-base.yaml -f {{ base }}/values-prod.yaml -f {{ base }}/values-extra.json \
+            --dotenv-file {{ base }}/app.env --schema {{ base }}/schema.yaml --set string_type_root=ok $extra "$dir/input.tmpl" \
+            >/dev/null 2>{{ work }}/$case.err; code=$?; \
+        if [ "$code" != "$want" ]; then echo "FAIL $case: exit $code, want $want"; cat {{ work }}/$case.err; exit 1; fi; \
+        if ! grep -q "$fragment" {{ work }}/$case.err; then echo "FAIL $case: stderr does not contain '$fragment'"; cat {{ work }}/$case.err; exit 1; fi; \
+        echo "ok $case: exit $code ($fragment)"; \
+    done
+
+# --- full flow -----------------------------------------------------------------
+
+# Render the whole output tree and compare it file by file with the checked-in one.
+acceptance: ensure-binary
+    @rm -rf {{ work }}/out
+    @mkdir -p {{ work }}/out
+    @env {{ process }} {{ bin }} render {{ sources }} --output-dir {{ work }}/out {{ justfile_directory() }}/templates/realworld.tmpl {{ justfile_directory() }}/templates/scenarios-yaml.tmpl
+    @go run ./tools/digest --expect {{ expected_out }} --got {{ work }}/out
+    @go run ./tools/digest --parse yaml --file {{ work }}/out/realworld.tmpl
+    @go run ./tools/digest --parse yaml --file {{ work }}/out/scenarios-yaml.tmpl
+
+# Regenerate the checked-in expectations after an intended change.
+digest-update: ensure-binary
+    @mkdir -p {{ work }}/out
+    @env {{ process }} {{ bin }} render {{ sources }} {{ justfile_directory() }}/templates/scenarios-json.tmpl > {{ justfile_directory() }}/templates/scenarios-json.golden
+    @env {{ process }} {{ bin }} render {{ sources }} {{ justfile_directory() }}/templates/scenarios-yaml.tmpl > {{ justfile_directory() }}/templates/scenarios-yaml.golden
+    @env {{ process }} {{ bin }} render {{ sources }} {{ justfile_directory() }}/templates/precedence.tmpl > {{ justfile_directory() }}/templates/precedence.golden
+    @env {{ process }} {{ bin }} render {{ sources }} {{ justfile_directory() }}/templates/realworld.tmpl > {{ justfile_directory() }}/templates/realworld.golden
+    @env {{ process }} {{ bin }} render {{ sources }} --report=unused {{ justfile_directory() }}/templates/unused.tmpl > {{ justfile_directory() }}/templates/unused.golden 2> {{ justfile_directory() }}/templates/unused.unused
+    @rm -rf {{ expected_out }}
+    @mkdir -p {{ expected_out }}
+    @env {{ process }} {{ bin }} render {{ sources }} --output-dir {{ expected_out }} {{ justfile_directory() }}/templates/realworld.tmpl {{ justfile_directory() }}/templates/scenarios-yaml.tmpl
+    @echo "updated templates/*.golden and out/"
+
+demo: scenarios-json scenarios-yaml filters unknown-keywords on-empty scenarios-with-prefix scenarios-no-process values-long-flag precedence precedence-two-dotenv realworld unused auxiliary-validate auxiliary-check auxiliary-explain auxiliary-stdin auxiliary-error-json auxiliary-batch auxiliary-in-place failures acceptance
+
+clean:
+    @rm -rf {{ work }}
+
+# Build the binary when it is missing or older than the sources it is built from.
+ensure-binary:
+    @if [ ! -x {{ bin }} ] || [ -n "$(find {{ root }}/cmd {{ root }}/internal -name '*.go' -newer {{ bin }} -print -quit)" ]; then \
+        echo "building {{ bin }}"; cd {{ root }} && just build; \
+    fi
+
+build:
+    @cd {{ root }} && just build

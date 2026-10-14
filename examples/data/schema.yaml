@@ -1,0 +1,101 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://example.test/envsub/scenarios.schema.json
+title: envsub scenario schema
+description: Covers the keyword classes the adapter understands and actually applies.
+type: object
+required: [string_type_root]
+$defs:
+  port:
+    type: integer
+    minimum: 1
+    maximum: 65535
+properties:
+  string_type_root: {type: string, minLength: 2, maxLength: 32, pattern: "^[a-z][a-z0-9-]*$"}
+  int_type_materialized: {type: integer, multipleOf: 1}
+  float_type_literal_kept: {type: number, exclusiveMinimum: 0, exclusiveMaximum: 100}
+  bool_type_dotenv: {type: boolean}
+  array_type_json_joined:
+    type: array
+    items: {type: string}
+    minItems: 1
+    maxItems: 4
+    uniqueItems: true
+    prefixItems: [{const: prod}, {type: string}]
+  object_type_yaml_sorted:
+    type: object
+    properties:
+      z: {type: integer}
+      a: {type: integer}
+      m: {type: integer}
+    additionalProperties: {type: integer}
+    minProperties: 1
+    maxProperties: 5
+  null_type_preserved: {type: "null"}
+
+  string_src_from_default: {type: string, default: default-only}
+  string_src_from_values: {type: string}
+  string_src_from_dotenv: {type: string}
+  string_src_from_set: {type: string}
+
+  string_prec_dotenv_over_values: {type: string}
+  string_prec_set_over_dotenv: {type: string}
+  string_prec_setjson_over_set: {type: string}
+  string_prec_default_never_wins: {type: string, default: default-should-not-win}
+  string_prec_readonly: {type: string}
+
+  int_schema_from_string: {type: integer, minimum: 1, maximum: 65535}
+  bool_schema_from_string: {type: boolean}
+  string_schema_enum_ok: {type: string, enum: [dev, prod]}
+  array_schema_min_items: {type: array, items: {type: string}, minItems: 2}
+
+  string_process_explicit: {type: string}
+  int_process_materialized: {type: integer}
+  bool_process_materialized: {type: boolean}
+  string_setfile_from_file: {type: string}
+  string_operator_assigned: {type: string}
+  string_fmt_quotes: {type: string}
+  string_fmt_escape: {type: string}
+
+  string_operator_present: {type: string}
+  string_operator_empty: {type: string}
+  string_operator_missing: {type: string}
+  string_operator_falsy_zero: {type: string}
+  bool_operator_falsy_false: {type: boolean}
+
+  int_with_ref: {$ref: "#/$defs/port"}
+  string_with_allof:
+    allOf:
+      - {type: string, minLength: 1}
+      - {maxLength: 16}
+  string_with_anyof:
+    anyOf:
+      - {type: string, pattern: "^any-"}
+      - {type: string, pattern: "^alt-"}
+  string_with_oneof:
+    oneOf:
+      - {type: string, pattern: "^one-"}
+      - {type: string, pattern: "^two-"}
+  string_with_not:
+    not: {const: forbidden}
+  int_with_conditional:
+    if: {minimum: 10}
+    then: {maximum: 100}
+    else: {maximum: 9}
+  object_with_patternprops:
+    type: object
+    patternProperties: {"^x-": {type: string}}
+    propertyNames: {pattern: "^[a-z][a-z0-9-]*$"}
+  object_with_dependents:
+    type: object
+    dependentRequired: {username: [password]}
+    dependentSchemas:
+      mode:
+        properties: {mode: {enum: [dev, prod]}}
+  array_with_contains:
+    type: array
+    contains: {type: integer}
+    minContains: 1
+    maxContains: 2
+  extension_ok: {type: string, x-owner: platform}
+ # intentionally outside properties, to show a custom property name is not unknown
+x-owner: platform-team

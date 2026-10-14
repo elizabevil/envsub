@@ -1,0 +1,13 @@
+# A realistic service configuration: the shape a user would actually render.
+#
+# `endpoints` and `labels` are inline scalars here because a one-line value reads
+# better in a service config; a nested multi-line block (with `toYaml align`) is
+# shown in templates/scenarios-yaml.tmpl (types.object_nested_block).
+service:
+  name: ${string_type_root}
+  replicas: ${int_type_materialized | type int}
+  enabled: ${bool_type_dotenv | type bool}
+  region: ${string_schema_enum_ok}
+  endpoints: ${array_type_json_joined | type array<string> | toJson}
+  labels: ${object_type_yaml_sorted | type object | toJson}
+  started_by: ${@process.ENVSUB_STRING:-unknown}

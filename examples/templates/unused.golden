@@ -1,0 +1,4 @@
+# References only part of the dataset, so `--report=unused` has something to say.
+used:
+  string_type_root: prod-string
+  int_type_materialized: 7

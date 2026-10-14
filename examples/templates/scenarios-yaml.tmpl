@@ -1,0 +1,81 @@
+# Native YAML rendering of the same dataset: plain scalars need no quoting,
+# structured values render as YAML blocks.
+# A multi-line value is inserted verbatim unless the serializer asks to align.
+# `toYaml align` makes every line continue at the column the expression starts on,
+# which is what lets a block sit under a parent key; without it the later lines
+# keep their own position (correct for plain text such as a PEM block).
+types:
+  object_nested_block: |
+    ${object_type_yaml_sorted | type object | toYaml align}
+  object_nested_block_width: |
+    ${object_type_yaml_sorted | type object | toYaml 4 align}
+  string_type_root: ${string_type_root}
+  int_type_materialized: ${int_type_materialized | type int}
+  float_type_literal_kept: ${float_type_literal_kept}
+  bool_type_dotenv: ${bool_type_dotenv | type bool}
+  array_type_joined: ${array_type_json_joined | type array<string> | join ", "}
+  object_type_yaml_sorted: ${object_type_yaml_sorted | type object | toJson}
+  object_type_from_yaml: ${object_type_yaml_sorted | type object | toYaml | toJson}
+  null_type_preserved: ${null_type_preserved | type null}
+
+sources:
+  string_src_from_default: ${string_src_from_default}
+  string_src_from_values: ${string_src_from_values}
+  string_src_from_dotenv: ${string_src_from_dotenv}
+  string_src_from_set: ${string_src_from_set}
+
+precedence:
+  string_prec_dotenv_over_values: ${string_prec_dotenv_over_values}
+  string_prec_set_over_dotenv: ${string_prec_set_over_dotenv}
+  string_prec_setjson_over_set: ${string_prec_setjson_over_set}
+  string_prec_default_never_wins: ${string_prec_default_never_wins}
+
+process:
+  string_process_explicit: ${@process.ENVSUB_STRING-${string_process_explicit}}
+  string_process_bare_miss: ${ENVSUB_STRING-fell-through}
+  string_process_special: ${@process["ENVSUB-DASHED"]-absent}
+  int_process_materialized: ${@process.ENVSUB_INT | type int}
+  bool_process_materialized: ${@process.ENVSUB_BOOL | type bool}
+
+positions:
+  top_level: ${string_type_root}
+  nested:
+    inner: ${string_type_root}
+    in_array: [${string_type_root}, ${string_type_root}]
+    default_word: ${string_operator_missing:-${string_type_root}}
+    formatter_arg: ${array_type_json_joined | join "${string_type_root}"}
+
+operators:
+  direct: ${string_operator_present}
+  default_colon: ${string_operator_missing:-fallback}
+  default_dash: ${string_operator_missing-fallback}
+  alternate_colon: ${string_operator_present:+alt}
+  # `+` only needs the value to exist; the word is the expression's result and is
+  # typed by the schema like any other value.
+  alternate_plus: ${string_operator_falsy_zero+alt}
+  assign_colon: ${string_operator_assigned:=written}
+  assign_visible: ${string_operator_assigned}
+  assign_no_overwrite: ${string_operator_present=ignored}
+  default_no_write: ${string_operator_empty:-not-written}
+  default_no_write_visible: [${string_operator_empty}]
+  escape_dollar: $$NAME
+  positional: $1
+
+schema:
+  int_schema_from_string: ${int_schema_from_string | type int}
+  bool_schema_from_string: ${bool_schema_from_string | type bool}
+  string_schema_enum_ok: ${string_schema_enum_ok}
+  array_schema_min_items: ${array_schema_min_items | type array<string> | join "/"}
+
+pipeline:
+  join_default: ${array_type_json_joined | type array<string> | join}
+  join_custom: ${array_type_json_joined | type array<string> | join " | "}
+  quote: ${string_fmt_quotes | quote}
+  to_json_in_yaml: ${object_type_yaml_sorted | type object | toJson}
+  chained: ${array_type_json_joined | type array<string> | join "-" | indent 2}
+
+# `toYaml` on an array is a YAML sequence. `indent` is the other way to place a
+# block: the reference stays at column 0 and indent prefixes every line. It is not
+# combined with align (that would define the column twice).
+array_indented:
+${array_type_json_joined | type array<string> | toYaml | indent 2}

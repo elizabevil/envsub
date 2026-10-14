@@ -1,0 +1,37 @@
+# L3 baseline: every type, and the keys the scenarios templates read.
+string_type_root: base-string
+int_type_materialized: 7
+float_type_literal_kept: 1.50
+bool_type_dotenv: false
+array_type_json_joined: [prod, a, c]
+object_type_yaml_sorted: {z: 1, a: 2, m: 3}
+null_type_preserved: null
+
+string_src_from_default: unreachable-because-values-provide
+string_src_from_values: from-values
+# string_src_from_dotenv: provided by app.env
+# string_src_from_set: provided by --set
+# string_prec_dotenv_over_values: provided by app.env
+# string_prec_set_over_dotenv: provided by --set
+string_prec_setjson_over_set: from-set
+# string_prec_default_never_wins: provided by --set
+string_prec_readonly: from-values
+
+int_schema_from_string: "8080"
+bool_schema_from_string: "true"
+string_schema_enum_ok: prod
+array_schema_min_items: [one, two]
+string_fmt_quotes: plain string with spaces
+string_fmt_escape: from-values
+
+string_operator_present: from-values
+string_operator_empty: ""
+# string_operator_missing: absent on purpose
+string_operator_falsy_zero: present
+bool_operator_falsy_false: false
+
+# process source: the seed below is what a run without an environment sees; the
+# scenarios recipes pin ENVSUB_* so the @process reads replace it.
+string_process_explicit: no-process-environment
+int_process_materialized: 0
+bool_process_materialized: false

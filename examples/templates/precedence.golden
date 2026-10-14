@@ -1,0 +1,11 @@
+# Precedence and layering, one line per rule (C4/C5/C10/G21).
+string_src_from_values: from-values
+string_src_from_dotenv: from-dotenv
+string_src_from_set: from-set
+string_src_from_default: unreachable-because-values-provide
+string_prec_dotenv_over_values: from-dotenv
+string_prec_set_over_dotenv: from-set
+string_prec_setjson_over_set: from-set-json
+string_prec_default_never_wins: from-set
+string_prec_readonly_bare_name: prod-values
+string_prec_readonly_process: not-in-process
