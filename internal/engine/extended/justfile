@@ -1,0 +1,21 @@
+set shell := ["bash", "-uc"]
+
+default:
+    @just --list
+
+test:
+    go test -count=1 -v .
+
+test-fixtures:
+    go test -count=1 -v . -run TestFixtures
+
+test-race:
+    go test -race -count=1 .
+
+fixtures-list:
+    @find testdata -name input.tmpl -printf '%h\n' | sed 's#^testdata/##' | sort
+
+fixtures-tree:
+    find testdata -maxdepth 4 -type f | sort
+
+test-all: test
