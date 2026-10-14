@@ -282,15 +282,14 @@ var repoRoot = sync.OnceValue(func() string {
 // it, so a report never leaks the local checkout location. A path outside the
 // root (or when the root is unknown) is returned unchanged.
 func normalizePrefix(path string) string {
-	if path == "" {
-		return ""
-	}
 	root := repoRoot()
-	if root == "" {
+	if path == "" || root == "" {
 		return path
 	}
+	// IsLocal rejects both an escaping path ("..") and an absolute one, so one
+	// call covers the "outside the repository" case.
 	relative, err := filepath.Rel(root, path)
-	if err != nil || strings.HasPrefix(relative, "..") {
+	if err != nil || !filepath.IsLocal(relative) {
 		return path
 	}
 	return filepath.ToSlash(relative)

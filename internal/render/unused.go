@@ -11,22 +11,17 @@ import (
 	"github.com/elizabevil/envsub/internal/values"
 )
 
-// unusedPath is one value-file entry no template referenced, in the spelling
-// that addresses it: app.port, hosts[0], ["extra.key"].
-type unusedPath struct {
-	path string
-}
-
-// collectUnused returns the value-file leaves that no template referenced,
-// sorted. A parent is not reported when one of its children was referenced, and
-// only leaves are considered: a subtree is configuration, not a value the
-// template can resolve.
-func collectUnused(tree *values.Tree, references map[string]bool) []unusedPath {
+// collectUnused returns the value-file leaves that no template referenced, sorted,
+// each in the spelling that addresses it (app.port, hosts[0], ["extra.key"]).
+// A parent is not reported when one of its children was referenced, and only
+// leaves are considered: a subtree is configuration, not a value the template can
+// resolve.
+func collectUnused(tree *values.Tree, references map[string]bool) []string {
 	if tree == nil {
 		return nil
 	}
 	used := references
-	var leaves []unusedPath
+	var leaves []string
 	var walk func(value any, segments []values.Segment)
 	walk = func(value any, segments []values.Segment) {
 		switch typed := value.(type) {
@@ -39,7 +34,7 @@ func collectUnused(tree *values.Tree, references map[string]bool) []unusedPath {
 				walk(item, append(segments, values.Segment{Index: i, IsIndex: true}))
 			}
 		default:
-			leaves = append(leaves, unusedPath{path: values.Canonical(segments)})
+			leaves = append(leaves, values.Canonical(segments))
 		}
 	}
 	walk(tree.Root, nil)
@@ -52,19 +47,19 @@ func collectUnused(tree *values.Tree, references map[string]bool) []unusedPath {
 	for reference := range used {
 		expanded[reference] = true
 		for _, leaf := range leaves {
-			if isBelow(leaf.path, reference) {
-				expanded[leaf.path] = true
+			if isBelow(leaf, reference) {
+				expanded[leaf] = true
 			}
 		}
 	}
 	referenced := closeOverPrefixes(expanded)
 
-	out := make([]unusedPath, 0, len(leaves))
+	out := make([]string, 0, len(leaves))
 	for _, leaf := range leaves {
-		if leaf.path == "" || referenced[normalizePrefix(leaf.path)] {
+		if leaf == "" || referenced[normalizePrefix(leaf)] {
 			continue
 		}
-		if meta := tree.MetaFor(leaf.path); !meta.Found || !source.IsValueFileKind(meta.Meta.Kind) {
+		if meta := tree.MetaFor(leaf); !meta.Found || !source.IsValueFileKind(meta.Meta.Kind) {
 			// Only a value file can hold dead configuration the user deletes;
 			// a schema default, --set, --dotenv-file or the process namespace
 			// cannot be "unused" in that sense.
@@ -72,7 +67,7 @@ func collectUnused(tree *values.Tree, references map[string]bool) []unusedPath {
 		}
 		out = append(out, leaf)
 	}
-	slices.SortFunc(out, func(a, b unusedPath) int { return strings.Compare(a.path, b.path) })
+	slices.Sort(out)
 	return out
 }
 
@@ -103,67 +98,58 @@ func isBelow(path, prefix string) bool {
 	return strings.HasPrefix(path, prefix+".") || strings.HasPrefix(path, prefix+"[")
 }
 
-// normalizePrefix rewrites the bracket-quoted form to dots, so [\"a\"].b and
-// a.b compare equal.
+// normalizePrefix rewrites the bracket-quoted form to dots, so ["a.b"].c and
+// a.b.c compare equal. Only a quoted key is rewritten: an index (extra[0]) and a
+// plain key keep their spelling. Everything before the bracket is copied as it
+// is, so a dot after it (["a.b"].c) needs no special case.
 func normalizePrefix(path string) string {
 	var b strings.Builder
-	for i := 0; i < len(path); {
-		if i+1 < len(path) && path[i] == '[' && path[i+1] >= '0' && path[i+1] <= '9' {
-			end := strings.IndexByte(path[i:], ']')
-			if end < 0 {
-				b.WriteString(path[i:])
-				break
-			}
+	for {
+		open := strings.IndexByte(path, '[')
+		if open < 0 || open+1 >= len(path) || path[open+1] != '"' {
+			b.WriteString(path)
+			return b.String()
+		}
+		b.WriteString(path[:open])
+		rest := path[open+2:]
+		end := strings.Index(rest, `"]`)
+		if end < 0 {
+			// An unterminated bracket is not a quoted key; keep it verbatim.
+			b.WriteString(path[open:])
+			return b.String()
+		}
+		if key := rest[:end]; key != "" {
 			if b.Len() > 0 {
 				b.WriteByte('.')
 			}
-			b.WriteString(path[i+1 : i+end])
-			i += end + 1
-			if i < len(path) && path[i] == '.' {
-				i++
-			}
-			continue
+			b.WriteString(key)
 		}
-		if i+1 < len(path) && path[i] == '[' && path[i+1] == '"' {
-			end := strings.Index(path[i+2:], `"]`)
-			if end < 0 {
-				b.WriteString(path[i:])
-				break
-			}
-			if b.Len() > 0 {
-				b.WriteByte('.')
-			}
-			b.WriteString(path[i+2 : i+2+end])
-			i += 2 + end + 2
-			// Skip a single path separator right after the bracket.
-			if i < len(path) && path[i] == '.' {
-				i++
-			}
-			continue
-		}
-		b.WriteByte(path[i])
-		i++
+		path = rest[end+2:]
 	}
-	return b.String()
 }
 
-// writeUnused writes one path per line, sorted, so the report can be piped.
-func writeUnused(w io.Writer, unused []unusedPath) error {
-	var b strings.Builder
-	for _, entry := range unused {
-		b.WriteString(entry.path)
-		b.WriteByte('\n')
+// writeUnused writes one path per line, already sorted, so the report can be
+// piped. The caller passes the sorted paths, so this is a single write.
+func writeUnused(w io.Writer, unused []string) error {
+	if len(unused) == 0 {
+		return nil
 	}
-	if _, err := io.WriteString(w, b.String()); err != nil {
+	if _, err := io.WriteString(w, strings.Join(unused, "\n")+"\n"); err != nil {
 		return diag.Wrap(diag.KindIO, fmt.Errorf("write unused report: %w", err))
 	}
 	return nil
 }
 
-// parentPath drops the last segment of a path, or returns "" for a root path.
+// parentPath drops the last segment of a path, or returns "" for a root path. The
+// last segment decides the separator: a trailing bracket closes an index or a
+// quoted key (extra[0] -> extra), anything else sits after a dot
+// (app.port -> app).
 func parentPath(path string) string {
-	if i := strings.LastIndexAny(path, ".["); i > 0 {
-		return path[:i]
+	if strings.HasSuffix(path, "]") {
+		return path[:strings.LastIndexByte(path, '[')]
+	}
+	if index := strings.LastIndexByte(path, '.'); index > 0 {
+		return path[:index]
 	}
 	return ""
 }
