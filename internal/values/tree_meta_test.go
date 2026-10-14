@@ -9,9 +9,9 @@ import (
 	"github.com/elizabevil/envsub/internal/values"
 )
 
-// TestMetaKeysIsSortedAndComplete pins the metadata index --explain and the
+// TestWalkMetaReportsEveryRecordedPath pins the metadata walk --explain and the
 // unused report read: every recorded path is listed once, in sorted order.
-func TestMetaKeysIsSortedAndComplete(t *testing.T) {
+func TestWalkMetaReportsEveryRecordedPath(t *testing.T) {
 	t.Parallel()
 	tree := values.NewTree()
 	for spelling, meta := range map[string]values.Meta{

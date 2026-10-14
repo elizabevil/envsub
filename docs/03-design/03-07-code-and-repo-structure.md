@@ -79,8 +79,10 @@ last-updated: 2026-09-29
 - `internal/engine`：定义 `Engine`、`StreamEngine`、`StreamReaderEngine`、`PathEngine` 接口；`extended` 实现承载 `$NAME`、`${path}`、`$$`、`$1`、默认值操作符。装配由 `internal/app` 注入一个引擎，流水线不按能力标记分支。`[INFERENCE]`
 - `internal/source`：`.env`、YAML、JSON 加载器；CLI `--set*` 由 source 层输入。`[INFERENCE]`
 - `internal/values`：值树、多文件合并、CLI `--set*` 优先级；**路径文法的唯一归属**
-  （`ParsePath`/`Canonical`/`EncodePath`，以及供其它包复用的 `JoinPath`/`JoinIndex`/
-  `ParentPath`/`IsBelow` 与 `PathSeparator`）。其它包不得自建分隔符或拼接路径。`[FACT]`
+  （`ParsePath`/`CanonicalPath`，以及供其它包复用的 `AppendSegment`/`JoinIndex`/
+  `ParentPath`/`IsBelow` 与 `PathSeparator`）。地址的身份是**规范拼写**
+  （`CanonicalPath`，单射且可回读），元数据按段结构存放（`RecordMeta`/`MetaAt`/
+  `MetaFor`/`WalkMeta`）；其它包不得自建分隔符、拼接路径或自造地址字符串。`[FACT]`
 - `internal/schema`：JSON Schema 加载、别名归一化、unknown 策略、`santhosh-tekuri/jsonschema/v6` 集成。`[INFERENCE]`
 - `internal/types`：类型模型、env string 物化、零值规则。`[INFERENCE]`
 - `internal/pipeline`：固定 formatter 白名单。`[INFERENCE]`

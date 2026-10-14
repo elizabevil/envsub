@@ -25,7 +25,7 @@
 ### F2：walker 遍历骨架收敛 —— ✅ 已完成
 
 新增 `internal/schema/walk.go`：`propertyVisitor` 只回答两个问题（缺失键怎么办、字符串怎么办），
-遍历骨架（`utils.SortedKeys(properties)` + `values.JoinPath` + map/[]any 递归 + items 迭代）只有一份：
+遍历骨架（`utils.SortedKeys(properties)` + `values.AppendSegment` + map/[]any 递归 + items 迭代）只有一份：
 `walkProperties` / `walkItems` / `walkValue`。`applyDefaults` 与 `materializeNode` 各自退化为
 一个 visitor。
 
@@ -36,7 +36,7 @@
 
 ### 原始记录（留档）
 
-> 下文符号是当时的实现名，与当前代码的对应：`sortedKeys` → `utils.SortedKeys`，`joinPath` → `values.JoinPath`。
+> 下文符号是当时的实现名，与当前代码的对应：`sortedKeys` → `utils.SortedKeys`，`joinPath` → `values.AppendSegment`。
 
 
 `applyDefaults` / `materializeNode` 各自实现"按 `sortedKeys(properties)` 遍历 + `joinPath` +
@@ -182,11 +182,3 @@ GOCACHE=/tmp/gocache GOTMPDIR=/tmp/gotmp just check
 | staticcheck | 1 | `internal/engine/extended/expression.go`：`switch { case field == alignArgument }` 改为 tagged switch |
 | revive | 2 | `test/fuzz`：`f.Fuzz` 回调未使用 `t` 的改为 `_` |
 | revive | 1 | `internal/render`：`RenderEngine` 名字有 stutter，但改为 `Engine` 会与导入的 engine 包冲突，保留并加 `//nolint:revive` 说明 |
-
-### 待办 P：值地址不是单射（命名空间撞键风险）
-
-- 现象：`@process.NAME` 与根键 `process.NAME` 的 encoded key 相同（`values.EncodeSegments` 实测一致）。
-- 今天无害：命名空间值不记元数据，进程环境是独立命名空间（`Tree.Env`）。
-- 触发条件：命名空间值需要元数据，或新增第二个命名空间（如 `@env`）。
-- 候选：①encoded key 保留 `@` sigil；②命名空间元数据单独一张表。
-- 详见 `docs/07-serialization/09-gaps.md` G23。

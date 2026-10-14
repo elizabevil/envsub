@@ -219,7 +219,7 @@ test/e2e/testdata/<case>/
 - `test/fuzz`：四个 fuzz 目标（扫描器、流式 span、路径文法、`.env`）
 - 本轮补：错误类别目录（含 `--check` 的 exit 7）、`Report` 零值、
   `--explain`/`--report` 在引擎不支持时的失败、报告的 stderr 默认通道、
-  `MetaKeys` 排序与 `RecordMeta` 索引、`FileWriter` 空路径、`CheckWriter` 排序与不可读目标
+  `WalkMeta` 遍历与 `RecordMeta` 索引、`FileWriter` 空路径、`CheckWriter` 排序与不可读目标
 
 ### 8.6 示例层与 e2e 层的用例清点（2026-10-13）
 

@@ -362,8 +362,8 @@ func malformedRootSegment(path string) string {
 
 // CanonicalPath formats segments in template syntax, so diagnostics and --explain
 // report a spelling that can be pasted back into a template. It keeps the @
-// namespace sigil and the brackets a non-identifier key needs; EncodeSegments is
-// the encoded key, which drops both.
+// namespace sigil and the brackets a non-identifier key needs. It is the identity
+// every lookup and report uses: two different paths always spell differently.
 func CanonicalPath(segments []Segment) string {
 	var b strings.Builder
 	// afterIndex allows the dot directly after a bracket, as in hosts[0].name; it

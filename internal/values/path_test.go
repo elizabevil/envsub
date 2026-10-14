@@ -220,8 +220,8 @@ func TestCutPathPrefixAgreesWithParsePath(t *testing.T) {
 	}
 }
 
-// TestCanonical pins the spelling --explain reports: template syntax a reader can
-// paste back, which is why EncodePath (a metadata key, unquoted) is not used.
+// TestCanonicalPath pins the identity spelling: template syntax a reader can paste
+// back, and the form every report and lookup uses.
 func TestCanonicalPath(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
