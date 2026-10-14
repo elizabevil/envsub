@@ -375,6 +375,6 @@ bin := if os_family() == "windows" { root / "dist" / "envsub.exe" } else { root 
 
 - 不改变任何生产行为；本方案只动 `examples/`、`test/e2e` 的文件命名与 `test/examples` 的守护。`[FACT]`
 - 不在示例层覆盖每条规则编号（那是 fixture 层的职责）。`[FACT]`
-- 本轮不处理"批量输出保留 `.tmpl` 后缀"的产品问题——它记入需求登记册（`REQ-OUT-11`），待决策后再动。`[FACT]`
+- 本轮不处理"批量输出保留 `.tmpl` 后缀"的产品问题——它记入需求登记册（`REQ-OUT-11`），待决策后再动。`[FACT]`（现状：已由 `--strip-suffix` 实现，见 ADR-006 与 `04-cli` C18）
 - 不为 Windows 单独写一套逻辑（P2 只补二进制路径与 CI 运行器）。`[FACT]`
 - 两个 scenarios 模板**自身**不是合法 JSON/YAML（含未替换的占位符）；被校验的是**渲染产物**。`[FACT]`

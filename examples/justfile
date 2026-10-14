@@ -175,6 +175,15 @@ auxiliary-batch: ensure-binary
     @find {{ work }}/batch -type f | sort
 
 # Atomic in-place rewrite of a copy.
+# Same batch input as auxiliary-batch, but the template suffix is dropped, so the
+# tree shows the names a real repository would ship (labels.json, service.yaml).
+auxiliary-strip-suffix: ensure-binary
+    @rm -rf {{ work }}/batch-stripped
+    @mkdir -p {{ work }}/batch-stripped
+    @{{ bin }} render {{ sources }} --output-dir {{ work }}/batch-stripped --strip-suffix .tmpl --recursive {{ justfile_directory() }}/templates/batch
+    @echo "== rendered tree (--strip-suffix .tmpl):"
+    @find {{ work }}/batch-stripped -type f | sort
+
 auxiliary-in-place: ensure-binary
     @mkdir -p {{ work }}/inplace
     @cp {{ justfile_directory() }}/templates/realworld.tmpl {{ work }}/inplace/realworld.tmpl
@@ -241,7 +250,7 @@ digest-update: ensure-binary
     @env {{ process }} {{ bin }} render {{ sources }} --output-dir {{ expected_out }} {{ justfile_directory() }}/templates/realworld.tmpl {{ justfile_directory() }}/templates/scenarios-yaml.tmpl
     @echo "updated templates/*.golden and out/"
 
-demo: scenarios-json scenarios-yaml explain-sources filters unknown-keywords on-empty scenarios-with-prefix scenarios-no-process values-long-flag precedence precedence-two-dotenv realworld unused auxiliary-validate auxiliary-check auxiliary-explain auxiliary-stdin auxiliary-error-json auxiliary-batch auxiliary-in-place failures acceptance
+demo: scenarios-json scenarios-yaml explain-sources filters unknown-keywords on-empty scenarios-with-prefix scenarios-no-process values-long-flag precedence precedence-two-dotenv realworld unused auxiliary-validate auxiliary-check auxiliary-explain auxiliary-stdin auxiliary-error-json auxiliary-batch auxiliary-strip-suffix auxiliary-in-place failures acceptance
 
 clean:
     @rm -rf {{ work }}

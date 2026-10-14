@@ -502,7 +502,43 @@ func (req Request) resolveTemplates() ([]template, error) {
 		}
 		templates = append(templates, template{Input: input, Output: out})
 	}
+	if err := rejectDuplicateOutputs(templates); err != nil {
+		return nil, err
+	}
 	return templates, nil
+}
+
+// rejectDuplicateOutputs fails when two templates resolve to the same target, which
+// --strip-suffix can cause (a.tmpl and a both become a) and which would otherwise
+// silently overwrite one render with another. Stdout targets are not compared: they
+// all share the empty path by design.
+func rejectDuplicateOutputs(templates []template) error {
+	seen := make(map[string]string, len(templates))
+	for _, tmpl := range templates {
+		if tmpl.Output == "" {
+			continue
+		}
+		target := filepath.Clean(tmpl.Output)
+		if previous, ok := seen[target]; ok {
+			return diag.New(diag.KindUsage,
+				"templates %s and %s both map to %s", previous, tmpl.Input, target)
+		}
+		seen[target] = tmpl.Input
+	}
+	return nil
+}
+
+// stripSuffix removes the longest of the given suffixes from name. Matching is a
+// literal, case-sensitive suffix test on the file name; the longest match wins so
+// that the order of the values does not matter and ".yaml.tmpl" beats ".tmpl".
+func stripSuffix(name string, suffixes []string) string {
+	longest := ""
+	for _, suffix := range suffixes {
+		if strings.HasSuffix(name, suffix) && len(suffix) > len(longest) {
+			longest = suffix
+		}
+	}
+	return strings.TrimSuffix(name, longest)
 }
 
 // commonDir returns the deepest directory that contains every input path.
@@ -596,7 +632,6 @@ func (req Request) templateOutput(input, base string) (string, error) {
 	case req.Output.InPlace:
 		return input, nil
 	case req.Output.Dir != "":
-		// TODO(TASK-206): make the --output-dir name drop the template suffix.
 		relative := filepath.Base(input)
 		if !utils.IsStdio(input) && base != "" {
 			rel, err := filepath.Rel(base, input)
@@ -605,6 +640,7 @@ func (req Request) templateOutput(input, base string) (string, error) {
 			}
 			relative = rel
 		}
+		relative = stripSuffix(relative, req.Output.StripSuffixes)
 		return filepath.Join(req.Output.Dir, relative), nil
 	case !utils.IsStdio(req.Output.Path):
 		return req.Output.Path, nil

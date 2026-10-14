@@ -46,9 +46,10 @@ type valueFlags struct {
 
 // outputFlags selects the destination.
 type outputFlags struct {
-	path    string
-	inPlace bool
-	dir     string
+	path          string
+	inPlace       bool
+	dir           string
+	stripSuffixes []string
 }
 
 // policyFlags tunes engine behavior.
@@ -82,7 +83,13 @@ func (f renderFlags) request(args []string, stderr io.Writer) render.Request {
 			SetJSON:          f.values.setJSON,
 			SetFiles:         f.values.setFiles,
 		},
-		Output: render.Output{Path: f.output.path, InPlace: f.output.inPlace, Dir: f.output.dir, Check: f.check},
+		Output: render.Output{
+			Path:          f.output.path,
+			InPlace:       f.output.inPlace,
+			Dir:           f.output.dir,
+			Check:         f.check,
+			StripSuffixes: f.output.stripSuffixes,
+		},
 		Policies: render.Policies{
 			OnMissing:       f.policies.onMissing,
 			OnEmpty:         f.policies.onEmpty,
@@ -130,6 +137,7 @@ func newRenderCommand(eng RenderEngine, run Runner) *cobra.Command {
 	f.StringVarP(&flags.output.path, flagOutput, "o", "", "output file (`FILE`)")
 	f.BoolVarP(&flags.output.inPlace, flagInPlace, "i", false, "write back in place")
 	f.StringVar(&flags.output.dir, flagOutputDir, "", "output directory (`DIR`)")
+	f.StringArrayVar(&flags.output.stripSuffixes, flagStripSuffix, nil, "drop this file-name suffix from --output-dir targets (`EXT`, repeatable; longest match wins)")
 	f.BoolVar(&flags.input.recursive, flagRecursive, false, "process templates recursively")
 	// The policy flags name the condition they act on: --on-missing applies when
 	// an expression has no value, --on-empty when the value is empty.

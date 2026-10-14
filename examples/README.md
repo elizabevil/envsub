@@ -116,8 +116,10 @@ Rule of thumb: **`data/` is input, `templates/*.tmpl` is what runs, `*.golden` i
 | `templates/*.golden` | exact expected stdout for that template | `diff -u` in the recipe, and `test/examples` |
 | `templates/*.parse` | `json`/`yaml` the golden must parse as (**single source**: recipes read it, `test/examples` enforces it) | `tools/digest --parse` and the guards |
 | `templates/unused.unused` | expected `--report=unused` report | `test/examples` |
-| `templates/batch/*.tmpl` | inputs for `--output-dir` | `auxiliary-batch` |
+| `templates/batch/*.tmpl` | inputs for `--output-dir` | `auxiliary-batch`（保留文件名）、`auxiliary-strip-suffix`（`--strip-suffix .tmpl` 去掉后缀） |
 | `templates/stdin.tmpl` | template delivered on stdin | `auxiliary-stdin` |
+
+`--strip-suffix EXT`（可重复、默认关）只在配合 `--output-dir` 时生效：它从每个输出的文件名去掉匹配的后缀，最长匹配优先；两个模板剥成同名时报用法错误而不是互相覆盖。见 `auxiliary-strip-suffix` 与 `docs/07-serialization/04-cli.md` C18。
 | `cases/errors/<name>/input.tmpl` | the failing template | `failures` recipe, `test/examples` |
 | `cases/errors/<name>/expect.exit` | required exit code | same |
 | `cases/errors/<name>/expect.err` | required stderr fragment | same |

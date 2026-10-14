@@ -107,7 +107,7 @@ last-updated: 2026-10-12
 | REQ-OUT-08 | 机器可读输出（错误/报告 JSON） | P1 | ✅ 已实现 | ✅ | `--error-format=json`（TASK-102，2 fixture + 单测）；`--explain` 为 JSONL |
 | REQ-OUT-09 | 渲染统计与未使用变量报告 | P1 | ✅ 已实现 | ✅ | `--report=unused`（TASK-103：6 单测 + 2 fixture）；口径见 `04-cli` C15 |
 | REQ-OUT-10 | 交互确认 / 覆盖保护 | P2 | ❌ | ✅ | 与 CI 非交互冲突：默认非交互，仅 `-i` 时加保护 |
-| REQ-OUT-11 | 批量输出名处理（模板后缀） | P2 | ❌（现保留 `.tmpl`） | 🟡 | 真实配置仓库会得到 `nginx.conf.tmpl`；三种形态待决：文档化 / `--strip-suffix`（推荐）/ 自动剥离（隐式，不推荐）。需要时补 ADR 到 CLI 契约 |
+| REQ-OUT-11 | 批量输出名处理（模板后缀） | P2 | ✅ 已实现 | ✅ | `--strip-suffix EXT`（可重复、默认关；仅 `--output-dir`；最长匹配；撞名 exit 2）：ADR-006、`04-cli` C18、fixture `strip_suffix`/`strip_suffix_collision` |
 
 ### 3.5 CLI 与可观测性（REQ-CLI）
 

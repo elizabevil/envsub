@@ -81,6 +81,10 @@ type Output struct {
 	// writing it, and reports the outdated ones. It needs a target: --output,
 	// --in-place or --output-dir.
 	Check bool
+	// StripSuffixes are removed from the file name of every --output-dir target.
+	// The longest match wins, so the order of the values does not matter; empty
+	// means the template name is kept as written (D2).
+	StripSuffixes []string
 }
 
 // Policies tunes engine behavior.
@@ -148,6 +152,13 @@ func (req Request) Validate() error {
 		return diag.New(diag.KindUsage, "--check needs an output target: --output, --in-place or --output-dir")
 	case !utils.IsStdio(req.Output.Path) && len(req.Input.Templates) > 1:
 		return diag.New(diag.KindUsage, "--output accepts a single template, use --output-dir for several")
+	case len(req.Output.StripSuffixes) > 0 && req.Output.Dir == "":
+		return diag.New(diag.KindUsage, "--strip-suffix only applies to --output-dir")
+	}
+	for _, suffix := range req.Output.StripSuffixes {
+		if suffix == "" {
+			return diag.New(diag.KindUsage, "--strip-suffix needs a non-empty suffix")
+		}
 	}
 	switch req.Policies.OnMissing {
 	case "", engine.UnsetError, engine.UnsetEmpty, engine.UnsetKeep, engine.UnsetZero:

@@ -1,0 +1,7 @@
+render
+--output-dir
+result
+--strip-suffix
+.tmpl
+a.tmpl
+a

@@ -304,6 +304,28 @@ _列：ID | 规则 | 证据。_
 | `-i` 渲染 `0755` 的模板 | 结果仍 `0755`；过程中临时文件无 group/other 位 | 单测 `TestInPlaceWriterPreservesPermissions`、`TestAtomicReplaceWritesThroughARestrictedTempFile` |
 | `just --justfile test/justfile test-fuzz` | 四个目标各 fuzz 30s，无 crash | CI/本地门禁 |
 
+### 6.5.5 批量输出名（`--strip-suffix`，C18）
+
+`--output-dir` 默认保留模板文件名（`nginx.conf.tmpl` → `out/nginx.conf.tmpl`）。`--strip-suffix EXT`
+（可重复、默认关）从每个输出的**文件名**去掉匹配的后缀：
+
+| 维度 | 规则 |
+|------|------|
+| C18 | `--strip-suffix EXT` **仅与 `--output-dir` 搭配**；对文件名做字面量、区分大小写的后缀匹配；多值**最长匹配优先**（与书写顺序无关）；未匹配则原样保留；空值或不带 `--output-dir` → `KindUsage` exit 2；**两个模板撞到同一输出 → exit 2**（`templates a.tmpl and a both map to out/a`），不静默覆盖；`--check` 复用同一路径计算，诊断报**剥离后**的目标名 |
+
+**案例（C18）**
+
+| 命令 | 输出 / exit | 标注 |
+|------|-------------|------|
+| `--output-dir out --strip-suffix .tmpl --recursive templates`（`a.tmpl`、`nested/b.tmpl`） | `out/a`、`out/nested/b` | fixture `strip_suffix` |
+| `--output-dir out --strip-suffix .tmpl a.tmpl a` | `templates a.tmpl and a both map to out/a`，exit 2 | fixture `strip_suffix_collision` |
+| `--strip-suffix .tmpl -o out.txt a.tmpl` | `--strip-suffix only applies to --output-dir`，exit 2 | 单测 `TestStripSuffixValidation` |
+| `--output-dir out --strip-suffix '' a.tmpl` | `--strip-suffix needs a non-empty suffix`，exit 2 | 单测 `TestStripSuffixValidation` |
+| 同一批里 `service.yaml.tmpl`，`--strip-suffix .tmpl --strip-suffix .yaml.tmpl` | 两种书写顺序都得 `service` | 单测 `TestStripSuffixLongestMatchWins` |
+| `--check --output-dir out --strip-suffix .tmpl a.tmpl`（目标未渲染） | `1 of 1 outputs are outdated: out/a`，exit 7 | 单测 `TestCheckReportsTheStrippedTargetName` |
+
+决策依据与备选见 `04-decisions/04-06-adr-006-batch-output-name.md`。
+
 ### 6.6 已知差异（C11）
 
 _列：ID | 差异 | 现状 | 状态。_

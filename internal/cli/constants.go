@@ -31,6 +31,7 @@ const (
 	flagOnEmpty          = "on-empty"
 	flagUnknownKeywords  = "unknown-keywords"
 	flagOnlyVars         = "only-vars"
+	flagStripSuffix      = "strip-suffix"
 	flagIgnoreVars       = "ignore-vars"
 	flagCheck            = "check"
 	flagReport           = "report"

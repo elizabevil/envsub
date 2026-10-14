@@ -12,6 +12,7 @@ last-updated: 2026-09-29
 - [04-03 ADR-003：复用 JSON Schema Draft 2020-12 + santhosh v6 + 薄适配层](04-03-adr-003-json-schema-reuse.md)
 - [04-04 ADR-004：项目依赖库选型（Proposed）](04-04-adr-004-dependency-selection.md)
 - [04-05 ADR-005：`--explain` 的来源模型](04-05-adr-005-explain-origin-model.md)
+- [04-06 ADR-006：批量输出名去掉模板后缀（`--strip-suffix`）](04-06-adr-006-batch-output-name.md)
 
 ## 非目标（整体）
 
