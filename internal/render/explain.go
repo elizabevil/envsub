@@ -8,7 +8,6 @@ import (
 	"github.com/elizabevil/envsub/internal/diag"
 	"github.com/elizabevil/envsub/internal/engine"
 	"github.com/elizabevil/envsub/internal/jsonx"
-	"github.com/elizabevil/envsub/internal/load"
 	"github.com/elizabevil/envsub/internal/values"
 )
 
@@ -69,19 +68,10 @@ func (run *explainRun) AddEnv(name string) {
 	})
 }
 
-// AddRoot implements load.Observer.
-func (run *explainRun) AddRoot(path string, origin load.Origin) {
-	frame := explainOrigin{
-		kind:   origin.Kind,
-		method: origin.Method,
-		source: origin.Source,
-		file:   origin.File,
-		line:   origin.Line,
-	}
-	if frame.source == "" {
-		frame.source = origin.File
-	}
-	run.sources.addRoot(path, frame)
+// AddRoot implements load.Observer. The frame comes from the tree's own metadata,
+// so the report and the tree cannot disagree about where a value came from.
+func (run *explainRun) AddRoot(path string, meta values.Meta) {
+	run.sources.addRoot(path, metaOrigin(meta))
 }
 
 // explainOrigin is one recorded step of a value's lineage.

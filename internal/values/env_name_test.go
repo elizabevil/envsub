@@ -52,7 +52,7 @@ func TestSetPathRejectsNamespace(t *testing.T) {
 	t.Parallel()
 	for _, raw := range []string{"@process.K", `@process["MY-VAR"]`, "@process.a.b"} {
 		tree := values.NewTree()
-		err := tree.SetPath(raw, "v", values.SetString, values.Origin{Kind: values.SourceSet})
+		err := tree.SetPath(raw, "v", values.SetString, values.Meta{Kind: values.SourceSet})
 		if err == nil {
 			t.Fatalf("SetPath(%q) error = nil, want a read-only namespace error", raw)
 		}

@@ -300,8 +300,8 @@ func TestObserverRecordsThroughTheInterface(t *testing.T) {
 	run := explainRun{tree: values.NewTree()}
 	var observer load.Observer = &run
 	observer.AddEnv("FROM_PROCESS")
-	observer.AddRoot("K", load.Origin{Kind: values.SourceEnvFile, Method: values.MethodFile, Source: ".env", File: ".env", Line: 1})
-	observer.AddRoot("K", load.Origin{Kind: values.SourceSet, Method: values.MethodFlag, Source: "K"})
+	observer.AddRoot("K", values.Meta{Kind: values.SourceEnvFile, Method: values.MethodFile, Source: ".env", File: ".env", Line: 1})
+	observer.AddRoot("K", values.Meta{Kind: values.SourceSet, Method: values.MethodFlag, Source: "K"})
 
 	winner, shadowed := run.sources.source("K", run.tree)
 	if winner.kind != values.SourceSet {

@@ -91,6 +91,10 @@ last-updated: 2026-09-29
 - `internal/render`：渲染编排。模板发现、输出目标选择、渲染循环与 `--explain` 报告；值装载后不再由它负责。`[FACT]`
   模式决策（写回/输出目录/`--check`/`--validate-only`）与引擎能力协商集中在一个 `plan`（`plan.go`）里，
   由循环消费，循环本身不含模式分支。`[FACT]`
+- **来源元数据只有一个类型**：`values.Meta`（File/Line/Kind/Method/Source）。值文件、`--set*`、
+  schema 默认值与模板赋值都把它记在值树上，`--explain` 的帧由它派生（`metaOrigin`），
+  不再各自手工拼字段。**层序**（同一路径被多层覆盖时谁先谁后）仍由 `load` 在装载过程中按序报告：
+  值树只保留**当前赢家**的 meta，不存谱系，这是当前的固有限制。`[FACT]`
 - `internal/output`：安全 in-place、批量输出、dry-run/diff/check（P1 预留）。`[INFERENCE]`
 - `internal/diag`：错误码、错误上下文、敏感字段脱敏。`[INFERENCE]`
 - `pkg/envsub`：如果后续需要库 API，再暴露稳定接口；一期 CLI 优先。`[ASSUMPTION]`

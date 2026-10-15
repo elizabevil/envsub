@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"github.com/elizabevil/envsub/internal/utils"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/elizabevil/envsub/internal/diag"
@@ -51,25 +52,8 @@ type Result struct {
 type Observer interface {
 	// AddEnv reports a process environment variable.
 	AddEnv(name string)
-	// AddRoot reports the canonical spelling of a root path and its source.
-	AddRoot(path string, origin Origin)
-}
-
-// Origin is where a contributed value came from: the layering stage, how the
-// value entered it, and the location. See ADR-005 for the model.
-type Origin struct {
-	// Kind is the layering stage: schema, values, envfile, set or process.
-	Kind values.SourceKind
-	// Method is how the value entered that stage: default, file, flag, json,
-	// env or assign.
-	Method values.SourceMethod
-	// Source is the address within the stage: a file path, a schema pointer, or
-	// the key itself when the stage has no other address.
-	Source string
-	// File is the source file, empty when the source has none.
-	File string
-	// Line is the 1-based line, 0 when unknown.
-	Line int
+	// AddRoot reports the canonical spelling of a root path and its origin.
+	AddRoot(path string, meta values.Meta)
 }
 
 // Load reads every source in Spec and returns the tree the renderer resolves
@@ -102,16 +86,10 @@ func Load(ctx context.Context, spec Spec, observer Observer) (*Result, error) {
 	}
 	// The schema defaults are the bottom layer, so they are reported before any
 	// other layer: a default a later layer covered then appears in that value's
-	// lineage instead of after its winner (ADR-005 I6).
+	// lineage instead of after its winner (ADR-005 I6). The tuple comes from the
+	// declaration, because an overridden default is never written to the tree.
 	if observer != nil && sch != nil {
-		for _, decl := range sch.DefaultOrigins() {
-			observer.AddRoot(decl.Path, Origin{
-				Kind:   values.SourceSchema,
-				Method: values.MethodDefault,
-				Source: decl.Pointer,
-				File:   decl.Schema,
-			})
-		}
+		reportDefaults(observer, sch)
 	}
 
 	// Layer order, lowest first: value files, dotenv files, --set. A .env file is
@@ -142,13 +120,10 @@ func Load(ctx context.Context, spec Spec, observer Observer) (*Result, error) {
 		return nil, err
 	}
 	if observer != nil {
-		for _, applied := range setKeys {
-			observer.AddRoot(applied.Key, Origin{
-				Kind:   values.SourceSet,
-				Method: applied.Method,
-				Source: applied.Key,
-				File:   applied.File,
-			})
+		for _, key := range setKeys {
+			if meta, ok := tree.MetaAt(key); ok {
+				observer.AddRoot(key, meta)
+			}
 		}
 	}
 
@@ -164,6 +139,26 @@ func Load(ctx context.Context, spec Spec, observer Observer) (*Result, error) {
 	return &Result{Tree: tree, Schema: sch}, nil
 }
 
+// reportDefaults reports every declared schema default, lowest layer first, in a
+// stable order. A default a later layer covered leaves no trace on the tree, so the
+// declaration itself supplies the origin (its JSON pointer and the schema file).
+func reportDefaults(observer Observer, sch *schema.Schema) {
+	decls := sch.DefaultDecls()
+	paths := make([]string, 0, len(decls))
+	for path := range decls {
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
+	for _, path := range paths {
+		observer.AddRoot(path, values.Meta{
+			Kind:   values.SourceSchema,
+			Method: values.MethodDefault,
+			Source: decls[path],
+			File:   sch.Source,
+		})
+	}
+}
+
 // loadInto reads one value file, merges it into the tree and reports its paths.
 func loadInto(tree *values.Tree, format source.Format, path string, observer Observer) error {
 	loaded, err := format.Loader().ReadFile(path)
@@ -177,13 +172,7 @@ func loadInto(tree *values.Tree, format source.Format, path string, observer Obs
 	// The entries carry the origin the loader recorded: a dotenv key keeps its own
 	// line number.
 	loaded.WalkMeta(func(segments []values.Segment, meta values.Meta) {
-		observer.AddRoot(values.CanonicalPath(segments), Origin{
-			Kind:   format.Kind,
-			Method: values.MethodFile,
-			Source: path,
-			File:   meta.File,
-			Line:   meta.Line,
-		})
+		observer.AddRoot(values.CanonicalPath(segments), meta)
 	})
 	return nil
 }
@@ -213,68 +202,59 @@ func mapToAny(root map[string]any) any {
 	return root
 }
 
-// setApplied is one --set* assignment that reached the tree, with the method it
-// used and, for --set-file, the file it read.
-type setApplied struct {
-	// Key is the canonical spelling of the root path the assignment wrote.
-	Key string
-	// Method is flag, json or file.
-	Method values.SourceMethod
-	// File is the file --set-file read, empty for the other two.
-	File string
-}
-
 // applySets applies --set then --set-json then --set-file, in that fixed order
-// regardless of the command line, and returns what each assignment wrote.
-func applySets(tree *values.Tree, spec Spec) ([]setApplied, error) {
-	applied := make([]setApplied, 0, len(spec.Sets)+len(spec.SetJSON)+len(spec.SetFiles))
+// regardless of the command line, and returns the canonical spelling of every root
+// path it wrote. Each value carries its own origin on the tree (kind set, method
+// flag/json/file), so no separate record is needed here.
+func applySets(tree *values.Tree, spec Spec) ([]string, error) {
+	written := make([]string, 0, len(spec.Sets)+len(spec.SetJSON)+len(spec.SetFiles))
 	for _, assignment := range spec.Sets {
 		key, err := setOne(tree, assignment, values.SetString)
 		if err != nil {
 			return nil, err
 		}
-		applied = append(applied, setApplied{Key: key, Method: values.MethodFlag})
+		written = append(written, key)
 	}
 	for _, assignment := range spec.SetJSON {
 		key, err := setOne(tree, assignment, values.SetJSON)
 		if err != nil {
 			return nil, err
 		}
-		applied = append(applied, setApplied{Key: key, Method: values.MethodJSON})
+		written = append(written, key)
 	}
 	for _, assignment := range spec.SetFiles {
-		key, file, err := setOneFile(tree, assignment)
+		key, err := setOneFile(tree, assignment)
 		if err != nil {
 			return nil, err
 		}
-		applied = append(applied, setApplied{Key: key, Method: values.MethodFile, File: file})
+		written = append(written, key)
 	}
-	return applied, nil
+	return written, nil
 }
 
 // setOneFile writes one --set-file assignment: the value is the file's bytes as
 // a string. One trailing newline is dropped, because a file created by an editor
 // or a secret store ends with one; any other byte is kept, so a multi-line value
 // survives intact.
-func setOneFile(tree *values.Tree, assignment string) (string, string, error) {
+func setOneFile(tree *values.Tree, assignment string) (string, error) {
 	key, path, err := values.ParseAssignment(assignment)
 	if err != nil {
-		return "", "", diag.Wrap(diag.KindUsage, err)
+		return "", diag.Wrap(diag.KindUsage, err)
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return "", "", diag.Wrap(diag.KindIO, fmt.Errorf("read --set-file %s: %w", path, err))
+		return "", diag.Wrap(diag.KindIO, fmt.Errorf("read --set-file %s: %w", path, err))
 	}
 	text := strings.TrimSuffix(strings.TrimSuffix(string(utils.TrimBOM(data)), "\n"), "\r")
-	origin := values.Origin{Kind: values.SourceSet, Method: values.MethodFile, Source: key, File: path}
-	if err := tree.SetPath(key, text, values.SetString, origin); err != nil {
-		return "", "", diag.Wrap(diag.KindUsage, err)
+	meta := values.Meta{Kind: values.SourceSet, Method: values.MethodFile, Source: key, File: path}
+	if err := tree.SetPath(key, text, values.SetString, meta); err != nil {
+		return "", diag.Wrap(diag.KindUsage, err)
 	}
 	segments, err := values.ParsePath(key)
 	if err != nil {
-		return "", "", diag.Wrap(diag.KindUsage, err)
+		return "", diag.Wrap(diag.KindUsage, err)
 	}
-	return values.CanonicalPath(segments), path, nil
+	return values.CanonicalPath(segments), nil
 }
 
 // setOne writes one --set assignment into the root and returns its canonical path.
@@ -287,7 +267,7 @@ func setOne(tree *values.Tree, assignment string, mode values.SetMode) (string, 
 	if mode == values.SetJSON {
 		method = values.MethodJSON
 	}
-	if err := tree.SetPath(key, value, mode, values.Origin{
+	if err := tree.SetPath(key, value, mode, values.Meta{
 		Kind:   values.SourceSet,
 		Method: method,
 		Source: key,

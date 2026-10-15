@@ -14,17 +14,17 @@ import (
 // recordingObserver captures the layering the loader reports.
 type recordingObserver struct {
 	env  []string
-	root map[string][]load.Origin
+	root map[string][]values.Meta
 }
 
 func newRecordingObserver() *recordingObserver {
-	return &recordingObserver{root: map[string][]load.Origin{}}
+	return &recordingObserver{root: map[string][]values.Meta{}}
 }
 
 func (o *recordingObserver) AddEnv(name string) { o.env = append(o.env, name) }
 
-func (o *recordingObserver) AddRoot(path string, origin load.Origin) {
-	o.root[path] = append(o.root[path], origin)
+func (o *recordingObserver) AddRoot(path string, meta values.Meta) {
+	o.root[path] = append(o.root[path], meta)
 }
 
 func writeFile(t *testing.T, dir, name, content string) string {

@@ -64,21 +64,7 @@ const (
 	SetJSON
 )
 
-// Origin describes where an assignment came from.
-type Origin struct {
-	// Kind is the layering stage, for example values or set.
-	Kind SourceKind
-	// Method is how the value entered that stage, for example flag or file.
-	Method SourceMethod
-	// Source is the address within the stage: a key name, a file path, or a
-	// schema pointer. Empty when the stage has no address beyond the key.
-	Source string
-	// File is the source file, empty for values without a file origin.
-	File string
-	// Line is the 1-based source line, 0 when unknown.
-	Line int
-}
-
+// SetPath assigns value at the raw path, creating intermediate objects.
 // assignmentSeparator splits KEY=VALUE on the command line and in .env files.
 const assignmentSeparator = "="
 
@@ -92,8 +78,9 @@ func ParseAssignment(assignment string) (key string, value string, err error) {
 	return key, value, nil
 }
 
-// SetPath assigns value at the raw path, creating intermediate objects.
-func (t *Tree) SetPath(rawPath, value string, mode SetMode, origin Origin) error {
+// SetPath writes one KEY=VALUE assignment and records where it came from. The meta
+// is stored as given, so the tree keeps the same origin tuple --explain reports.
+func (t *Tree) SetPath(rawPath, value string, mode SetMode, meta Meta) error {
 	segments, err := ParsePath(rawPath)
 	if err != nil {
 		return fmt.Errorf("invalid path %q: %w", rawPath, err)
@@ -108,8 +95,8 @@ func (t *Tree) SetPath(rawPath, value string, mode SetMode, origin Origin) error
 	if err := assignPath(t.Root, segments, parsed); err != nil {
 		return fmt.Errorf("set %s: %w", rawPath, err)
 	}
-	if origin.Kind != "" || origin.File != "" {
-		t.RecordMeta(segments, Meta{File: origin.File, Line: origin.Line, Kind: origin.Kind})
+	if meta.Kind != "" || meta.File != "" {
+		t.RecordMeta(segments, meta)
 	}
 	return nil
 }
@@ -119,7 +106,7 @@ func (t *Tree) SetPath(rawPath, value string, mode SetMode, origin Origin) error
 // per the design only affect the current render and never touch the process
 // environment. The origin names the template and line that wrote the value, so
 // --explain can report an assignment like any other source (ADR-005).
-func (t *Tree) Store(rawPath string, value any, origin Origin) error {
+func (t *Tree) Store(rawPath string, value any, meta Meta) error {
 	segments, err := ParsePath(rawPath)
 	if err != nil {
 		return fmt.Errorf("invalid path %q: %w", rawPath, err)
@@ -131,11 +118,11 @@ func (t *Tree) Store(rawPath string, value any, origin Origin) error {
 		return fmt.Errorf("assign %s: %w", rawPath, err)
 	}
 	t.RecordMeta(segments, Meta{
-		Kind:   origin.Kind,
-		Method: origin.Method,
-		Source: origin.Source,
-		File:   origin.File,
-		Line:   origin.Line,
+		Kind:   meta.Kind,
+		Method: meta.Method,
+		Source: meta.Source,
+		File:   meta.File,
+		Line:   meta.Line,
 	})
 	t.MarkMutated()
 	return nil

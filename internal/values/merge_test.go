@@ -74,24 +74,24 @@ func TestMetaForWalksParents(t *testing.T) {
 func TestSetPath(t *testing.T) {
 	t.Parallel()
 	tree := values.NewTree()
-	if err := tree.SetPath("app.port", "8080", values.SetString, values.Origin{Kind: values.SourceSet}); err != nil {
+	if err := tree.SetPath("app.port", "8080", values.SetString, values.Meta{Kind: values.SourceSet}); err != nil {
 		t.Fatalf("SetPath() error = %v", err)
 	}
 	// --set without a schema keeps the raw string; type parsing happens later
 	// through the schema or an inline | type assertion.
 	assertResolved(t, tree, "app.port", "8080")
 
-	if err := tree.SetPath("app.number", "8080", values.SetJSON, values.Origin{Kind: values.SourceSet}); err != nil {
+	if err := tree.SetPath("app.number", "8080", values.SetJSON, values.Meta{Kind: values.SourceSet}); err != nil {
 		t.Fatalf("SetPath() error = %v", err)
 	}
 	assertResolved(t, tree, "app.number", 8080)
 
-	if err := tree.SetPath("app.name", "x", values.SetString, values.Origin{Kind: values.SourceSet}); err != nil {
+	if err := tree.SetPath("app.name", "x", values.SetString, values.Meta{Kind: values.SourceSet}); err != nil {
 		t.Fatalf("SetPath() error = %v", err)
 	}
 	assertResolved(t, tree, "app.name", "x")
 
-	if err := tree.SetPath("app.tags", `["a"]`, values.SetJSON, values.Origin{Kind: values.SourceSet}); err != nil {
+	if err := tree.SetPath("app.tags", `["a"]`, values.SetJSON, values.Meta{Kind: values.SourceSet}); err != nil {
 		t.Fatalf("SetPath() error = %v", err)
 	}
 	got, found, err := tree.Resolve("app.tags[0]")
@@ -103,16 +103,16 @@ func TestSetPath(t *testing.T) {
 func TestSetPathErrors(t *testing.T) {
 	t.Parallel()
 	tree := values.NewTree()
-	if err := tree.SetPath("app.port", "not-json", values.SetJSON, values.Origin{}); err == nil {
+	if err := tree.SetPath("app.port", "not-json", values.SetJSON, values.Meta{}); err == nil {
 		t.Fatalf("SetPath() with invalid JSON error = nil, want error")
 	}
-	if err := tree.SetPath("app[0]", "x", values.SetString, values.Origin{}); err == nil {
+	if err := tree.SetPath("app[0]", "x", values.SetString, values.Meta{}); err == nil {
 		t.Fatalf("SetPath() with index error = nil, want error")
 	}
-	if err := tree.SetPath("app.port", "1", values.SetString, values.Origin{}); err != nil {
+	if err := tree.SetPath("app.port", "1", values.SetString, values.Meta{}); err != nil {
 		t.Fatalf("SetPath() error = %v", err)
 	}
-	if err := tree.SetPath("app.port.deep", "1", values.SetString, values.Origin{}); err == nil {
+	if err := tree.SetPath("app.port.deep", "1", values.SetString, values.Meta{}); err == nil {
 		t.Fatalf("SetPath() over scalar error = nil, want error")
 	}
 }
@@ -134,13 +134,13 @@ func TestParseAssignment(t *testing.T) {
 func TestStore(t *testing.T) {
 	t.Parallel()
 	tree := values.NewTree()
-	if err := tree.Store("app.port", 8080, values.Origin{Kind: values.SourceSet, Method: values.MethodFlag, Source: "app.port"}); err != nil {
+	if err := tree.Store("app.port", 8080, values.Meta{Kind: values.SourceSet, Method: values.MethodFlag, Source: "app.port"}); err != nil {
 		t.Fatalf("Store() error = %v", err)
 	}
 	assertResolved(t, tree, "app.port", 8080)
 
 	list := []any{"a"}
-	if err := tree.Store("app.list", list, values.Origin{Kind: values.SourceSet, Method: values.MethodFlag, Source: "app.list"}); err != nil {
+	if err := tree.Store("app.list", list, values.Meta{Kind: values.SourceSet, Method: values.MethodFlag, Source: "app.list"}); err != nil {
 		t.Fatalf("Store() error = %v", err)
 	}
 	list[0] = "mutated"

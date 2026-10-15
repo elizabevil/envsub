@@ -1,9 +1,9 @@
 package schema
 
 import (
-	"github.com/elizabevil/envsub/internal/utils"
-	"sort"
 	"strings"
+
+	"github.com/elizabevil/envsub/internal/utils"
 
 	"github.com/elizabevil/envsub/internal/values"
 )
@@ -19,18 +19,30 @@ func (s *Schema) ApplyDefaults(tree *values.Tree) {
 	if s == nil || tree.Root == nil {
 		return
 	}
-	applyDefaults(tree, s.effective(), tree.Root, nil)
+	// The visitor resolves each default's JSON pointer from the declaration map, so
+	// the origin it records is the same tuple --explain reports.
+	applyDefaults(tree, s.effective(), tree.Root, nil, defaultsVisitor{decls: s.DefaultDecls(), schema: s.Source})
 }
 
 // defaultsVisitor fills a missing key with the default its schema declares.
-type defaultsVisitor struct{}
+type defaultsVisitor struct {
+	// decls maps a canonical value path to the JSON pointer of its declaration.
+	decls map[string]string
+	// schema is the schema file the defaults were declared in.
+	schema string
+}
 
-func (defaultsVisitor) missing(tree *values.Tree, path []values.Segment, childSchema map[string]any) (any, bool, error) {
+func (v defaultsVisitor) missing(tree *values.Tree, path []values.Segment, childSchema map[string]any) (any, bool, error) {
 	defaultValue, hasDefault := childSchema[keywordDefault]
 	if !hasDefault {
 		return nil, false, nil
 	}
-	tree.RecordMeta(path, values.Meta{Kind: values.SourceSchema})
+	tree.RecordMeta(path, values.Meta{
+		Kind:   values.SourceSchema,
+		Method: values.MethodDefault,
+		Source: v.decls[values.CanonicalPath(path)],
+		File:   v.schema,
+	})
 	return values.CloneValue(defaultValue), true, nil
 }
 
@@ -39,44 +51,15 @@ func (defaultsVisitor) text(*values.Tree, []values.Segment, map[string]any, stri
 }
 
 // applyDefaults walks the schema and fills missing keys in the value tree.
-func applyDefaults(tree *values.Tree, schemaNode any, node map[string]any, prefix []values.Segment) {
-	_ = walkProperties(tree, schemaNode, node, prefix, defaultsVisitor{})
+func applyDefaults(tree *values.Tree, schemaNode any, node map[string]any, prefix []values.Segment, visitor defaultsVisitor) {
+	_ = walkProperties(tree, schemaNode, node, prefix, visitor)
 }
 
 // pointerPrefix is the JSON Pointer root every schema location hangs off.
 const pointerPrefix = "#"
 
-// DefaultOrigins returns the schema default declarations as origin tuples the
-// loader reports: the encoded value path, the JSON pointer of the declaration and
-// the schema file. Reporting these before any other layer is what puts a default
-// at the bottom of a value's lineage, including when a later layer covers it.
-func (s *Schema) DefaultOrigins() []DefaultOrigin {
-	if s == nil {
-		return nil
-	}
-	decls := s.DefaultDecls()
-	origins := make([]DefaultOrigin, 0, len(decls))
-	for key, pointer := range decls {
-		origins = append(origins, DefaultOrigin{Path: key, Pointer: pointer, Schema: s.Source})
-	}
-	sort.Slice(origins, func(i, j int) bool { return origins[i].Path < origins[j].Path })
-	return origins
-}
-
-// DefaultOrigin is one declared schema default.
-type DefaultOrigin struct {
-	// Path is the canonical spelling of the value path the default applies to.
-	Path string
-	// Pointer is the JSON pointer of the declaration inside the schema document.
-	Pointer string
-	// Schema is the schema file, empty when the schema was not loaded from one.
-	Schema string
-}
-
-// DefaultDecls returns every location the schema declares a `default` for, keyed
-// by the canonical spelling of the value path the walkers use. The pointer locates the declaration
-// inside the schema document, so --explain can name where a default came from
-// even after a later layer covered it.
+// DefaultDecls maps every declared default to the JSON pointer of its declaration,
+// keyed by the canonical spelling of the value path it fills.
 func (s *Schema) DefaultDecls() map[string]string {
 	if s == nil {
 		return nil

@@ -267,7 +267,7 @@ func TestShouldRenderParallelDecision(t *testing.T) {
 	tree.Root["VAR"] = "value"
 	mutated := values.NewTree()
 	mutated.Root["VAR"] = "value"
-	if err := mutated.Store("NEW", "value", values.Origin{Kind: values.SourceSet, Method: values.MethodAssign, Source: "test.tmpl", File: "test.tmpl", Line: 1}); err != nil {
+	if err := mutated.Store("NEW", "value", values.Meta{Kind: values.SourceSet, Method: values.MethodAssign, Source: "test.tmpl", File: "test.tmpl", Line: 1}); err != nil {
 		t.Fatalf("Store() error = %v", err)
 	}
 

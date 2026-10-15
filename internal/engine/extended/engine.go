@@ -330,14 +330,14 @@ func (e *Engine) renderedWord(ctx context.Context, word string, in engine.Input)
 // stays unformatted: the pipeline formats this output, it does not change what the
 // expression assigns.
 func (e *Engine) assignWord(ctx context.Context, expr expression, word string, in engine.Input) (renderResult, error) {
-	origin := values.Origin{
+	meta := values.Meta{
 		Kind:   values.SourceSet,
 		Method: values.MethodAssign,
 		Source: in.Name,
 		File:   in.Name,
 		Line:   lineAt(in.Template, expr.Offset),
 	}
-	if err := in.Values.Store(expr.Path, word, origin); err != nil {
+	if err := in.Values.Store(expr.Path, word, meta); err != nil {
 		return renderResult{}, diag.Wrap(diag.KindTemplate, err)
 	}
 	return pipelineValue(ctx, expr, word, in)
