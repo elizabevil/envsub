@@ -2,7 +2,6 @@ package schema
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
@@ -23,7 +22,7 @@ func Load(ctx context.Context, raw any, source string, policy UnknownPolicy) (*S
 	normalized := values.CloneValue(raw)
 	unknown, err := normalizeSchema(normalized, "")
 	if err != nil {
-		return nil, diag.Wrap(diag.KindSchema, fmt.Errorf("normalize schema %s: %w", source, err))
+		return nil, diag.Wrapf(diag.KindSchema, "normalize schema %s: %w", source, err)
 	}
 	if err := reportUnknown(ctx, unknown, policy); err != nil {
 		return nil, err
@@ -31,11 +30,11 @@ func Load(ctx context.Context, raw any, source string, policy UnknownPolicy) (*S
 
 	compiler := jsonschema.NewCompiler()
 	if err := compiler.AddResource(schemaResourceName, normalized); err != nil {
-		return nil, diag.Wrap(diag.KindSchema, fmt.Errorf("load schema %s: %w", source, err))
+		return nil, diag.Wrapf(diag.KindSchema, "load schema %s: %w", source, err)
 	}
 	compiled, err := compiler.Compile(schemaResourceName)
 	if err != nil {
-		return nil, diag.Wrap(diag.KindSchema, fmt.Errorf("compile schema %s: %w", source, err))
+		return nil, diag.Wrapf(diag.KindSchema, "compile schema %s: %w", source, err)
 	}
 	schema := &Schema{Raw: normalized, Source: source, compiled: compiled}
 	schema.walk = expandSchema(schema.Raw)

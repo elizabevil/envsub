@@ -25,6 +25,12 @@ const (
 	KindDiff Kind = "diff"
 )
 
+// Wrapf wraps err with kind and a formatted message, so a caller that adds context
+// does not build the message and the wrap in two steps.
+func Wrapf(kind Kind, format string, args ...any) error {
+	return Wrap(kind, fmt.Errorf(format, args...))
+}
+
 // ExitCode returns a stable process exit code for an error.
 func ExitCode(err error) int {
 	if err == nil {

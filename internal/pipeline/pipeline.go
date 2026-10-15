@@ -2,7 +2,6 @@
 package pipeline
 
 import (
-	"fmt"
 	"slices"
 	"strconv"
 	"strings"
@@ -117,7 +116,7 @@ func formatJSON(value any, step Step) (any, error) {
 	}
 	encoded, err := jsonx.Marshal(value)
 	if err != nil {
-		return nil, diag.Wrap(diag.KindType, fmt.Errorf("toJson: %w", err))
+		return nil, diag.Wrapf(diag.KindType, "toJson: %w", err)
 	}
 	return markAligned(string(encoded), step), nil
 }
@@ -125,7 +124,7 @@ func formatJSON(value any, step Step) (any, error) {
 func formatYAML(value any, step Step) (any, error) {
 	encoded, err := yamlx.MarshalIndent(value, step.Width)
 	if err != nil {
-		return nil, diag.Wrap(diag.KindType, fmt.Errorf("toYaml: %w", err))
+		return nil, diag.Wrapf(diag.KindType, "toYaml: %w", err)
 	}
 	text := strings.TrimRight(string(encoded), newlineSeparator)
 	return markAligned(text, step), nil

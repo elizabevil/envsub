@@ -240,7 +240,7 @@ func (e *Engine) renderVariable(ctx context.Context, expr expression, in engine.
 	// Paths repeat heavily across a template, so parse once and reuse.
 	path, err := tree.CompilePath(expr.Path)
 	if err != nil {
-		return renderResult{}, diag.Wrap(diag.KindTemplate, fmt.Errorf("resolve %q: %w", expr.Path, err))
+		return renderResult{}, diag.Wrapf(diag.KindTemplate, "resolve %q: %w", expr.Path, err)
 	}
 	value, exists := tree.ResolvePath(path)
 
@@ -300,7 +300,7 @@ func (e *Engine) renderVariable(ctx context.Context, expr expression, in engine.
 		}
 		return pipelineValue(ctx, expr, value, in)
 	default:
-		return renderResult{}, diag.Wrap(diag.KindTemplate, fmt.Errorf("unsupported operator %q", expr.Op))
+		return renderResult{}, diag.Wrapf(diag.KindTemplate, "unsupported operator %q", expr.Op)
 	}
 }
 
@@ -417,7 +417,7 @@ func applyType(expr expression, value any, sch types.TypeResolver) (any, error) 
 	case schemaType == "":
 		converted, err := types.Assert(value, declared)
 		if err != nil {
-			return nil, diag.Wrap(diag.KindType, fmt.Errorf("%s: %w", expr.Path, err))
+			return nil, diag.Wrapf(diag.KindType, "%s: %w", expr.Path, err)
 		}
 		return converted, nil
 	default:
@@ -432,7 +432,7 @@ func applyType(expr expression, value any, sch types.TypeResolver) (any, error) 
 		}
 		compatible, err := schemaCompatibleMembers(declared, sch, expr.Path, schemaType)
 		if err != nil {
-			return nil, diag.Wrap(diag.KindType, fmt.Errorf("%s: %w", expr.Path, err))
+			return nil, diag.Wrapf(diag.KindType, "%s: %w", expr.Path, err)
 		}
 		if !compatible {
 			return nil, diag.New(diag.KindType,
@@ -440,7 +440,7 @@ func applyType(expr expression, value any, sch types.TypeResolver) (any, error) 
 		}
 		converted, err := types.Assert(annotated, declared)
 		if err != nil {
-			return nil, diag.Wrap(diag.KindType, fmt.Errorf("%s: %w", expr.Path, err))
+			return nil, diag.Wrapf(diag.KindType, "%s: %w", expr.Path, err)
 		}
 		return converted, nil
 	}
@@ -455,7 +455,7 @@ func normalizeBySchemaType(path string, value any, schemaType string) (any, erro
 	}
 	converted, err := types.Assert(value, name)
 	if err != nil {
-		return nil, diag.Wrap(diag.KindType, fmt.Errorf("%s: %w", path, err))
+		return nil, diag.Wrapf(diag.KindType, "%s: %w", path, err)
 	}
 	return converted, nil
 }
@@ -689,7 +689,7 @@ func writeScalar(w io.Writer, value any, column int) (bool, error) {
 func stringifyValue(path string, value any) (string, error) {
 	text, err := types.Stringify(normalizeValue(value))
 	if err != nil {
-		return "", diag.Wrap(diag.KindType, fmt.Errorf("format %q: %w", path, err))
+		return "", diag.Wrapf(diag.KindType, "format %q: %w", path, err)
 	}
 	return text, nil
 }

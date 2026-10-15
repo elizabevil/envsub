@@ -31,14 +31,14 @@ func (s stubPathEngine) Paths([]byte) ([]string, error) { return s.paths, s.err 
 func TestExplainTemplateWritesJSONL(t *testing.T) {
 	t.Parallel()
 	run := explainRun{tree: values.NewTree(), sources: explainer{
-		root: map[string][]explainOrigin{
-			"A": {{kind: "set", method: "flag", source: "A"}},
+		root: map[string][]values.Meta{
+			"A": {{Kind: "set", Method: "flag", Source: "A"}},
 			"K": {
-				{kind: "values", method: "file", source: "values.yaml", file: "values.yaml"},
-				{kind: "envfile", method: "file", source: ".env", file: ".env", line: 1},
+				{Kind: "values", Method: "file", Source: "values.yaml", File: "values.yaml"},
+				{Kind: "envfile", Method: "file", Source: ".env", File: ".env", Line: 1},
 			},
 		},
-		env: map[string][]explainOrigin{"K": {{kind: "process", method: "env", source: "K"}}},
+		env: map[string][]values.Meta{"K": {{Kind: "process", Method: "env", Source: "K"}}},
 	}}
 	req := Request{Explain: Explain{Enabled: true}}
 	eng := stubPathEngine{paths: []string{"@process.K", "A", "K", "NOPE"}}
@@ -64,8 +64,8 @@ func TestExplainTemplateWritesJSONL(t *testing.T) {
 func TestExplainTemplateFiltersByExactPath(t *testing.T) {
 	t.Parallel()
 	run := explainRun{tree: values.NewTree(), sources: explainer{
-		root: map[string][]explainOrigin{
-			"app.port": {{kind: "values", method: "file", source: "values.yaml", file: "values.yaml"}},
+		root: map[string][]values.Meta{
+			"app.port": {{Kind: "values", Method: "file", Source: "values.yaml", File: "values.yaml"}},
 		},
 	}}
 	req := Request{Explain: Explain{Enabled: true, Paths: []string{"app.port", "app.port.x"}}}
@@ -160,19 +160,19 @@ func TestExplainNameAndLookupKeys(t *testing.T) {
 func TestExplainerSource(t *testing.T) {
 	t.Parallel()
 	expl := explainer{
-		root: map[string][]explainOrigin{
-			"FROM_FILE": {{kind: "values", method: "file", source: "values.yaml", file: "values.yaml"}},
+		root: map[string][]values.Meta{
+			"FROM_FILE": {{Kind: "values", Method: "file", Source: "values.yaml", File: "values.yaml"}},
 			"K": {
-				{kind: "values", method: "file", source: "values.yaml", file: "values.yaml"},
-				{kind: "envfile", method: "file", source: "base.env", file: "base.env", line: 1},
-				{kind: "envfile", method: "file", source: "debug.env", file: "debug.env", line: 2},
-				{kind: "set", method: "flag", source: "K"},
+				{Kind: "values", Method: "file", Source: "values.yaml", File: "values.yaml"},
+				{Kind: "envfile", Method: "file", Source: "base.env", File: "base.env", Line: 1},
+				{Kind: "envfile", Method: "file", Source: "debug.env", File: "debug.env", Line: 2},
+				{Kind: "set", Method: "flag", Source: "K"},
 			},
-			"DFLT": {{kind: "schema", method: "default", source: "#/properties/DFLT/default", file: "schema.yaml"}},
+			"DFLT": {{Kind: "schema", Method: "default", Source: "#/properties/DFLT/default", File: "schema.yaml"}},
 		},
-		env: map[string][]explainOrigin{
-			"K":    {{kind: "process", method: "env", source: "K"}},
-			"PROC": {{kind: "process", method: "env", source: "PROC"}},
+		env: map[string][]values.Meta{
+			"K":    {{Kind: "process", Method: "env", Source: "K"}},
+			"PROC": {{Kind: "process", Method: "env", Source: "PROC"}},
 		},
 	}
 
@@ -203,7 +203,7 @@ func TestExplainerSource(t *testing.T) {
 		t.Run(tt.path, func(t *testing.T) {
 			t.Parallel()
 			origin, shadowed := expl.source(tt.path, values.NewTree())
-			if origin.source != tt.wantSource || origin.kind != tt.wantKind {
+			if origin.Source != tt.wantSource || origin.Kind != string(tt.wantKind) {
 				t.Fatalf("source(%q) = %+v, want source %q kind %q", tt.path, origin, tt.wantSource, tt.wantKind)
 			}
 			got := make([]string, 0, len(shadowed))
@@ -226,7 +226,7 @@ func TestExplainerSourceFallsBackToTreeMeta(t *testing.T) {
 	tree.RecordMeta(metaSegments(t, "K"), values.Meta{Kind: values.SourceEnvFile, File: ".env", Line: 4})
 
 	origin, shadowed := (explainer{}).source("K", tree)
-	if origin.kind != "envfile" || origin.file != ".env" || origin.line != 4 {
+	if origin.Kind != "envfile" || origin.File != ".env" || origin.Line != 4 {
 		t.Fatalf("source(K) = %+v, want envfile .env:4", origin)
 	}
 	if len(shadowed) != 0 {
@@ -234,7 +234,7 @@ func TestExplainerSourceFallsBackToTreeMeta(t *testing.T) {
 	}
 }
 
-// TestMetaOrigin pins how recorded metadata maps onto the report vocabulary.
+// TestFrameFor pins how recorded metadata maps onto the report vocabulary.
 func TestMetaOrigin(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -252,10 +252,10 @@ func TestMetaOrigin(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			origin := metaOrigin(tt.meta)
-			if origin.kind != tt.wantKind || origin.source != tt.wantSource {
-				t.Fatalf("metaOrigin(%+v) = %+v (%q), want kind %q source %q",
-					tt.meta, origin, origin.source, tt.wantKind, tt.wantSource)
+			origin := frameFor(tt.meta)
+			if origin.Kind != string(tt.wantKind) || origin.Source != tt.wantSource {
+				t.Fatalf("frameFor(%+v) = %+v (%q), want kind %q source %q",
+					tt.meta, origin, origin.Source, tt.wantKind, tt.wantSource)
 			}
 		})
 	}
@@ -304,7 +304,7 @@ func TestObserverRecordsThroughTheInterface(t *testing.T) {
 	observer.AddRoot("K", values.Meta{Kind: values.SourceSet, Method: values.MethodFlag, Source: "K"})
 
 	winner, shadowed := run.sources.source("K", run.tree)
-	if winner.kind != values.SourceSet {
+	if winner.Kind != string(values.SourceSet) {
 		t.Fatalf("winner = %+v, want the set origin", winner)
 	}
 	if len(shadowed) != 1 || shadowed[0].Kind != string(values.SourceEnvFile) || shadowed[0].File != ".env" || shadowed[0].Line != 1 {

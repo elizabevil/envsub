@@ -5,7 +5,6 @@ package render
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -155,7 +154,7 @@ func (req Request) collectReferences(eng RenderEngine, templates []template, ref
 		data := templates[i].Text
 		paths, err := pathEngine.Paths(data)
 		if err != nil {
-			return diag.Wrap(diag.KindTemplate, fmt.Errorf("report %s: %w", templates[i].Input, err))
+			return diag.Wrapf(diag.KindTemplate, "report %s: %w", templates[i].Input, err)
 		}
 		for _, path := range paths {
 			// A path the Only/Ignore filters exclude is not substituted, so it
@@ -338,7 +337,7 @@ func (req Request) emitExplain(eng RenderEngine, tmpl string, src []byte, explai
 func (req Request) streamReader(ctx context.Context, caps engineCaps, tmpl template, templateInput source.Input, in engine.Input, dst output.StreamWriter) error {
 	stream, err := templateInput.Open()
 	if err != nil {
-		return diag.Wrap(diag.KindIO, fmt.Errorf("read template %s: %w", tmpl.Input, err))
+		return diag.Wrapf(diag.KindIO, "read template %s: %w", tmpl.Input, err)
 	}
 	defer func() {
 		if closeErr := stream.Close(); closeErr != nil {
@@ -538,7 +537,7 @@ func expandTemplateArg(arg string, recursive bool) ([]string, error) {
 	if strings.ContainsAny(arg, templateGlobChars) {
 		matches, err := filepath.Glob(arg)
 		if err != nil {
-			return nil, diag.Wrap(diag.KindUsage, fmt.Errorf("invalid pattern %q: %w", arg, err))
+			return nil, diag.Wrapf(diag.KindUsage, "invalid pattern %q: %w", arg, err)
 		}
 		if len(matches) == 0 {
 			return nil, diag.New(diag.KindUsage, "no files match pattern %q", arg)
@@ -549,9 +548,9 @@ func expandTemplateArg(arg string, recursive bool) ([]string, error) {
 	info, err := os.Stat(arg)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			return nil, diag.Wrap(diag.KindIO, fmt.Errorf("template %s: %w", arg, err))
+			return nil, diag.Wrapf(diag.KindIO, "template %s: %w", arg, err)
 		}
-		return nil, diag.Wrap(diag.KindIO, fmt.Errorf("stat %s: %w", arg, err))
+		return nil, diag.Wrapf(diag.KindIO, "stat %s: %w", arg, err)
 	}
 	if !info.IsDir() {
 		return []string{arg}, nil
@@ -574,12 +573,12 @@ func listDirectory(dir string, recursive bool) ([]string, error) {
 			return nil
 		})
 		if err != nil {
-			return nil, diag.Wrap(diag.KindIO, fmt.Errorf("walk %s: %w", dir, err))
+			return nil, diag.Wrapf(diag.KindIO, "walk %s: %w", dir, err)
 		}
 	} else {
 		entries, err := os.ReadDir(dir)
 		if err != nil {
-			return nil, diag.Wrap(diag.KindIO, fmt.Errorf("read directory %s: %w", dir, err))
+			return nil, diag.Wrapf(diag.KindIO, "read directory %s: %w", dir, err)
 		}
 		for _, entry := range entries {
 			if entry.IsDir() {
@@ -651,9 +650,9 @@ func readTemplate(path string, stdin io.Reader) ([]byte, error) {
 // templateReadError keeps the diagnostic wording distinct for stdin and files.
 func templateReadError(path string, err error) error {
 	if utils.IsStdio(path) {
-		return diag.Wrap(diag.KindIO, fmt.Errorf("read stdin: %w", err))
+		return diag.Wrapf(diag.KindIO, "read stdin: %w", err)
 	}
-	return diag.Wrap(diag.KindIO, fmt.Errorf("read template %s: %w", path, err))
+	return diag.Wrapf(diag.KindIO, "read template %s: %w", path, err)
 }
 
 // newWriter selects the buffered writer used by engines that cannot stream.

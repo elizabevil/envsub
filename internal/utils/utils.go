@@ -14,15 +14,6 @@ func IsStdio(path string) bool {
 	return path == "" || path == StdioPath
 }
 
-// CloneBytes returns a copy of src.
-//
-// bytes.Clone is not a drop-in replacement: it returns a non-nil empty slice
-// for a non-nil empty input, while this helper returns nil for any empty input.
-// The slice idiom keeps that exact contract.
-func CloneBytes(src []byte) []byte {
-	return append([]byte(nil), src...)
-}
-
 // SortedKeys returns the keys of a string-keyed map in ascending order, so a walk
 // over decoded JSON/YAML is deterministic.
 //

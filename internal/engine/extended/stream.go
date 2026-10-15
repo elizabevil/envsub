@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"io"
 
 	"github.com/elizabevil/envsub/internal/diag"
@@ -142,7 +141,7 @@ func streamWindow(ctx context.Context, src io.Reader, windowSize int, handle fun
 			case errors.Is(readErr, io.EOF):
 				eof = true
 			default:
-				return diag.Wrap(diag.KindIO, fmt.Errorf("read template: %w", readErr))
+				return diag.Wrapf(diag.KindIO, "read template: %w", readErr)
 			}
 		}
 

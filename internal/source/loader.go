@@ -2,7 +2,6 @@ package source
 
 import (
 	"errors"
-	"fmt"
 	"io/fs"
 	"os"
 
@@ -45,11 +44,11 @@ func (l Loader) ReadFile(path string) (*values.Tree, error) {
 		if errors.Is(err, fs.ErrNotExist) {
 			return nil, diag.New(diag.KindIO, "value file %s does not exist", path)
 		}
-		return nil, diag.Wrap(diag.KindIO, fmt.Errorf("read %s: %w", path, err))
+		return nil, diag.Wrapf(diag.KindIO, "read %s: %w", path, err)
 	}
 	tree, err := l.Values.Load(data)
 	if err != nil {
-		return nil, diag.Wrap(diag.KindType, fmt.Errorf("parse %s: %w", path, err))
+		return nil, diag.Wrapf(diag.KindType, "parse %s: %w", path, err)
 	}
 	// Attach the file name to every value the loader produced. A dotenv file
 	// records one entry per key (so each key keeps its line number); structured

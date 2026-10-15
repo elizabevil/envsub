@@ -27,19 +27,6 @@ func TestIsStdio(t *testing.T) {
 	}
 }
 
-func TestCloneBytes(t *testing.T) {
-	t.Parallel()
-	src := []byte("hello")
-	got := utils.CloneBytes(src)
-	if string(got) != "hello" {
-		t.Fatalf("CloneBytes() = %q, want %q", string(got), "hello")
-	}
-	src[0] = 'x'
-	if string(got) != "hello" {
-		t.Fatalf("CloneBytes() alias detected: %q", string(got))
-	}
-}
-
 // TestTrimBOM pins the single BOM rule: only a leading UTF-8 mark is removed, and
 // the same bytes anywhere else are content.
 func TestTrimBOM(t *testing.T) {

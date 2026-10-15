@@ -6,7 +6,6 @@ package load
 import (
 	"context"
 	"errors"
-	"fmt"
 	"github.com/elizabevil/envsub/internal/utils"
 	"os"
 	"sort"
@@ -243,7 +242,7 @@ func setOneFile(tree *values.Tree, assignment string) (string, error) {
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return "", diag.Wrap(diag.KindIO, fmt.Errorf("read --set-file %s: %w", path, err))
+		return "", diag.Wrapf(diag.KindIO, "read --set-file %s: %w", path, err)
 	}
 	text := strings.TrimSuffix(strings.TrimSuffix(string(utils.TrimBOM(data)), "\n"), "\r")
 	meta := values.Meta{Kind: values.SourceSet, Method: values.MethodFile, Source: key, File: path}
@@ -294,5 +293,5 @@ func schemaFileError(path string, err error) error {
 	if after, ok := strings.CutPrefix(message, "value file "); ok {
 		return diag.New(diag.KindIO, "schema file %s", after)
 	}
-	return diag.Wrap(diag.KindIO, fmt.Errorf("read schema %s: %w", path, err))
+	return diag.Wrapf(diag.KindIO, "read schema %s: %w", path, err)
 }

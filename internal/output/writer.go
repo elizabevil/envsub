@@ -40,7 +40,7 @@ func (w *StdoutWriter) Write(ctx context.Context, _ string, data []byte) error {
 		return err
 	}
 	if _, err := w.out.Write(data); err != nil {
-		return diag.Wrap(diag.KindIO, fmt.Errorf("write stdout: %w", err))
+		return diag.Wrapf(diag.KindIO, "write stdout: %w", err)
 	}
 	return nil
 }
@@ -71,14 +71,14 @@ func (w *FileWriter) Write(ctx context.Context, target string, data []byte) erro
 		return diag.New(diag.KindIO, "output path is empty")
 	}
 	if err := os.MkdirAll(filepath.Dir(target), defaultDirPerm); err != nil {
-		return diag.Wrap(diag.KindIO, fmt.Errorf("create output directory: %w", err))
+		return diag.Wrapf(diag.KindIO, "create output directory: %w", err)
 	}
 	perm := w.Perm
 	if perm == 0 {
 		perm = defaultFilePerm
 	}
 	if err := os.WriteFile(target, data, perm); err != nil {
-		return diag.Wrap(diag.KindIO, fmt.Errorf(writeTargetFormat, target, err))
+		return diag.Wrapf(diag.KindIO, writeTargetFormat, target, err)
 	}
 	return nil
 }
@@ -199,11 +199,6 @@ type WriterStream struct {
 	buf bytes.Buffer
 }
 
-// NewWriterStream wraps a buffered Writer as a StreamWriter.
-func NewWriterStream(writer Writer, target string) *WriterStream {
-	return &WriterStream{writer: writer, path: target}
-}
-
 // Stream returns the in-memory buffer.
 func (w *WriterStream) Stream() io.Writer { return &w.buf }
 
@@ -250,7 +245,7 @@ func (s *DirectStream) Write(ctx context.Context, _ string, data []byte) error {
 		return err
 	}
 	if _, err := s.out.Write(data); err != nil {
-		return diag.Wrap(diag.KindIO, fmt.Errorf("write stdout: %w", err))
+		return diag.Wrapf(diag.KindIO, "write stdout: %w", err)
 	}
 	return nil
 }
@@ -291,12 +286,12 @@ func NewAtomicStream(target string) (*AtomicStream, error) {
 		perm = existing.Mode().Perm()
 	case errors.Is(err, fs.ErrNotExist):
 	default:
-		return nil, diag.Wrap(diag.KindIO, fmt.Errorf("stat %s: %w", target, err))
+		return nil, diag.Wrapf(diag.KindIO, "stat %s: %w", target, err)
 	}
 
 	temp, err := os.CreateTemp(filepath.Dir(target), tempFilePattern)
 	if err != nil {
-		return nil, diag.Wrap(diag.KindIO, fmt.Errorf("create temporary file: %w", err))
+		return nil, diag.Wrapf(diag.KindIO, "create temporary file: %w", err)
 	}
 	return &AtomicStream{target: target, temp: temp, tempPath: temp.Name(), perm: perm}, nil
 }
@@ -307,7 +302,7 @@ func (a *AtomicStream) Stream() io.Writer { return a.temp }
 // Write writes a complete buffer to the temporary file.
 func (a *AtomicStream) Write(_ context.Context, _ string, data []byte) error {
 	if _, err := a.temp.Write(data); err != nil {
-		return diag.Wrap(diag.KindIO, fmt.Errorf("write temporary file: %w", err))
+		return diag.Wrapf(diag.KindIO, "write temporary file: %w", err)
 	}
 	return nil
 }
@@ -319,20 +314,20 @@ func (a *AtomicStream) Commit() error {
 	}
 	if err := a.temp.Sync(); err != nil {
 		_ = a.Discard()
-		return diag.Wrap(diag.KindIO, fmt.Errorf("sync temporary file: %w", err))
+		return diag.Wrapf(diag.KindIO, "sync temporary file: %w", err)
 	}
 	if err := a.temp.Chmod(a.perm); err != nil {
 		_ = a.Discard()
-		return diag.Wrap(diag.KindIO, fmt.Errorf("set permissions on temporary file: %w", err))
+		return diag.Wrapf(diag.KindIO, "set permissions on temporary file: %w", err)
 	}
 	if err := a.temp.Close(); err != nil {
 		_ = os.Remove(a.tempPath)
-		return diag.Wrap(diag.KindIO, fmt.Errorf("close temporary file: %w", err))
+		return diag.Wrapf(diag.KindIO, "close temporary file: %w", err)
 	}
 	a.temp = nil
 	if err := os.Rename(a.tempPath, a.target); err != nil {
 		_ = os.Remove(a.tempPath)
-		return diag.Wrap(diag.KindIO, fmt.Errorf("replace %s: %w", a.target, err))
+		return diag.Wrapf(diag.KindIO, "replace %s: %w", a.target, err)
 	}
 	return nil
 }
@@ -371,11 +366,11 @@ func NewStreamToFile(target string) (*FileStream, error) {
 		return nil, diag.New(diag.KindIO, "output path is empty")
 	}
 	if err := os.MkdirAll(filepath.Dir(target), defaultDirPerm); err != nil {
-		return nil, diag.Wrap(diag.KindIO, fmt.Errorf("create output directory: %w", err))
+		return nil, diag.Wrapf(diag.KindIO, "create output directory: %w", err)
 	}
 	temp, err := os.CreateTemp(filepath.Dir(target), tempFilePattern)
 	if err != nil {
-		return nil, diag.Wrap(diag.KindIO, fmt.Errorf("create temporary file: %w", err))
+		return nil, diag.Wrapf(diag.KindIO, "create temporary file: %w", err)
 	}
 	return &FileStream{target: target, temp: temp, tempPath: temp.Name()}, nil
 }
@@ -386,7 +381,7 @@ func (f *FileStream) Stream() io.Writer { return f.temp }
 // Write writes a complete buffer into the temporary file.
 func (f *FileStream) Write(_ context.Context, _ string, data []byte) error {
 	if _, err := f.temp.Write(data); err != nil {
-		return diag.Wrap(diag.KindIO, fmt.Errorf(writeTargetFormat, f.target, err))
+		return diag.Wrapf(diag.KindIO, writeTargetFormat, f.target, err)
 	}
 	return nil
 }
@@ -399,12 +394,12 @@ func (f *FileStream) Commit() error {
 	if err := f.temp.Close(); err != nil {
 		_ = os.Remove(f.tempPath)
 		f.temp = nil
-		return diag.Wrap(diag.KindIO, fmt.Errorf("close %s: %w", f.target, err))
+		return diag.Wrapf(diag.KindIO, "close %s: %w", f.target, err)
 	}
 	f.temp = nil
 	if err := os.Rename(f.tempPath, f.target); err != nil {
 		_ = os.Remove(f.tempPath)
-		return diag.Wrap(diag.KindIO, fmt.Errorf(writeTargetFormat, f.target, err))
+		return diag.Wrapf(diag.KindIO, writeTargetFormat, f.target, err)
 	}
 	return nil
 }

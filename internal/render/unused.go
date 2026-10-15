@@ -1,7 +1,6 @@
 package render
 
 import (
-	"fmt"
 	"io"
 	"slices"
 	"strings"
@@ -101,7 +100,7 @@ func writeUnused(w io.Writer, unused []string) error {
 		return nil
 	}
 	if _, err := io.WriteString(w, strings.Join(unused, "\n")+"\n"); err != nil {
-		return diag.Wrap(diag.KindIO, fmt.Errorf("write unused report: %w", err))
+		return diag.Wrapf(diag.KindIO, "write unused report: %w", err)
 	}
 	return nil
 }

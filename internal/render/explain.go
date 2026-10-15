@@ -1,7 +1,6 @@
 package render
 
 import (
-	"fmt"
 	"io"
 	"strings"
 
@@ -61,58 +60,58 @@ type explainRun struct {
 
 // AddEnv implements load.Observer.
 func (run *explainRun) AddEnv(name string) {
-	run.sources.addEnv(name, explainOrigin{
-		kind:   values.SourceProcess,
-		method: values.MethodEnv,
-		source: name,
+	run.sources.addEnv(name, values.Meta{
+		Kind:   values.SourceProcess,
+		Method: values.MethodEnv,
+		Source: name,
 	})
 }
 
 // AddRoot implements load.Observer. The frame comes from the tree's own metadata,
 // so the report and the tree cannot disagree about where a value came from.
 func (run *explainRun) AddRoot(path string, meta values.Meta) {
-	run.sources.addRoot(path, metaOrigin(meta))
+	run.sources.addRoot(path, meta)
 }
 
-// explainOrigin is one recorded step of a value's lineage.
-type explainOrigin struct {
-	// kind is the layering stage the value came from.
-	kind values.SourceKind
-	// method is how the value entered that stage.
-	method values.SourceMethod
-	// source is the address within the stage: a file path, a schema pointer, an
-	// environment variable name, or the key itself.
-	source string
-	// file is the source file, empty when the origin has none.
-	file string
-	// line is the 1-based source line, 0 when unknown.
-	line int
-}
-
-// valid reports whether the origin carries any information.
-func (o explainOrigin) valid() bool {
-	return o.kind != "" || o.file != ""
-}
-
-// missingOrigin is the frame reported for a name that resolved to nothing.
-func missingOrigin() explainOrigin {
-	return explainOrigin{
-		kind:   values.SourceMissing,
-		method: values.MethodMissing,
+// frameFor renders one recorded origin as a report frame. Recording fills every
+// field except method and source, which are inferred when a writer recorded only
+// the stage (for example a set value written outside the loader).
+func frameFor(meta values.Meta) explainFrame {
+	kind := meta.Kind
+	if kind == "" {
+		kind = values.SourceMissing
 	}
-}
-
-// frame renders the origin as one report frame. Recording fills every field, so
-// the frame is a direct copy: a missing kind or method would be a bug in the
-// recording path, not something this layer should paper over.
-func (o explainOrigin) frame() explainFrame {
+	method := meta.Method
+	if method == "" {
+		switch kind {
+		case values.SourceValues, values.SourceEnvFile:
+			method = values.MethodFile
+		case values.SourceSet:
+			method = values.MethodFlag
+		case values.SourceSchema:
+			method = values.MethodDefault
+		case values.SourceProcess:
+			method = values.MethodEnv
+		default:
+			method = values.MethodMissing
+		}
+	}
+	source := meta.Source
+	if source == "" {
+		source = meta.File
+	}
 	return explainFrame{
-		Kind:   string(o.kind),
-		Method: string(o.method),
-		Source: o.source,
-		File:   o.file,
-		Line:   o.line,
+		Kind:   string(kind),
+		Method: string(method),
+		Source: source,
+		File:   meta.File,
+		Line:   meta.Line,
 	}
+}
+
+// recorded reports whether an origin carries any information.
+func recorded(meta values.Meta) bool {
+	return meta.Kind != "" || meta.File != ""
 }
 
 // explainer records the origins of a name, lowest priority first: the last entry
@@ -120,40 +119,40 @@ func (o explainOrigin) frame() explainFrame {
 // "not reporting" needs no nil value.
 type explainer struct {
 	// root maps an encoded root path to its origins.
-	root map[string][]explainOrigin
+	root map[string][]values.Meta
 	// env maps an environment variable name to its origins.
-	env map[string][]explainOrigin
+	env map[string][]values.Meta
 }
 
 // addRoot records one root-namespace origin for an encoded path.
-func (e *explainer) addRoot(key string, origin explainOrigin) {
-	if key == "" || !origin.valid() {
+func (e *explainer) addRoot(key string, meta values.Meta) {
+	if key == "" || !recorded(meta) {
 		return
 	}
 	if e.root == nil {
-		e.root = map[string][]explainOrigin{}
+		e.root = map[string][]values.Meta{}
 	}
-	e.root[key] = append(e.root[key], origin)
+	e.root[key] = append(e.root[key], meta)
 }
 
 // addEnv records one environment origin for a variable name.
-func (e *explainer) addEnv(name string, origin explainOrigin) {
-	if name == "" || !origin.valid() {
+func (e *explainer) addEnv(name string, meta values.Meta) {
+	if name == "" || !recorded(meta) {
 		return
 	}
 	if e.env == nil {
-		e.env = map[string][]explainOrigin{}
+		e.env = map[string][]values.Meta{}
 	}
-	e.env[name] = append(e.env[name], origin)
+	e.env[name] = append(e.env[name], meta)
 }
 
 // source returns the winning origin for a path and the origins it shadowed,
 // closest loser first.
-func (e explainer) source(path string, tree *values.Tree) (winner explainOrigin, shadowed []explainFrame) {
+func (e explainer) source(path string, tree *values.Tree) (winner explainFrame, shadowed []explainFrame) {
 	// A namespace path reads only the process environment; any other path reads
 	// the root layering the observer recorded.
 	envName, rootKey := explainLookupKeys(path)
-	var candidates []explainOrigin
+	var candidates []values.Meta
 	if envName != "" {
 		candidates = append(candidates, e.env[envName]...)
 	}
@@ -161,19 +160,17 @@ func (e explainer) source(path string, tree *values.Tree) (winner explainOrigin,
 		candidates = append(candidates, e.root[rootKey]...)
 	}
 	if len(candidates) > 0 {
-		winner = candidates[len(candidates)-1]
+		winner = frameFor(candidates[len(candidates)-1])
 		for i := len(candidates) - 2; i >= 0; i-- {
-			shadowed = append(shadowed, candidates[i].frame())
+			shadowed = append(shadowed, frameFor(candidates[i]))
 		}
 		return winner, shadowed
 	}
 	// A value the layering did not record still carries meta on the tree.
 	if ref := tree.MetaFor(path); ref.Found {
-		if origin := metaOrigin(ref.Meta); origin.valid() {
-			return origin, nil
-		}
+		return frameFor(ref.Meta), nil
 	}
-	return missingOrigin(), nil
+	return frameFor(values.Meta{Kind: values.SourceMissing, Method: values.MethodMissing}), nil
 }
 
 // matches reports whether a reported name is selected by the --explain path
@@ -196,7 +193,7 @@ func (e Explain) matches(name string) bool {
 func explainTemplate(w io.Writer, pathEngine engine.PathEngine, req Request, tmpl string, src []byte, run explainRun) error {
 	paths, err := pathEngine.Paths(src)
 	if err != nil {
-		return diag.Wrap(diag.KindTemplate, fmt.Errorf("explain %s: %w", tmpl, err))
+		return diag.Wrapf(diag.KindTemplate, "explain %s: %w", tmpl, err)
 	}
 	var b strings.Builder
 	seen := make(map[string]bool, len(paths))
@@ -213,17 +210,17 @@ func explainTemplate(w io.Writer, pathEngine engine.PathEngine, req Request, tmp
 		encoded, err := jsonx.Marshal(explainRecord{
 			Template: tmpl,
 			Variable: name,
-			Origin:   origin.frame(),
+			Origin:   origin,
 			Shadowed: shadowed,
 		})
 		if err != nil {
-			return diag.Wrap(diag.KindInternal, fmt.Errorf("encode explain record: %w", err))
+			return diag.Wrapf(diag.KindInternal, "encode explain record: %w", err)
 		}
 		b.Write(encoded)
 		b.WriteByte('\n')
 	}
 	if _, err := io.WriteString(w, b.String()); err != nil {
-		return diag.Wrap(diag.KindIO, fmt.Errorf("write explain: %w", err))
+		return diag.Wrapf(diag.KindIO, "write explain: %w", err)
 	}
 	return nil
 }
@@ -255,42 +252,4 @@ func explainLookupKeys(path string) (envName, rootKey string) {
 		return name, ""
 	}
 	return "", values.CanonicalPath(segments)
-}
-
-// metaOrigin turns a value's recorded metadata into a frame. It is the fallback
-// for values the layering did not report, for example a template assignment,
-// whose metadata carries the writing template and line.
-func metaOrigin(meta values.Meta) explainOrigin {
-	kind := meta.Kind
-	if kind == "" {
-		kind = values.SourceMissing
-	}
-	// Prefer the method the writer recorded; only infer it when the metadata
-	// predates it (a set value written outside the loader).
-	method := meta.Method
-	if method == "" {
-		switch kind {
-		case values.SourceValues, values.SourceEnvFile:
-			method = values.MethodFile
-		case values.SourceSet:
-			method = values.MethodFlag
-		case values.SourceSchema:
-			method = values.MethodDefault
-		case values.SourceProcess:
-			method = values.MethodEnv
-		default:
-			method = values.MethodMissing
-		}
-	}
-	source := meta.Source
-	if source == "" {
-		source = meta.File
-	}
-	return explainOrigin{
-		kind:   kind,
-		method: method,
-		source: source,
-		file:   meta.File,
-		line:   meta.Line,
-	}
 }
