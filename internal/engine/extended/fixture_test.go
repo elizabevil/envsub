@@ -207,7 +207,7 @@ func mergeFixtureDotenv(t *testing.T, dir string, tree *values.Tree) error {
 	if !ok {
 		return nil
 	}
-	loaded, err := source.DotenvLoader().Values.Load(data)
+	loaded, err := source.DotenvFormat().Loader().Values.Load(data)
 	if err != nil {
 		return diag.Wrap(diag.KindType, err)
 	}

@@ -162,7 +162,7 @@ func TestForFile(t *testing.T) {
 // loader as a .env extension, so it must report the same origin category.
 func TestDotenvLoaderDeclaresItsKind(t *testing.T) {
 	t.Parallel()
-	loader := source.DotenvLoader()
+	loader := source.DotenvFormat().Loader()
 	if loader.Kind != values.SourceEnvFile {
 		t.Fatalf("DotenvLoader().Kind = %q, want %q", loader.Kind, values.SourceEnvFile)
 	}

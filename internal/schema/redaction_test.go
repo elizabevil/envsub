@@ -43,7 +43,7 @@ func TestMaterializeErrorHidesTheValue(t *testing.T) {
 		t.Fatalf("write schema: %v", err)
 	}
 
-	loader := source.DotenvLoader()
+	loader := source.DotenvFormat().Loader()
 	loaded, err := loader.ReadFile(dotenv)
 	if err != nil {
 		t.Fatalf("read dotenv: %v", err)

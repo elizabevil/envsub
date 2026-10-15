@@ -84,6 +84,10 @@ type ValueSource interface {
 
 - `.env`、YAML、JSON、CLI `--set*` 各自实现。`[INFERENCE]`
 - 多文件合并属于 `values` 层，不属于 Engine。`[INFERENCE]`
+- **已落地的接缝（P1 重构）**：格式元数据收敛为 `internal/source` 的 `Format` 闭表（名称/扩展名/
+  层序 kind/是否 dotenv/解析器一处声明），`FormatFor(path)` 按扩展名解析、`Format.Loader()` 产出
+  取数与解码的组合；`--values-file` 的"拒绝 .env"判定改为读 `Format.Dotenv`。外部格式将来由
+  插件 overlay 提供（见 [`03-10`](03-10-external-plugin-protocol.md)），不在本表运行期扩展。`[FACT]`
 
 ### 4.3 Validator 接口
 

@@ -117,22 +117,22 @@ func Load(ctx context.Context, spec Spec, observer Observer) (*Result, error) {
 	// Layer order, lowest first: value files, dotenv files, --set. A .env file is
 	// local to this machine or deployment, so it outranks the shared value files.
 	for _, path := range spec.Files {
-		loader, err := source.ForFile(path)
+		format, err := source.FormatFor(path)
 		if err != nil {
 			return nil, err
 		}
-		if loader.Dotenv {
+		if format.Dotenv {
 			return nil, diag.New(diag.KindUsage,
 				"--values-file accepts YAML/JSON value files, not %s: use --dotenv-file for .env files", path)
 		}
-		if err := loadInto(tree, loader, path, observer); err != nil {
+		if err := loadInto(tree, format, path, observer); err != nil {
 			return nil, err
 		}
 	}
 
 	for _, path := range spec.DotenvFiles {
 		// --dotenv-file names the format, so the file name does not matter.
-		if err := loadInto(tree, source.DotenvLoader(), path, observer); err != nil {
+		if err := loadInto(tree, source.DotenvFormat(), path, observer); err != nil {
 			return nil, err
 		}
 	}
@@ -165,12 +165,12 @@ func Load(ctx context.Context, spec Spec, observer Observer) (*Result, error) {
 }
 
 // loadInto reads one value file, merges it into the tree and reports its paths.
-func loadInto(tree *values.Tree, loader source.Loader, path string, observer Observer) error {
-	loaded, err := loader.ReadFile(path)
+func loadInto(tree *values.Tree, format source.Format, path string, observer Observer) error {
+	loaded, err := format.Loader().ReadFile(path)
 	if err != nil {
 		return err
 	}
-	values.MergeInto(tree, loaded, values.Meta{File: path, Kind: loader.Kind, Method: values.MethodFile})
+	values.MergeInto(tree, loaded, values.Meta{File: path, Kind: format.Kind, Method: values.MethodFile})
 	if observer == nil {
 		return nil
 	}
@@ -178,7 +178,7 @@ func loadInto(tree *values.Tree, loader source.Loader, path string, observer Obs
 	// line number.
 	loaded.WalkMeta(func(segments []values.Segment, meta values.Meta) {
 		observer.AddRoot(values.CanonicalPath(segments), Origin{
-			Kind:   loader.Kind,
+			Kind:   format.Kind,
 			Method: values.MethodFile,
 			Source: path,
 			File:   meta.File,

@@ -5,14 +5,13 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/elizabevil/envsub/internal/diag"
 	"github.com/elizabevil/envsub/internal/values"
 )
 
-// Loader parses one external value file. It implements values.Loader.
+// Loader parses one external value file. It implements values.Loader and is built
+// from a Format, so the format metadata lives in exactly one place (format.go).
 type Loader struct {
 	// Kind is the layering stage the loader feeds: values for a structured value
 	// file, envfile for a .env file. It is the origin category recorded for every
@@ -26,35 +25,13 @@ type Loader struct {
 	Dotenv bool
 }
 
-// Value file extensions recognised by ForFile.
-const (
-	extDotenv = ".env"
-	extYAML   = ".yaml"
-	extYML    = ".yml"
-	extJSON   = ".json"
-)
-
 // ForFile selects a loader from a file name extension.
 func ForFile(path string) (Loader, error) {
-	switch strings.ToLower(filepath.Ext(path)) {
-	case extDotenv:
-		return Loader{Kind: values.SourceEnvFile, Values: Environ{}, Dotenv: true}, nil
-	case extYAML, extYML:
-		return Loader{Kind: values.SourceValues, Values: YAML{}}, nil
-	case extJSON:
-		return Loader{Kind: values.SourceValues, Values: JSON{}}, nil
-	default:
-		return Loader{}, diag.New(diag.KindUsage,
-			"cannot determine value file format for %q: expected %s, %s, %s or %s",
-			path, extDotenv, extYAML, extYML, extJSON)
+	format, err := FormatFor(path)
+	if err != nil {
+		return Loader{}, err
 	}
-}
-
-// DotenvLoader returns the .env loader. --dotenv-file names its format
-// explicitly, so the loader must not depend on the file name: `.env.local`,
-// `prod.env` and extensionless files all accept the same content.
-func DotenvLoader() Loader {
-	return Loader{Kind: values.SourceEnvFile, Values: Environ{}, Dotenv: true}
+	return format.Loader(), nil
 }
 
 // Name identifies the file format in diagnostics. The parser owns the name, so a
