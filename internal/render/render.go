@@ -59,10 +59,6 @@ func Run(ctx context.Context, eng RenderEngine, req Request) error {
 	if err != nil {
 		return err
 	}
-	writer, err := req.newWriter()
-	if err != nil {
-		return err
-	}
 	// --explain and --report=unused both need the template text; read every
 	// template once here and let both reuse it. A second reader would consume
 	// stdin twice and render nothing.
@@ -79,7 +75,10 @@ func Run(ctx context.Context, eng RenderEngine, req Request) error {
 			return err
 		}
 	}
-	targets, err := req.newStreamTargets(templates)
+	// Decide the whole render shape once: the writer, one stream target per
+	// template and the engine capabilities. It runs after the template reads, so a
+	// read failure cannot leave in-place scratch files behind.
+	tmplPlan, err := req.buildPlan(eng, templates)
 	if err != nil {
 		return err
 	}
@@ -100,16 +99,10 @@ func Run(ctx context.Context, eng RenderEngine, req Request) error {
 	// The explain report runs after the loop, which needs the tree a render left
 	// behind. Buffering the template and the output is the price of reporting
 	// assignment origins; the streaming path cannot see them.
-	streamer, canStream := eng.(engine.StreamEngine)
-	reader, canStreamReader := eng.(engine.StreamReaderEngine)
-	if explainActive {
-		canStream, canStreamReader = false, false
-	}
-	rs := renderers{stream: streamer, canStream: canStream, reader: reader, canStreamReader: canStreamReader}
 	var failed []error
 	for i, tmpl := range templates {
-		dst := destination{writer: writer, stream: targets[i]}
-		if err := req.renderOne(ctx, eng, rs, tmpl, in, dst); err != nil {
+		dst := tmplPlan.destination(i)
+		if err := req.renderOne(ctx, eng, tmplPlan.caps, tmpl, in, dst); err != nil {
 			if len(templates) == 1 {
 				if explainActive {
 					if reportErr := req.reportSources(eng, templates, run); reportErr != nil {
@@ -136,7 +129,7 @@ func Run(ctx context.Context, eng RenderEngine, req Request) error {
 	if len(failed) > 0 {
 		return errors.Join(failed...)
 	}
-	if checker, ok := writer.(*output.CheckWriter); ok {
+	if checker, ok := tmplPlan.writer.(*output.CheckWriter); ok {
 		if outdated := checker.Outdated(); len(outdated) > 0 {
 			return diag.New(diag.KindDiff, "%d of %d outputs are outdated: %s",
 				len(outdated), checker.Checked(), strings.Join(outdated, ", "))
@@ -151,8 +144,8 @@ func Run(ctx context.Context, eng RenderEngine, req Request) error {
 }
 
 // collectReferences records every variable path the templates reference, which
-// is what --report=unused subtracts from the value tree. It fills templates[i].Text
-// so a stdin template is read exactly once.
+// is what --report=unused subtracts from the value tree. Every template already
+// carries its text: readSources runs before this scan for exactly this reason.
 func (req Request) collectReferences(eng RenderEngine, templates []template, referenced rootNames) error {
 	pathEngine, ok := eng.(engine.PathEngine)
 	if !ok {
@@ -160,19 +153,6 @@ func (req Request) collectReferences(eng RenderEngine, templates []template, ref
 	}
 	for i := range templates {
 		data := templates[i].Text
-		if data == nil {
-			// A file template is read by the render itself; only stdin has to be
-			// consumed here, because it cannot be read twice.
-			if templates[i].Input != utils.StdioPath {
-				continue
-			}
-			read, err := readTemplate(templates[i].Input, req.stdin())
-			if err != nil {
-				return err
-			}
-			data = read
-			templates[i].Text = data
-		}
 		paths, err := pathEngine.Paths(data)
 		if err != nil {
 			return diag.Wrap(diag.KindTemplate, fmt.Errorf("report %s: %w", templates[i].Input, err))
@@ -232,22 +212,10 @@ type destination struct {
 	stream output.StreamWriter
 }
 
-// renderers groups the optional streaming capabilities of the selected engine.
-type renderers struct {
-	// stream is the engine's writer-facing API, if the engine supports it.
-	stream engine.StreamEngine
-	// canStream reports whether stream may be used.
-	canStream bool
-	// reader is the engine's reader-facing API, if the engine supports it.
-	reader engine.StreamReaderEngine
-	// canStreamReader reports whether reader may be used.
-	canStreamReader bool
-}
-
 // renderOne renders one template into its destination, preferring the engine's
 // streaming path so neither template nor output is buffered. It is unaware of
 // --explain, whose report reportSources produced before the loop began.
-func (req Request) renderOne(ctx context.Context, eng RenderEngine, rs renderers, tmpl template, in engine.Input, dst destination) error {
+func (req Request) renderOne(ctx context.Context, eng RenderEngine, caps engineCaps, tmpl template, in engine.Input, dst destination) error {
 	logger := logging.FromContext(ctx)
 
 	templateInput := source.TemplateInput(tmpl.Input)
@@ -257,12 +225,12 @@ func (req Request) renderOne(ctx context.Context, eng RenderEngine, rs renderers
 		// --explain already read this template, and stdin cannot be rewound.
 		in.Template = tmpl.Text
 		logger.Debug(logTemplateLoaded, "template", tmpl.Input, "bytes", len(tmpl.Text))
-		return req.renderBuffered(ctx, eng, rs, tmpl, in, dst)
+		return req.renderBuffered(ctx, eng, caps, tmpl, in, dst)
 	}
 
 	// Stream whenever the engine supports it.
-	if rs.canStreamReader && dst.stream != nil && (!req.ValidateOnly || rs.canStream) {
-		if err := req.streamReader(ctx, rs, tmpl, templateInput, in, dst.stream); err != nil {
+	if caps.canStreamReader && dst.stream != nil && (!req.ValidateOnly || caps.canStream) {
+		if err := req.streamReader(ctx, caps, tmpl, templateInput, in, dst.stream); err != nil {
 			return err
 		}
 		logger.Debug(logRenderComplete, "template", tmpl.Input)
@@ -275,20 +243,20 @@ func (req Request) renderOne(ctx context.Context, eng RenderEngine, rs renderers
 	}
 	logger.Debug(logTemplateLoaded, "template", tmpl.Input, "bytes", len(data))
 	in.Template = data
-	return req.renderBuffered(ctx, eng, rs, tmpl, in, dst)
+	return req.renderBuffered(ctx, eng, caps, tmpl, in, dst)
 }
 
 // renderBuffered renders an in-memory template. Validation renders to a discard
 // writer so the semantics stay identical without producing output.
-func (req Request) renderBuffered(ctx context.Context, eng RenderEngine, rs renderers, tmpl template, in engine.Input, dst destination) error {
+func (req Request) renderBuffered(ctx context.Context, eng RenderEngine, caps engineCaps, tmpl template, in engine.Input, dst destination) error {
 	logger := logging.FromContext(ctx)
 
 	buffered, ok := eng.(engine.Engine)
 	if req.ValidateOnly {
 		// Validation only needs the template parsed and resolved; rendering to
 		// a discard writer keeps the semantics without producing output.
-		if rs.canStream {
-			return rs.stream.WriteTo(ctx, io.Discard, in)
+		if caps.canStream {
+			return caps.stream.WriteTo(ctx, io.Discard, in)
 		}
 		if !ok {
 			return diag.New(diag.KindInternal, "engine %q cannot render", eng.Name())
@@ -297,8 +265,8 @@ func (req Request) renderBuffered(ctx context.Context, eng RenderEngine, rs rend
 		return err
 	}
 
-	if rs.canStream && dst.stream != nil {
-		if err := streamToTarget(ctx, rs.stream, dst.stream, in); err != nil {
+	if caps.canStream && dst.stream != nil {
+		if err := streamToTarget(ctx, caps.stream, dst.stream, in); err != nil {
 			return err
 		}
 		logger.Debug(logRenderComplete, "template", tmpl.Input, "bytes", len(in.Template))
@@ -367,7 +335,7 @@ func (req Request) emitExplain(eng RenderEngine, tmpl string, src []byte, explai
 // streamReader streams a template from its input source into dst. A file is
 // opened only for the duration of the render; stdin is consumed directly. With
 // --validate-only the destination is discarded.
-func (req Request) streamReader(ctx context.Context, rs renderers, tmpl template, templateInput source.Input, in engine.Input, dst output.StreamWriter) error {
+func (req Request) streamReader(ctx context.Context, caps engineCaps, tmpl template, templateInput source.Input, in engine.Input, dst output.StreamWriter) error {
 	stream, err := templateInput.Open()
 	if err != nil {
 		return diag.Wrap(diag.KindIO, fmt.Errorf("read template %s: %w", tmpl.Input, err))
@@ -382,7 +350,7 @@ func (req Request) streamReader(ctx context.Context, rs renderers, tmpl template
 	if req.ValidateOnly {
 		destination = io.Discard
 	}
-	if err := rs.reader.StreamTo(ctx, destination, stream, in); err != nil {
+	if err := caps.reader.StreamTo(ctx, destination, stream, in); err != nil {
 		if discardErr := dst.Discard(); discardErr != nil {
 			logging.FromContext(ctx).Error("discard failed output", "template", tmpl.Input, "error", discardErr)
 		}

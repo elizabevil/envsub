@@ -89,6 +89,8 @@ last-updated: 2026-09-29
 - `internal/load`：值装载。按定稿层序读 `source`、应用 `--set*`、跑 schema 默认值/物化/校验，产出 `values.Tree`；
   通过 `load.Observer` 上报每个来源（`--explain` 是其中一个观察者），因此装载层不知道报告长什么样。`[FACT]`（`06-review/06-17` D5）
 - `internal/render`：渲染编排。模板发现、输出目标选择、渲染循环与 `--explain` 报告；值装载后不再由它负责。`[FACT]`
+  模式决策（写回/输出目录/`--check`/`--validate-only`）与引擎能力协商集中在一个 `plan`（`plan.go`）里，
+  由循环消费，循环本身不含模式分支。`[FACT]`
 - `internal/output`：安全 in-place、批量输出、dry-run/diff/check（P1 预留）。`[INFERENCE]`
 - `internal/diag`：错误码、错误上下文、敏感字段脱敏。`[INFERENCE]`
 - `pkg/envsub`：如果后续需要库 API，再暴露稳定接口；一期 CLI 优先。`[ASSUMPTION]`
