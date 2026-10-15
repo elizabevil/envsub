@@ -54,7 +54,7 @@ envsubst 的"超集"：单静态二进制、类型校验 + 多文件分层 + 受
 - 测试：`internal/cli/render_test.go::TestRenderHasNoLegacyFlagNames`、`TestRenderHelpNamesFlagArguments`；e2e `legacy_flag_values`/`legacy_flag_env_prefix`。
 
 ### 2.5 `--env-file` 强制 dotenv
-- `source.DotenvLoader()` 取代该路径的 `ForFile`，**忽略文件名/扩展名**：`.env`/`debug.env`/`.env.local`/`.env.production`/无扩展名均可用。
+- `source.DotenvLoader()` 取代该路径的 `ForFile`，**忽略文件名/扩展名**：`.env`/`debug.env`/`.env.local`/`.env.production`/无扩展名均可用。（现状：该符号在 P1 重构中并入 `source.DotenvFormat()`，行为不变）
 - 测试：`internal/source/loader_test.go::TestDotenvLoaderIgnoresFileName`、`internal/render/render_features_test.go::TestRunEnvFileIgnoresExtension`；e2e `env_file_nonstandard`。
 
 ### 2.6 json 两后端差异（G20）
@@ -123,7 +123,7 @@ value sources
 | 请求分组 + 校验 | `internal/render/options.go` |
 | explain JSONL + 来源栈 | `internal/render/explain.go` |
 | CLI 旗标装配 | `internal/cli/render.go`、`constants.go` |
-| dotenv 强制加载 | `internal/source/loader.go`（`DotenvLoader`） |
+| dotenv 强制加载 | `internal/source/format.go`（`DotenvFormat`；P1 前在 `loader.go` 叫 `DotenvLoader`） |
 | default 兜底 | `internal/schema/defaults.go` |
 
 ## 6. 未提交文件清单（`git status --short` 全量）
