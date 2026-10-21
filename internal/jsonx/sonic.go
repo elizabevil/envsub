@@ -4,10 +4,12 @@ package jsonx
 
 import (
 	"errors"
+	"fmt"
 	"github.com/elizabevil/envsub/internal/utils"
 	"unicode/utf8"
 
 	"github.com/bytedance/sonic"
+	"github.com/bytedance/sonic/decoder"
 	"github.com/elizabevil/envsub/internal/codec"
 )
 
@@ -28,7 +30,7 @@ var api = sonic.Config{
 func Unmarshal(data []byte, target any) error {
 	data = utils.TrimBOM(data)
 	if err := api.Unmarshal(data, target); err != nil {
-		return err
+		return contentFree(err)
 	}
 	// sonic cannot reject invalid UTF-8 on decode: Config.ValidateString does not
 	// apply to Unmarshal and sonic.Decoder has no ValidateString method. Check the
@@ -43,6 +45,19 @@ func Unmarshal(data []byte, target any) error {
 	default:
 		return nil
 	}
+}
+
+// contentFree rewrites a syntax error so it cannot repeat the input.
+//
+// sonic quotes the text around the offending byte. That text is a value the
+// caller handed over — a secret when it came from a .env file or --set-file —
+// so only the position and the reason survive (REQ-SEC-02).
+func contentFree(err error) error {
+	var syntax decoder.SyntaxError
+	if errors.As(err, &syntax) {
+		return fmt.Errorf("%ssyntax error at byte %d: %s", errorPrefix, syntax.Pos, syntax.Message())
+	}
+	return err
 }
 
 // rejectInvalidUTF8 reports invalid UTF-8 inside a decoded tree, mirroring the
