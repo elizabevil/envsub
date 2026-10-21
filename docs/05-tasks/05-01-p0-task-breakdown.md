@@ -43,7 +43,7 @@ last-updated: 2026-10-08
 | TASK-019 | 已完成 | E2E `output_dir_batch`（`--recursive`、`expect.dir`）+ `render_features_test` |
 | TASK-020 | 已完成 | policies 16 fixture + E2E `unset_keep`/`unset_empty`/`empty_error`/`unset_zero_no_type` |
 | TASK-021 | 已完成 | 160 engine fixture + 18 E2E + 156 个测试函数（7 个基准）；`just check` 与 `go test -race ./...`（19 包）通过 |
-| TASK-022 | 已完成 | justfile 多架构配方 + release 5 目标矩阵；交叉编译 linux/amd64 **4.92 MiB**、linux/arm64 4.63、darwin/arm64 4.72、windows/amd64 5.11（linux/amd64 与 linux/arm64 实测 `statically linked`） |
+| TASK-022 | 已完成 | justfile 多架构配方 + release 6 目标矩阵（2026-10-21 补 windows/arm64）；交叉编译 linux/amd64 **4.92 MiB**、linux/arm64 4.63、darwin/arm64 4.72、windows/amd64 5.11（linux/amd64 与 linux/arm64 实测 `statically linked`） |
 | TASK-023 | 已完成 | 门禁 `test/perf`（`just test-perf`，CI job `perf`）：REF-04 同款 10,466,670 字节模板，本轮复测耗时 0.49×、峰值 RSS 1.29×、启动 4.8 ms，并断言与 GNU 输出逐字节一致 |
 | TASK-024 | 已完成 | CI job `security` 跑 govulncheck（固定 v1.8.0，本机实测 `No vulnerabilities found.`）；release job `supply-chain` 产出 `SHA256SUMS`（并断言清单覆盖全部产物）与 SPDX JSON SBOM，tag 推送时创建 draft release；本地可用 `just vuln` / `just checksums` / `just checksums-verify` / `just sbom` |
 | TASK-025 | 已完成 | README 的 CLI/语法/开发章节 + 示例（2026-10-13 重构为 `data/` + 逐模板 golden + 24 条配方）+ E2E `examples_tree` + ADR-002 迁移说明 |

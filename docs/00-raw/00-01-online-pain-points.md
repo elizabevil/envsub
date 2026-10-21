@@ -148,7 +148,7 @@ last-updated: 2026-09-29
 
 - 需求提出者的痛点与优先级：已由 `00-02-user-supplements-and-compatibility.md` §7 补充，
   并落到 `02-05` 需求台账（逐条含优先级与状态）。`[FACT]`
-- 平台/架构矩阵：发布矩阵为 linux/darwin × amd64/arm64 + windows/amd64（5 个目标，
+- 平台/架构矩阵：发布矩阵为 linux/darwin/windows × amd64/arm64（6 个目标，
   `.github/workflows/release.yml`；`04-04`）。`[FACT]`
 - 兼容基线：一期不做兼容模式（ADR-002），矩阵与边界作为 P2 任务 `05-04` TASK-201 的输入
   （现状见 `reference/REF-02`）。`[FACT]`

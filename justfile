@@ -74,7 +74,7 @@ build-target os arch:
 
 # build-release cross-compiles the matrix the release workflow uses.
 build-release:
-    @for target in "linux amd64" "linux arm64" "darwin amd64" "darwin arm64" "windows amd64"; do set -- $target; just --justfile {{ justfile() }} --quiet build-target "$1" "$2"; done
+    @for target in "linux amd64" "linux arm64" "darwin amd64" "darwin arm64" "windows amd64" "windows arm64"; do set -- $target; just --justfile {{ justfile() }} --quiet build-target "$1" "$2"; done
     @ls -1 dist/envsub-linux-* dist/envsub-darwin-* dist/envsub-windows-*
 
 # --- checks -----------------------------------------------------------------

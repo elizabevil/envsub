@@ -40,7 +40,7 @@ last-updated: 2026-09-29
   `--validate-only` 与 `--on-missing=error`；批量写回为 `--output-dir`/`--in-place`
   （`--in-place` 原子替换）；**dry-run 仍是 P1 候选**（`05-03` §13 的 REQ-OUT-03）；
   输出权限保真见 `05-04` TASK-109。`[FACT]`
-- 平台矩阵与发布：`release.yml` 矩阵构建 5 个目标（linux/darwin/windows × amd64/arm64 组合），
+- 平台矩阵与发布：`release.yml` 矩阵构建 6 个目标（linux/darwin/windows × amd64/arm64 组合），
   纯 Go、无 CGO（`04-04` 依赖选型原则）；验收指标见 `reference/REF-04`。`[FACT]`
 - 内联 `| type` 细节：见 `07-serialization/03-operators.md` §5 与
   `07-serialization/05-formatters-and-types.md`（含错误码与 case）。`[FACT]`

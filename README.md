@@ -164,7 +164,7 @@ See `CONTRIBUTING.md` and `docs/03-design/03-10-go-code-standards.md`.
 - safe in-place and batch rendering
 - windowed streaming for small/streamed input and marked parallel rendering for
   large file templates (>=4 windows, no assignment operators, deterministic order)
-- multi-arch static builds (linux/darwin amd64+arm64, windows amd64); the default
+- multi-arch static builds (linux/darwin/windows amd64+arm64); the default
   linux/amd64 binary is 4.92 MiB (8.43 MiB with `-tags=sonic`)
 - JSON/YAML codecs centralized in `internal/jsonx` (standard-library
   `encoding/json/v2` by default, sonic behind a build tag) and `internal/yamlx`

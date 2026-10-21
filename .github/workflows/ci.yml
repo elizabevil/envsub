@@ -46,7 +46,7 @@ jobs:
         uses: golangci/golangci-lint-action@v8
         with:
           # Pinned: the configuration uses the v2 schema.
-          version: v2.13.2
+          version: v2.14.0
           args: --timeout=5m
 
   # TASK-024: fails when a vulnerability is reachable from the module graph or

@@ -69,7 +69,8 @@ Accepted（已确认），来源：需求提出者确认其余推荐项，2026-0
   交叉编译已在 linux/amd64、linux/arm64、darwin/arm64、windows/amd64 通过（2026-10-08）。
   触发条件：有实机或 CI 矩阵 runner 时执行；owner：技术负责人。`[TODO]`
 - 发布流程已落地（未引入 GoReleaser）。`[FACT]` owner：技术负责人。
-  （2026-10-08：已用 GitHub Actions 落地，未引入 GoReleaser——`release.yml` 矩阵构建 5 个目标，
+  （2026-10-08：已用 GitHub Actions 落地，未引入 GoReleaser——`release.yml` 矩阵构建 6 个目标
+  （2026-10-21 起加 windows/arm64），
   `supply-chain` job 产出 `SHA256SUMS` 与 SPDX SBOM，tag 推送创建 draft release；
   checksums/SBOM 由 `anchore/sbom-action` 与 `sha256sum` 负责，见 05-01「供应链基础」。）
 
