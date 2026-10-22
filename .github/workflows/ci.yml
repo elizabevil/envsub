@@ -10,8 +10,8 @@ jobs:
     env:
       GOCACHE: ${{ github.workspace }}/.gocache
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version: '1.27.x'
           check-latest: true
@@ -37,13 +37,13 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version: '1.27.x'
           check-latest: true
       - name: Lint
-        uses: golangci/golangci-lint-action@v8
+        uses: golangci/golangci-lint-action@v9
         with:
           # Pinned: the configuration uses the v2 schema.
           version: v2.14.0
@@ -57,8 +57,8 @@ jobs:
     env:
       GOCACHE: ${{ github.workspace }}/.gocache
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version: '1.27.x'
           check-latest: true
@@ -71,15 +71,15 @@ jobs:
   examples:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version: '1.27.x'
           check-latest: true
       - name: Install just
-        uses: extractions/setup-just@v3
+        uses: extractions/setup-just@v4
         with:
-          just-version: '1.58.0'
+          just-version: '1.59.0'
       - name: Runnable examples
         run: just --justfile examples/justfile demo
 
@@ -91,8 +91,8 @@ jobs:
       # 5x RSS) and the absolute startup budget of 100ms.
       PERF_RUNS: '9'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version: '1.27.x'
           check-latest: true

@@ -69,7 +69,9 @@ size-deps: caches
 # --- release artifacts ------------------------------------------------------
 
 # build-target cross-compiles one artifact: `just build-target linux arm64`.
+# The default JSON backend is the standard library; add -tags=sonic for sonic.
 build-target os arch:
+    @mkdir -p dist
     CGO_ENABLED=0 GOOS={{ os }} GOARCH={{ arch }} go build -trimpath -ldflags "{{ ldflags }}" -o dist/envsub-{{ os }}-{{ arch }}{{ if os == "windows" { ".exe" } else { "" } }} ./cmd/envsub
 
 # build-release cross-compiles the matrix the release workflow uses.

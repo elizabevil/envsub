@@ -32,25 +32,18 @@ jobs:
           - goos: windows
             goarch: arm64
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version: '1.27.x'
           check-latest: true
+      - name: Install just
+        uses: extractions/setup-just@v4
+        with:
+          just-version: '1.59.0'
       - name: Build
-        env:
-          CGO_ENABLED: '0'
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-        run: |
-          mkdir -p dist
-          EXT=""
-          if [ "$GOOS" = "windows" ]; then EXT=".exe"; fi
-          # Default build: standard-library JSON backend, ~41% smaller.
-          # Add -tags=sonic for the faster, larger JSON backend.
-          go build -trimpath -ldflags "-s -w" \
-            -o "dist/envsub-${GOOS}-${GOARCH}${EXT}" ./cmd/envsub
-      - uses: actions/upload-artifact@v4
+        run: just build-target ${{ matrix.goos }} ${{ matrix.goarch }}
+      - uses: actions/upload-artifact@v7
         with:
           name: envsub-${{ matrix.goos }}-${{ matrix.goarch }}
           path: dist/*
@@ -62,7 +55,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true
@@ -88,7 +81,7 @@ jobs:
           artifact-name: envsub.spdx.json
           upload-artifact: false
           upload-release-assets: false
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: envsub-supply-chain
           path: |
@@ -96,7 +89,7 @@ jobs:
             dist/envsub.spdx.json
       - name: Draft release
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           draft: true
           generate_release_notes: true
