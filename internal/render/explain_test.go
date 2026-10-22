@@ -58,6 +58,46 @@ func TestExplainTemplateWritesJSONL(t *testing.T) {
 	}
 }
 
+// TestExplainTemplateShadowedOrder pins the order of a multi-frame shadowed
+// list: the closest loser comes first and the lowest-priority layer comes
+// last, so "shadowed followed by origin" is the whole lineage, lowest
+// priority last.
+//
+// Every other assertion covers at most one shadowed frame, where the order
+// carries no information at all.
+func TestExplainTemplateShadowedOrder(t *testing.T) {
+	t.Parallel()
+	run := explainRun{tree: values.NewTree(), sources: explainer{
+		root: map[string][]values.Meta{
+			// Recorded lowest priority first: the schema default is the bottom
+			// layer, then the value file, then the two .env files, then --set.
+			"K": {
+				{Kind: "schema", Method: "default", Source: "#/properties/K/default", File: "schema.json"},
+				{Kind: "values", Method: "file", Source: "values.yaml", File: "values.yaml"},
+				{Kind: "envfile", Method: "file", Source: "base.env", File: "base.env", Line: 1},
+				{Kind: "envfile", Method: "file", Source: "debug.env", File: "debug.env", Line: 2},
+				{Kind: "set", Method: "flag", Source: "K"},
+			},
+		},
+	}}
+	req := Request{Explain: Explain{Enabled: true}}
+	eng := stubPathEngine{paths: []string{"K"}}
+
+	var got bytes.Buffer
+	if err := explainTemplate(&got, eng, req, "app.tmpl", nil, run); err != nil {
+		t.Fatalf("explainTemplate() error = %v", err)
+	}
+	want := `{"template":"app.tmpl","variable":"K","origin":{"kind":"set","method":"flag","source":"K","file":"","line":0},"shadowed":[` +
+		`{"kind":"envfile","method":"file","source":"debug.env","file":"debug.env","line":2},` +
+		`{"kind":"envfile","method":"file","source":"base.env","file":"base.env","line":1},` +
+		`{"kind":"values","method":"file","source":"values.yaml","file":"values.yaml","line":0},` +
+		`{"kind":"schema","method":"default","source":"#/properties/K/default","file":"schema.json","line":0}` +
+		`]}` + "\n"
+	if got.String() != want {
+		t.Fatalf("explainTemplate() =\n%swant\n%s", got.String(), want)
+	}
+}
+
 // TestExplainTemplateFiltersByExactPath pins --explain=PATH: only the listed
 // paths are reported, the filter matches the reported spelling, and a dotted path
 // is exact rather than a prefix.

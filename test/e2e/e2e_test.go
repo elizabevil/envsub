@@ -618,6 +618,69 @@ func TestExplainFramesFollowADR005(t *testing.T) {
 	}
 }
 
+// TestExplainShadowedOrder pins the order of a multi-frame shadowed list
+// through the real binary: the closest loser comes first and the lowest
+// priority layer comes last, so "shadowed followed by origin" is the whole
+// lineage.
+//
+// The e2e harness compares expect.err as a substring, which cannot pin the
+// order of a JSON array, so the order is asserted here on the decoded report.
+func TestExplainShadowedOrder(t *testing.T) {
+	t.Parallel()
+	dir := filepath.Join("testdata", "explain_shadowed_order")
+	args, ok := readArgsFile(t, filepath.Join(dir, caseArgsFile))
+	if !ok {
+		t.Fatalf("%s has no %s", dir, caseArgsFile)
+	}
+	_, stderr, status := execute(t, dir, nil, args)
+	if status != 0 {
+		t.Fatalf("exit = %d, want 0; stderr=%q", status, stderr)
+	}
+
+	type frame struct {
+		Kind   string `json:"kind"`
+		Method string `json:"method"`
+		Source string `json:"source"`
+		File   string `json:"file"`
+		Line   int    `json:"line"`
+	}
+	type record struct {
+		Variable string  `json:"variable"`
+		Origin   frame   `json:"origin"`
+		Shadowed []frame `json:"shadowed"`
+	}
+
+	lines := strings.Split(strings.TrimSpace(stderr), "\n")
+	if len(lines) != 1 {
+		t.Fatalf("explain lines = %d, want 1: %q", len(lines), stderr)
+	}
+	var report record
+	if err := json.Unmarshal([]byte(lines[0]), &report); err != nil {
+		t.Fatalf("decode explain line %q: %v", lines[0], err)
+	}
+
+	// --set is the highest layer, so it wins.
+	if report.Origin.Kind != "set" || report.Origin.Method != "flag" {
+		t.Fatalf("origin = %+v, want the set frame", report.Origin)
+	}
+	// The losers follow in reverse priority order: the closest one first and
+	// the lowest layer last.
+	want := []frame{
+		{Kind: "envfile", Method: "file", Source: "debug.env", File: "debug.env", Line: 1},
+		{Kind: "envfile", Method: "file", Source: "base.env", File: "base.env", Line: 1},
+		{Kind: "values", Method: "file", Source: "values.yaml", File: "values.yaml", Line: 0},
+		{Kind: "schema", Method: "default", Source: "#/properties/K/default", File: "schema.json", Line: 0},
+	}
+	if len(report.Shadowed) != len(want) {
+		t.Fatalf("shadowed = %+v, want %d frames", report.Shadowed, len(want))
+	}
+	for i, expected := range want {
+		if report.Shadowed[i] != expected {
+			t.Errorf("shadowed[%d] = %+v, want %+v", i, report.Shadowed[i], expected)
+		}
+	}
+}
+
 // TestExplainReportsAssignmentOrigins pins the assign frame: a value a template
 // wrote with := or = is reported with the template and line that wrote it, which
 // is why the report runs after the render loop (ADR-005).
