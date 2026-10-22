@@ -11,7 +11,7 @@ last-updated: 2026-10-02
 > 核查基线：`docs/05-tasks/05-01-p0-task-breakdown.md`、`docs/05-tasks/05-02-p0-test-matrix.md`、
 > `docs/03-design/03-07-code-and-repo-structure.md`、`docs/03-design/03-08-cli-design.md`。
 > 结论摘要： **骨架与模板语法层（Sprint 0 全量 + TASK-005/006/007）真实可用；
-> 文档中标记为完成的 TASK-020 以及 `docs/00-raw/00-04` / `06-01` 里“下一步 TASK-008”之后的内容，
+> 文档中标记为完成的 TASK-020 以及 `docs/99-archive/00-raw/00-04` / `06-01` 里“下一步 TASK-008”之后的内容，
 > 与代码现状不一致。P0 剩余 17 个任务中有 15 个尚未实现。**
 
 ## 1. 核查命令与结果
@@ -84,7 +84,7 @@ last-updated: 2026-10-02
 
 ## 4. 文档与实现的一致性问题
 
-1. **`docs/00-raw/00-04` §26–31 与 `docs/06-review/06-01` §12–18 只记录到 TASK-007**，
+1. **`docs/99-archive/00-raw/00-04` §26–31 与 `docs/99-archive/06-review/06-01` §12–18 只记录到 TASK-007**，
    而 `05-01` 的进度行（第 12 行）却写着 “TASK-001…007 已完成”——从 TASK-008 起没有实现证据。
 2. **`05-01` 第 12 行写“TASK-001、TASK-027、TASK-002…TASK-007 已完成”，按字面不含 TASK-020**；
    但 TASK-020 的验收标准（`error/empty/keep/zero` 四种策略）实测只实现 `error`。

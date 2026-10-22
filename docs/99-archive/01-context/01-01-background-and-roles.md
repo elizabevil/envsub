@@ -14,7 +14,7 @@ last-updated: 2026-09-29
 - 目标是基于 `github.com/a8m/envsubst` 构建升级版复合工具，支持 amd64/arm64、多平台单文件交付，并尽量静态编译、少依赖特殊库。
   `[FACT]`（来源：需求提出者目标描述）
 - 线上证据显示：现有 envsubst 在安装分发、转义、默认值、参数展开、in-place、多文件、错误处理上都有大量痛点。`[FACT]`（来源：
-  `docs/00-raw/00-00-index.md` 中 GitHub/StackOverflow 证据）
+  `docs/99-archive/00-raw/00-00-index.md` 中 GitHub/StackOverflow 证据）
 - 需求提出者补充六项诉求：默认值、数组表示、转义格式、类型校验、文件配置、多文件配置。`[FACT]`（来源：需求提出者本轮补充）
 - 需求提出者要求尽量兼容 envsubst，但允许在 envsubst 方案不合适时直接换方案；并希望参考 helmfile 类渲染工具。`[FACT]`
   （来源：需求提出者本轮补充）

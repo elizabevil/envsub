@@ -9,7 +9,7 @@ last-updated: 2026-09-29
 
 > 目标：在兼容 envsubst 的基础上，补齐现代化配置渲染工具需要的能力，并确保已知使用场景都有对应功能。  
 > 本文为功能候选地图，优先级与取舍需人工确认。
-> **各需求当前状态与"能否在本应用实现"的判定见** [`02-05-requirements-registry.md`](02-05-requirements-registry.md)。
+> **各需求当前状态与"能否在本应用实现"的判定见** [`02-05-requirements-registry.md`](../../02-product/02-05-requirements-registry.md)。
 
 ## 1. 设计原则
 

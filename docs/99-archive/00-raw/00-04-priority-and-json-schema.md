@@ -24,7 +24,7 @@ last-updated: 2026-09-29
 - 未知非 `x-*` 关键字默认不报错，便于 schema 跨系统复用；可选 `--schema-unknown=warn|error` 严格模式。
 - 远程 `$ref` 默认禁用；default 由薄适配层主动应用。
 - 已记录至 `docs/04-decisions/04-03-adr-003-json-schema-reuse.md` 和
-  `docs/reference/REF-03-json-schema-reuse-research.md`。
+  `docs/99-archive/reference/REF-03-json-schema-reuse-research.md`。
 
 ## 非目标（本部分）
 
@@ -38,8 +38,8 @@ last-updated: 2026-09-29
 - 非功能需求确认：采用常规二进制优化即可，不额外追求非常规性能/体积指标。
 - `| type` 规则确认：如果提供，必须作为 pipeline 第一个操作符；可以缺省。
 - 已基于前期需求生成 PRD 与用户故事：
-    - `docs/02-product/02-03-prd.md`
-    - `docs/02-product/02-04-user-stories.md`
+    - `docs/99-archive/02-product/02-03-prd.md`
+    - `docs/99-archive/02-product/02-04-user-stories.md`
 
 ## 22. 性能、规则确认与范围收敛（2026-09-29）
 
@@ -47,7 +47,7 @@ last-updated: 2026-09-29
 - `.env` JSON 数组 6 条规则已确认，设计文档升级为 `[FACT]`。
 - `--unset=zero` 已确认加入；仅对非 required 字段生效，required 不自动填零。
 - P1/P2 保留为待办；当前只实现 P0。
-- PRD 与用户故事已补充，并标注 P0/P1/P2：`docs/02-product/02-03-prd.md`、`docs/02-product/02-04-user-stories.md`。
+- PRD 与用户故事已补充，并标注 P0/P1/P2：`docs/99-archive/02-product/02-03-prd.md`、`docs/99-archive/02-product/02-04-user-stories.md`。
 
 ## 23. 依赖库、测试与代码结构确认（2026-09-29）
 
@@ -67,7 +67,7 @@ last-updated: 2026-09-29
 - CLI 功能独立设计文档：`docs/03-design/03-08-cli-design.md`。
 - `.env` 使用自研最小解析器。
 - P2 兼容模式通过 Engine 接口与 Registry 接入，不同实现分别为 extended / gnu / a8m / drone。
-- 扩展与兼容架构：`docs/03-design/03-09-extension-and-compat-architecture.md`。
+- 扩展与兼容架构：`docs/99-archive/03-design/03-09-extension-and-compat-architecture.md`。
 - 代码目录增加 `internal/engine`、`internal/source` 等边界。
 
 ## 25. Go 版本与代码规范确认（2026-09-29）

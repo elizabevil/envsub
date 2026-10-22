@@ -92,7 +92,7 @@ file size              5.16 MB
 
 体积优化过程中发现的"同一数值在 JSON 与 YAML 下类型不同（超出 uint64 时 YAML 输出带引号字符串）"
 属于规范问题而非体积问题，规范与分析见
-[序列化规则](../07-serialization/00-index.md)。`[FACT]`
+[序列化规则](../../07-serialization/00-index.md)。`[FACT]`
 
 ## 6. 建议
 

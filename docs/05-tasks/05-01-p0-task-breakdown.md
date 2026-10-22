@@ -7,13 +7,13 @@ last-updated: 2026-10-08
 
 # P0 任务拆分
 
-> 输入：`docs/02-product/02-03-prd.md`、`docs/02-product/02-04-user-stories.md`、`docs/03-design/`。  
+> 输入：`docs/99-archive/02-product/02-03-prd.md`、`docs/99-archive/02-product/02-04-user-stories.md`、`docs/03-design/`。  
 > 当前只实现 P0；P1/P2 保留为待办。  
 > 进度（2026-10-22 更新）：P0 共 27 项，**27 项已完成**（TASK-026 试用发布已于 2026-10-21 之后完成）。
 > 详见"状态总览"。
 > 本轮另完成编解码层与体积优化（`internal/jsonx`、`internal/yamlx`、`test/jsonx` 对照），
 > 见"编解码层与体积优化"一节；供应链基础（govulncheck / checksums / SBOM）见"供应链基础"一节。
-> 核查与实现报告：`docs/06-review/06-02-implementation-progress-verification.md`、
+> 核查与实现报告：`docs/99-archive/06-review/06-02-implementation-progress-verification.md`、
 > `06-03-p0-implementation-round2.md`、`06-04-optimization-round3.md`（模板输入抽象与并行渲染修复）、
 > `06-05-code-review-round4.md`（6 条评审整改）、`06-06-json-number-precision.md`（JSON 数字精度与解码方案对照）。
 
@@ -78,7 +78,7 @@ CI 由 job `perf` 执行（先安装 `gettext-base` 提供 GNU envsubst），阈
 ## 编解码层与体积优化（2026-10-08 收尾）
 
 本阶段不计入 TASK 编号，属工程收尾（体积/性能/可维护性）；决策与数据见 ADR-004 第 8、9 节
-与 `docs/06-review/06-06-json-number-precision.md`。
+与 `docs/99-archive/06-review/06-06-json-number-precision.md`。
 
 | 项 | 结果 | 证据 |
 |----|------|------|

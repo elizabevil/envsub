@@ -9,10 +9,13 @@ last-updated: 2026-09-29
 
 ## 子文档
 
-- [REF-01 竞品与市场空白](REF-01-competitive-landscape.md)
-- [REF-02 envsubst 兼容基线](REF-02-envsubst-compatibility-baseline.md)
-- [REF-03 JSON Schema 复用可行性调研](REF-03-json-schema-reuse-research.md)
-- [REF-04 GNU envsubst 性能基线](REF-04-gnu-envsubst-performance-baseline.md)
+- [REF-02 envsubst 兼容基线](REF-02-envsubst-compatibility-baseline.md) —— P2 兼容模式的输入依据
+- [REF-04 GNU envsubst 性能基线](REF-04-gnu-envsubst-performance-baseline.md) —— `test/perf` 门禁的规格
+
+已归档（一次性快照，仅供追溯）：
+
+- [REF-01 竞品与市场空白](../99-archive/reference/REF-01-competitive-landscape.md)
+- [REF-03 JSON Schema 复用可行性调研](../99-archive/reference/REF-03-json-schema-reuse-research.md)
 
 ## 非目标（整体）
 

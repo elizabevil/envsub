@@ -8,7 +8,7 @@ last-updated: 2026-10-02
 # P0 实现报告（Round 2：TASK-008 ~ TASK-021）
 
 > 输入：`docs/05-tasks/05-01-p0-task-breakdown.md`、`docs/05-tasks/05-02-p0-test-matrix.md`、
-> `docs/03-design/03-02 ~ 03-04`、`docs/06-review/06-02-implementation-progress-verification.md`。
+> `docs/03-design/03-02 ~ 03-04`、`docs/99-archive/06-review/06-02-implementation-progress-verification.md`。
 > 结论：P0 的 TASK-008 ~ TASK-021 已实现并有 fixture / 单测 / E2E 覆盖；
 > TASK-022 ~ TASK-026（多架构发布、基准对比、供应链、CLI 文档、试用发布）仍为待办。
 

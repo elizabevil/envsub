@@ -55,6 +55,6 @@ Accepted（已确认），来源：需求提出者确认采用方案 A，并明�
 ## 7. 相关文档
 
 - `docs/reference/REF-02-envsubst-compatibility-baseline.md`
-- `docs/02-product/02-02-product-positioning.md`
-- `docs/01-context/01-00-index.md`
+- `docs/99-archive/02-product/02-02-product-positioning.md`
+- `docs/99-archive/01-context/01-00-index.md`
 - `docs/04-decisions/04-01-adr-001-language-and-render-model.md`

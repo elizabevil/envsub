@@ -42,7 +42,7 @@ last-updated: 2026-09-29
 
 | 产品            | 语言/形态        | 已覆盖能力                                                                            | 缺失/差异                                                     | 来源                                     |
 |-----------------|------------------|---------------------------------------------------------------------------------------|---------------------------------------------------------------|------------------------------------------|
-| GNU envsubst    | gettext 组件     | `$VAR`/`${VAR}` 替换、变量白名单参数                                                  | 无默认值、数组、类型、多文件、in-place；macOS/Alpine 常缺     | GNU 文档；`docs/00-raw/00-00-index.md`   |
+| GNU envsubst    | gettext 组件     | `$VAR`/`${VAR}` 替换、变量白名单参数                                                  | 无默认值、数组、类型、多文件、in-place；macOS/Alpine 常缺     | GNU 文档；`docs/99-archive/00-raw/00-00-index.md`   |
 | a8m/envsubst    | Go 库/CLI        | envsubst 替换、部分默认值、`-no-unset`                                                | 多架构发布不足、默认值/嵌套/空值等 bug、无 schema/数组/多文件 | https://github.com/a8m/envsubst          |
 | drone/envsubst  | Go 库            | 更完整的 shell 风格参数展开                                                           | 主要是库，不是完整多平台 CLI 产品                             | https://github.com/drone/envsubst        |
 | stephenc/envsub | Java/CLI         | 支持 `${foo:-default}`                                                                | 多平台静态单文件、类型/schema、多文件不明确                   | https://github.com/stephenc/envsub       |

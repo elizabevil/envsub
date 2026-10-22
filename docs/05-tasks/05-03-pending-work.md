@@ -41,12 +41,12 @@
 | `internal/app`、`cmd/envsub` | ✅ **已补齐**：`internal/app/app_test.go` 覆盖参数装配、输入/输出形态、`--validate-only`、`--explain`、退出码 2/3/4/5/6 与诊断文案（覆盖率 **75%**，目标 ≥60%）；`cmd/envsub/main_test.go` 覆盖 `run()` 的委派与退出码（50%，`main` 的 `os.Exit` 行不可测） | 见 §11 |
 | `test/e2e/testdata/` 的 env 开关 fixture | ✅ **已完成**：`no_process_env`、`env_prefix`、`env_prefix_positive`、`env_options_conflict`（含 `expect.err` + `exit` 2）；追加 `legacy_flag_values`、`legacy_flag_env_prefix`（旧名 → `unknown flag` + exit 2）与 `env_file_nonstandard`（`--dotenv-file` 忽略文件名） | 见 `06-10` §9.1、`06-12` §6 |
 
-已完成部分见 `docs/06-review/06-10-optimization-summary.md` §9（`TestAllOfPrecedenceIsFirstWins`、
+已完成部分见 `docs/99-archive/06-review/06-10-optimization-summary.md` §9（`TestAllOfPrecedenceIsFirstWins`、
 `TestRefPointerPathResolvesNestedDefinition`）。
 
 ## 9. 性能复查记录
 
-`docs/06-review/06-10-optimization-summary.md` §8：G11–G14 / F / F2 / 待办 E 之后逐项复核，
+`docs/99-archive/06-review/06-10-optimization-summary.md` §8：G11–G14 / F / F2 / 待办 E 之后逐项复核，
 **所有确定性指标与基线持平**，`just test-all` 门禁 render 0.43x、RSS 1.11x、startup 4.75ms、
 基线输出逐字节一致 ⇒ 本轮重构无性能回退。
 

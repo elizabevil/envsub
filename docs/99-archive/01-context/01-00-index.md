@@ -19,9 +19,9 @@ last-updated: 2026-09-29
 
 ## 关联文档
 
-- 原始材料：`docs/00-raw/00-00-index.md`
-- 产品定位：`docs/02-product/02-02-product-positioning.md`
-- 功能地图：`docs/02-product/02-01-feature-map.md`
+- 原始材料：`docs/99-archive/00-raw/00-00-index.md`
+- 产品定位：`docs/99-archive/02-product/02-02-product-positioning.md`
+- 功能地图：`docs/99-archive/02-product/02-01-feature-map.md`
 - 设计索引：`docs/03-design/03-00-index.md`
 - ADR：`docs/04-decisions/`
 

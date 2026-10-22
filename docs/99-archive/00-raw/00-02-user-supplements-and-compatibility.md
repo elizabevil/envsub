@@ -32,7 +32,7 @@ last-updated: 2026-09-29
   shell、不访问网络、不自动读取远程密钥。`[FACT]`（来源：需求提出者确认）
 - 需求提出者追问“通用编程语言或模板引擎”的含义，以及当前能否支持类型检查。`[FACT]`（来源：需求提出者本轮补充）
 - 当前项目状态：仍处于文档与 ADR 草案阶段，尚无代码实现；类型检查为规划能力。`[FACT]`（来源：
-  `docs/04-decisions/04-01-adr-001-language-and-render-model.md`、`docs/02-product/02-01-feature-map.md`）
+  `docs/04-decisions/04-01-adr-001-language-and-render-model.md`、`docs/99-archive/02-product/02-01-feature-map.md`）
 - 讨论结论：排除图灵完备通用语言，但保留受限配置渲染能力；类型检查支持值级/schema 级运行时校验，不承诺纯文本模板静态类型检查。
   `[INFERENCE]`（依据：需求提出者边界 + 纯文本模板缺少类型信息）
 

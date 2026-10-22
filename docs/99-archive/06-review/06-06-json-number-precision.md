@@ -17,7 +17,7 @@ last-updated: 2026-10-08
 - 被拒绝的备选：**单遍 `jsontext` token 遍历（自建树）**。同一负载 3.55 ms vs 12.04 ms
   （快 3.4×），但属于"自行封装一层解析逻辑"，与"优先标准库 API"规则冲突，故不作生产实现。
   它保留在 `test/jsonx/walker_test.go`，与生产实现做功能等价与性能对照，随时可复现。`[FACT]`
-- 该规则已写入 [`docs/prompts/_common.md`](../prompts/_common.md) 第 7 节。`[FACT]`
+- 该规则已写入 [`docs/prompts/_common.md`](../../prompts/_common.md) 第 7 节。`[FACT]`
 
 ## 2. 查证：v2 的数字默认行为
 
@@ -105,14 +105,14 @@ BenchmarkUnmarshalValueWalker-10        3545097 ns/op  105.22 MB/s   2992755 B/o
 1. **优先使用标准库/依赖库既有 API** 实现功能，不要自行封装一层解析逻辑；确需自建时必须写明
    既有 API 无法满足的具体原因与实测数据。
 2. **方案对比实验必须落盘可复现**：对照实现放 `test/`（功能等价测试 + 基准），数据与结论写
-   `docs/06-review/`，决策写 ADR；禁止"测完即删"。
+   `docs/99-archive/06-review/`，决策写 ADR；禁止"测完即删"。
 3. 引用性能/体积数据必须给出复现命令。
 
 ## 7.1 与序列化规范的关系
 
 本文解决的是 JSON 侧精度（`json.Number` 全链路）；值模型、YAML 侧与"空值语义"的统一规范
 （含超出 uint64 的取直、`null` 与空集合的区分）见
-[序列化规则](../07-serialization/00-index.md)。`[FACT]`
+[序列化规则](../../07-serialization/00-index.md)。`[FACT]`
 
 ## 8. 遗留
 

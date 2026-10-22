@@ -32,7 +32,7 @@ envsubst 的"超集"：单静态二进制、类型校验 + 多文件分层 + 受
   （`default|file|flag|json|env|assign|missing`）、`source`（地址）、`file`/`line`（物理位置）。
 - CLI：`--explain[=PATH]`（裸 = all，`*` 哨兵；`--explain=app.port` 精确匹配过滤，可重复）。
 - **已决：不提供 `--explain-out`**；落盘用 `2>`。`--explain` 不输出值（密钥安全）；stdout 逐字节不变。
-- 关键文件：[internal/render/explain.go](internal/render/explain.go)、[internal/render/render.go](internal/render/render.go)（`emitExplain`/`renderOne`）。
+- 关键文件：[internal/render/explain.go](../../../internal/render/explain.go)、[internal/render/render.go](../../../internal/render/render.go)（`emitExplain`/`renderOne`）。
 - 测试：`internal/render/explain_test.go`；e2e `explain_env_file`/`explain_multi_env`/`explain_set_wins`/`explain_missing`/`explain_batch`/`explain_path`/`explain_space_form`；`TestExplainStdoutUnchanged`、`TestExplainValidateOnly`。
 
 ### 2.2 `Options` 重构（方案 B：拆两层）
@@ -128,9 +128,9 @@ value sources
 
 ## 6. 未提交文件清单（`git status --short` 全量）
 
-修改（M）：`.gitignore`、`README.md`、`cmd/envsub/main.go`、`docs/03-design/03-03`、`03-04`、`03-08`、`docs/05-tasks/05-02`、`05-03`、`docs/06-review/06-00-index`、`06-10`、`docs/07-serialization/00-index`、`02-sources`、`04-cli`、`09-gaps`、`13-materialization`、`docs/prompts/_common.md`、`internal/cli/constants.go`、`render.go`、`root.go`、`internal/jsonx/*_test.go`（3 个）、`internal/render/env_options_test.go`、`render.go`、`render_features_test.go`、`render_test.go`、`internal/schema/defaults.go`、`schema_test.go`、`internal/source/loader.go`、`loader_test.go`、`internal/values/env_filter_test.go`、`path.go`、`test/e2e/e2e_test.go`、`test/e2e/testdata/env_*`（3 个 args）。
+修改（M）：`.gitignore`、`README.md`、`cmd/envsub/main.go`、`docs/03-design/03-03`、`03-04`、`03-08`、`docs/05-tasks/05-02`、`05-03`、`docs/99-archive/06-review/06-00-index`、`06-10`、`docs/07-serialization/00-index`、`02-sources`、`04-cli`、`09-gaps`、`13-materialization`、`docs/prompts/_common.md`、`internal/cli/constants.go`、`render.go`、`root.go`、`internal/jsonx/*_test.go`（3 个）、`internal/render/env_options_test.go`、`render.go`、`render_features_test.go`、`render_test.go`、`internal/schema/defaults.go`、`schema_test.go`、`internal/source/loader.go`、`loader_test.go`、`internal/values/env_filter_test.go`、`path.go`、`test/e2e/e2e_test.go`、`test/e2e/testdata/env_*`（3 个 args）。
 
-未跟踪（??）：`cmd/envsub/main_test.go`、`docs/06-review/06-11/06-12/06-13`、`internal/app/app_test.go`、`internal/cli/render_test.go`、`internal/render/explain.go`、`explain_test.go`、`options.go`、`test/e2e/testdata/{env_file_nonstandard, explain_batch, explain_env_file, explain_missing, explain_multi_env, explain_path, explain_set_wins, explain_space_form, legacy_flag_env_prefix, legacy_flag_values, schema_default_is_fallback, values_rejects_dotenv}`。
+未跟踪（??）：`cmd/envsub/main_test.go`、`docs/99-archive/06-review/06-11/06-12/06-13`、`internal/app/app_test.go`、`internal/cli/render_test.go`、`internal/render/explain.go`、`explain_test.go`、`options.go`、`test/e2e/testdata/{env_file_nonstandard, explain_batch, explain_env_file, explain_missing, explain_multi_env, explain_path, explain_set_wins, explain_space_form, legacy_flag_env_prefix, legacy_flag_values, schema_default_is_fallback, values_rejects_dotenv}`。
 
 ## 7. 复现命令
 

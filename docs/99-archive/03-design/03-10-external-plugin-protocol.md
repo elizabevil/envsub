@@ -3,7 +3,7 @@
 > **状态：仅记录需求与设计，当前不实现。** 本阶段先做的是 **L0 仓内接口统一重构**（`05-04` TASK-207），
 > 不含任何插件执行代码；L1–L3 的实现按 TASK-208/209/210 分阶段，需另行授权。
 > 相关：`REQ-SRC-14`（值来源插件）、`REQ-SRC-15`（外部格式插件）、`REQ-TPL-10`（引擎插件）、
-> `REQ-CLI-09`（子命令插件）；形态取舍见 [ADR-007](../04-decisions/04-07-adr-007-external-plugin-model.md)；
+> `REQ-CLI-09`（子命令插件）；形态取舍见 [ADR-007](../../04-decisions/04-07-adr-007-external-plugin-model.md)；
 > 仓内扩展架构见 [`03-09`](03-09-extension-and-compat-architecture.md)。
 
 ## 1. 插件的意义（判据）

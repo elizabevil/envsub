@@ -20,7 +20,7 @@ Accepted（已确认），来源：需求提出者确认继续使用 Go 作为 v
 - 目标是基于 `a8m/envsubst` 构建升级版工具，支持 amd64/arm64、多平台单文件、尽量静态编译。`[FACT]`（来源：需求提出者目标描述）
 - 需求提出者补充了默认值、数组表示、转义格式、类型校验、文件配置、多文件配置。`[FACT]`（来源：需求提出者补充）
 - 线上证据显示：安装分发、转义、默认值、参数展开、in-place、多文件和错误处理是主要痛点。`[FACT]`（来源：
-  `docs/00-raw/00-00-index.md`）
+  `docs/99-archive/00-raw/00-00-index.md`）
 - 需求提出者要求：尽量兼容 envsubst；若 envsubst 方案不合适，可直接换方案；并参考 helmfile 类“渲染”工具。`[FACT]`
   （来源：需求提出者本轮补充）
 - 需求提出者确认继续使用 Go；非功能采用常规 Go 二进制优化即可，不额外追求非常规指标。`[FACT]`（来源：需求提出者确认，2026-09-29）
@@ -74,8 +74,8 @@ Accepted（已确认），来源：需求提出者确认继续使用 Go 作为 v
 
 ## 7. 相关文档
 
-- `docs/00-raw/00-00-index.md`
-- `docs/01-context/01-00-index.md`
+- `docs/99-archive/00-raw/00-00-index.md`
+- `docs/99-archive/01-context/01-00-index.md`
 - `docs/04-decisions/04-02-adr-002-compatibility-and-migration.md`
 - 已创建：设计文档 `03-design/03-00-index.md` 起、PRD `02-product/02-03-prd.md`、
   任务拆分 `05-tasks/05-01-p0-task-breakdown.md` 与 `05-tasks/05-04-p1-p2-task-breakdown.md`。`[FACT]`

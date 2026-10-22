@@ -34,7 +34,7 @@ last-updated: 2026-09-29
 - 依赖选型已确认：JSON 使用 `github.com/bytedance/sonic`，YAML 使用 `sigs.k8s.io/yaml`。`[FACT]`（来源：需求提出者确认，2026-09-29）
 - 发布方式已确认：GitHub Actions；提供 `justfile` 快捷编译。`[FACT]`（来源：需求提出者确认，2026-09-29）
 - CLI 设计独立成文：`docs/03-design/03-08-cli-design.md`；使用 Cobra。`[FACT]`（来源：需求提出者确认，2026-09-29）
-- P2 兼容模式通过 Engine 接口与 Registry 接入，详见 `docs/03-design/03-09-extension-and-compat-architecture.md`。`[FACT]`
+- P2 兼容模式通过 Engine 接口与 Registry 接入，详见 `docs/99-archive/03-design/03-09-extension-and-compat-architecture.md`。`[FACT]`
   （来源：需求提出者确认，2026-09-29）
 - 测试策略已确认：测试先行，先建立 P0 测试矩阵与 golden fixtures。`[FACT]`（来源：需求提出者确认，2026-09-29）
 - 非功能基线已确认：采用常规二进制优化即可。`[FACT]`（来源：需求提出者确认，2026-09-29）

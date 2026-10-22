@@ -9,7 +9,7 @@ last-updated: 2026-09-29
 
 ## 1. 评审范围
 
-- `docs/01-context/`
+- `docs/99-archive/01-context/`
 - `docs/02-product/`
 - `docs/03-design/`
 - `docs/04-decisions/`
@@ -40,16 +40,16 @@ last-updated: 2026-09-29
 ### P0 问题
 
 1. **`03-05` 的 Alternatives 与 ADR-003 冲突**
-    - 位置：`docs/03-design/03-05-api-data-tradeoffs.md` 第 6.2 节。
+    - 位置：`docs/99-archive/03-design/03-05-api-data-tradeoffs.md` 第 6.2 节。
     - 现状：写着“采用完整 JSON Schema”被拒绝，当前决策是“采用 JSON Schema 风格子集”。
     - 冲突：`docs/04-decisions/04-03-adr-003-json-schema-reuse.md` 已确认直接复用 JSON Schema Draft 2020-12。
     - 建议：把 6.2 改为“自研 schema DSL”被拒绝；增加“JSON Schema + 薄适配层”为当前方案。
 
 2. **兼容性分期未清理，存在自相矛盾**
     - 位置：
-        - `docs/01-context/01-04-assumptions-and-gaps.md` 第 5 节：仍写 `--compat=gnu|a8m|extended`。
-        - `docs/02-product/02-01-feature-map.md` 第 3.1 节：仍写 `--compat=gnu|a8m|drone|extended`。
-        - `docs/02-product/02-02-product-positioning.md` 第 3 节、第 5.1 节、第 9 节：仍指向兼容模式/零改动迁移。
+        - `docs/99-archive/01-context/01-04-assumptions-and-gaps.md` 第 5 节：仍写 `--compat=gnu|a8m|extended`。
+        - `docs/99-archive/02-product/02-01-feature-map.md` 第 3.1 节：仍写 `--compat=gnu|a8m|drone|extended`。
+        - `docs/99-archive/02-product/02-02-product-positioning.md` 第 3 节、第 5.1 节、第 9 节：仍指向兼容模式/零改动迁移。
     - 冲突：ADR-002 已确认一期只做 extended 原生模式，P2 才做兼容与转换。
     - 建议：所有兼容相关表述改为“P2 兼容与转换；一期无 `--compat`”。
 
@@ -60,7 +60,7 @@ last-updated: 2026-09-29
     - 建议：更新为 pipeline 语法，删除旧 `:yaml` / `:text`。
 
 4. **Open Questions 与已确认决策不一致**
-    - 位置：`docs/03-design/03-06-open-questions-and-review.md` 第 9 节。
+    - 位置：`docs/99-archive/03-design/03-06-open-questions-and-review.md` 第 9 节。
     - 现状：仍问“是否采用内联 `| type`”“schema 是否用 JSON Schema 子集”等。
     - 冲突：内联 `| type` 已确认；JSON Schema Draft 2020-12 已确认。
     - 建议：把已确认项改写为“已确认”，只保留未决问题。
@@ -146,8 +146,8 @@ last-updated: 2026-09-29
 
 后续已补：
 
-- PRD：`docs/02-product/02-03-prd.md`。
-- 用户故事与 Given-When-Then：`docs/02-product/02-04-user-stories.md`。
+- PRD：`docs/99-archive/02-product/02-03-prd.md`。
+- 用户故事与 Given-When-Then：`docs/99-archive/02-product/02-04-user-stories.md`。
 - ADR-001 已更新为 Accepted，Go 技术选型已确认。
 - 非功能需求：采用常规二进制优化即可，已记录；**现状**：数值指标见 `reference/REF-04` 与 `test/perf` 门禁。`[FACT]`
 - `| type` 规则已确认：如果提供必须为 pipeline 第一个操作符，可以缺省。
@@ -187,7 +187,7 @@ last-updated: 2026-09-29
     - `docs/03-design/03-08-cli-design.md`
 - `.env` 最终使用自研最小解析器。
 - 新增扩展与兼容架构文档：
-    - `docs/03-design/03-09-extension-and-compat-architecture.md`
+    - `docs/99-archive/03-design/03-09-extension-and-compat-architecture.md`
 - P2 兼容模式将通过 Engine 接口 + Registry 接入，当前只注册 `extended`。
 - 任务拆分新增 `TASK-027`：定义 Engine 接口与 extended 注册。
 - 仍需验证 `sonic` 在 Windows/macOS/arm64 上的**运行时**兼容性（构建已覆盖，见 `04-04` §7）。`[TODO]` owner：技术负责人；触发条件：实机/CI runner。

@@ -20,7 +20,7 @@ Accepted（已确认），来源：需求提出者确认采用该方案，2026-0
 - 需求要求 schema 支持类型、默认值、枚举、范围、数组、对象与复用。`[FACT]`（来源：需求提出者确认）
 - 自研 schema 语法会带来解析、校验、文档、IDE 支持与生态迁移成本。`[INFERENCE]`
 - JSON Schema Draft 2020-12 已是成熟标准，Go 有成熟实现。`[FACT]`（来源：
-  `docs/reference/REF-03-json-schema-reuse-research.md`）
+  `docs/99-archive/reference/REF-03-json-schema-reuse-research.md`）
 - 需求提出者要求优先复用，而不是自己定义一套 schema。`[FACT]`（来源：需求提出者确认）
 
 ## 4. 决策
@@ -64,9 +64,9 @@ Accepted（已确认），来源：需求提出者确认采用该方案，2026-0
 
 ## 7. 相关文档
 
-- `docs/reference/REF-03-json-schema-reuse-research.md`
+- `docs/99-archive/reference/REF-03-json-schema-reuse-research.md`
 - `docs/03-design/03-00-index.md`
-- `docs/01-context/01-00-index.md`
+- `docs/99-archive/01-context/01-00-index.md`
 
 ## 非目标（Non-Goals）
 

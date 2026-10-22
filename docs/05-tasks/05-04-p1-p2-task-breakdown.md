@@ -226,7 +226,7 @@ last-updated: 2026-10-12
 ## 5.5 W5：插件化（**仅记录，暂不执行**）
 
 > 需求登记：`02-05` 的 `REQ-SRC-14`、`REQ-SRC-15`、`REQ-TPL-10`、`REQ-CLI-09`；
-> 协议与功能边界见 [`03-10`](../03-design/03-10-external-plugin-protocol.md)，形态取舍见 ADR-007。
+> 协议与功能边界见 [`03-10`](../99-archive/03-design/03-10-external-plugin-protocol.md)，形态取舍见 ADR-007。
 > **本阶段只做 TASK-207（L0 重构），其余仅登记；W5 不计入上文 §1 的 P1/P2 统计。** `[FACT]`
 
 | 任务 | 层 | 目标 | 开工前必须先定 | 状态 |

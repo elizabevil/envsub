@@ -31,7 +31,7 @@ last-updated: 2026-09-29
 
 - 当应用部署到多环境时，我希望从多层 values 渲染配置，避免复制多份配置文件。`[INFERENCE]`
 - 当配置里包含密钥时，我希望从文件/stdin/环境变量注入，而不是硬编码进 Git。`[FACT]`（来源：
-  `docs/00-raw/00-02-user-supplements-and-compatibility.md` 第 10 节多个 issue）
+  `docs/99-archive/00-raw/00-02-user-supplements-and-compatibility.md` 第 10 节多个 issue）
 - 当模板同时包含 NGINX/K8s 的 `$http_host` 等内置变量时，我希望只替换我指定的变量，避免配置损坏。`[FACT]`
   （来源：docker-library/docs #496、StackOverflow Q39968344）
 - 当值包含数组、数字、布尔时，我希望在渲染前校验类型，避免把错误配置带到运行时。`[INFERENCE]`（依据：需求提出者“数组表示/类型校验”与
@@ -46,11 +46,11 @@ last-updated: 2026-09-29
   Search API，2026-09-29）
 - 需求集中在：密钥注入、默认值、递归 `.env`、类型/约束、容器内零依赖、避免使用被放弃的项目。`[INFERENCE]`（依据：第 10 节市场信号）
 - 简单替换工具已有多个替代品，仅做“更快/更小 envsubst”很难形成足够差异化。`[INFERENCE]`（依据：
-  `docs/reference/REF-01-competitive-landscape.md`）
+  `docs/99-archive/reference/REF-01-competitive-landscape.md`）
 - 类型化配置和 schema 校验已有 CUE/Nickel/ytt/Helm values schema 等方案，但多偏语言/特定生态。`[FACT]`
   （来源：CUE、Nickel、ytt、Helm 官方文档与社区 issue）
 - 市场上缺少“envsubst 兼容 + typed schema + 多文件分层 + 单静态二进制 + 批量/CI”这一组合。`[INFERENCE]`（依据：
-  `docs/reference/REF-01-competitive-landscape.md`）
+  `docs/99-archive/reference/REF-01-competitive-landscape.md`）
 
 ## 5. 差异化价值主张
 
