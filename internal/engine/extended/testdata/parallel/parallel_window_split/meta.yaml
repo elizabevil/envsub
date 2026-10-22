@@ -1,0 +1,4 @@
+# The template is repeated 40000 times, so it spans about 1.6 MB: more than
+# four 256 KiB windows, which is what the parallel render path needs. The
+# repeated template is what makes the fixture small on disk.
+repeat: 40000

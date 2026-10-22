@@ -11,6 +11,7 @@ import (
 
 	"github.com/elizabevil/envsub/internal/engine"
 	"github.com/elizabevil/envsub/internal/values"
+	"github.com/elizabevil/envsub/internal/yamlx"
 )
 
 // TestParallelOutputMatchesSequential pins the parallel renderer to the
@@ -60,6 +61,68 @@ func TestParallelOutputMatchesSequential(t *testing.T) {
 	}
 	if !bytes.Equal(got.Bytes(), want) {
 		t.Fatalf("StreamTo() = %d bytes, want %d bytes; outputs differ", got.Len(), len(want))
+	}
+}
+
+// TestParallelFixtureSpansEnoughWindows pins that the parallel fixture really
+// reaches the parallel render path.
+//
+// Without this check an edit that shrinks the fixture would turn it into
+// another sequential case, and the matrix would quietly stop covering the
+// parallel path.
+func TestParallelFixtureSpansEnoughWindows(t *testing.T) {
+	t.Parallel()
+	dir := filepath.Join("testdata", "parallel", "parallel_window_split")
+
+	template, err := os.ReadFile(filepath.Join(dir, "input.tmpl"))
+	if err != nil {
+		t.Fatalf("read input.tmpl: %v", err)
+	}
+	meta, err := os.ReadFile(filepath.Join(dir, "meta.yaml"))
+	if err != nil {
+		t.Fatalf("read meta.yaml: %v", err)
+	}
+	var options struct {
+		Repeat int `yaml:"repeat"`
+	}
+	if err := yamlx.Unmarshal(meta, &options); err != nil {
+		t.Fatalf("unmarshal meta.yaml: %v", err)
+	}
+	if options.Repeat < 1 {
+		t.Fatalf("meta.yaml repeat = %d, want at least 1", options.Repeat)
+	}
+
+	source := strings.Repeat(string(template), options.Repeat)
+	tree := values.NewTree()
+	valuesData, err := os.ReadFile(filepath.Join(dir, "values.yaml"))
+	if err != nil {
+		t.Fatalf("read values.yaml: %v", err)
+	}
+	if err := yamlx.Unmarshal(valuesData, &tree.Root); err != nil {
+		t.Fatalf("unmarshal values.yaml: %v", err)
+	}
+
+	path := filepath.Join(t.TempDir(), "input.tmpl")
+	if err := os.WriteFile(path, []byte(source), 0o600); err != nil {
+		t.Fatalf("write template: %v", err)
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		t.Fatalf("open template: %v", err)
+	}
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			t.Errorf("close template: %v", closeErr)
+		}
+	}()
+
+	chunks, err := New().measureWindows(context.Background(), file, parallelChunkSize, tree)
+	if err != nil {
+		t.Fatalf("measureWindows() error = %v", err)
+	}
+	if chunks < parallelMinChunks {
+		t.Fatalf("the parallel fixture spans %d windows, want at least %d: the parallel render path needs a template of several windows",
+			chunks, parallelMinChunks)
 	}
 }
 
