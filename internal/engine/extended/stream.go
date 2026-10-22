@@ -117,21 +117,29 @@ func (e *Engine) streamSequential(ctx context.Context, w io.Writer, src io.Reade
 // and startLine tracks the 1-based line number of each window's first byte.
 //
 // The buffer is shifted in place rather than reallocated, so a multi-gigabyte
-// template never occupies more than one window plus one partial line.
+// template never occupies more than one window plus one partial line. A line
+// longer than a window is the one exception: it is carried until its ending
+// shows up, bounded by streamMaxCarry.
 func streamWindow(ctx context.Context, src io.Reader, windowSize int, handle func(window []byte, startLine int) error, line *int) error {
 	buffer := make([]byte, 0, windowSize+streamReadSize)
 	// One reusable read buffer: a chunk is copied into buffer immediately, so it
 	// never needs to survive the next Read.
 	chunk := make([]byte, streamReadSize)
 	eof := false
+	// carry reports that the buffer holds no line ending yet. Such a buffer
+	// has to keep growing: the ending may be beyond the window size, and
+	// stopping the read there would never find it.
+	carry := false
 
 	for {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
 
-		// Fill the buffer until it holds a full window or the source ends.
-		for !eof && len(buffer) < windowSize {
+		// Fill the buffer until it holds a full window or the source ends. A
+		// carried buffer keeps growing past the window size, so the line
+		// ending it waits for can still be found.
+		for !eof && (len(buffer) < windowSize || carry) {
 			n, readErr := src.Read(chunk)
 			if n > 0 {
 				buffer = append(buffer, chunk[:n]...)
@@ -143,6 +151,13 @@ func streamWindow(ctx context.Context, src io.Reader, windowSize int, handle fun
 			default:
 				return diag.Wrapf(diag.KindIO, "read template: %w", readErr)
 			}
+			// The buffer holds the unterminated line, so its length is that
+			// line's length so far. Past the limit the line is refused rather
+			// than held in memory.
+			if carry && len(buffer) > streamMaxCarry {
+				return diag.New(diag.KindTemplate,
+					"template contains a single line longer than %d bytes", streamMaxCarry)
+			}
 		}
 
 		// Decide how much of the buffer is complete. While more input may
@@ -152,12 +167,11 @@ func streamWindow(ctx context.Context, src io.Reader, windowSize int, handle fun
 		if !eof {
 			cut := bytes.LastIndexByte(buffer, '\n')
 			if cut < 0 {
-				if len(buffer) >= streamMaxCarry {
-					return diag.New(diag.KindTemplate,
-						"template contains a single line longer than %d bytes", streamMaxCarry)
-				}
+				// No line ending in the buffer: carry it and read on.
+				carry = true
 				continue
 			}
+			carry = false
 			processable = cut + 1
 		}
 
