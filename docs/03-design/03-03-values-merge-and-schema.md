@@ -13,7 +13,7 @@ last-updated: 2026-09-29
 
 - 环境变量、`.env` 文件的原始值均为 string。`[INFERENCE]`
 - YAML/JSON values 文件保留原生类型。`[INFERENCE]`
-- CLI `--set` 默认按 schema 做类型解析；`--set-string` 强制字符串；`--set-json` 传入 JSON 原生值。`[INFERENCE]`
+- CLI `--set` 默认按 schema 做类型解析；`--set-json` 传入 JSON 原生值；`--set-file` 从文件读入字符串。`--set-string` 已删除，强制字符串用 `--set-json KEY='"value"'`。`[FACT]`
 - 类型解析规则建议：
     - `string`：原样。
     - `int`：仅接受可选符号加数字字符，拒绝空白和浮点。`[ASSUMPTION]` 验证：确认是否允许 `" 1 "`；owner：技术负责人。
@@ -58,7 +58,7 @@ last-updated: 2026-09-29
 ### 3.6 Schema 与类型校验
 
 > 复用决策见 `docs/04-decisions/04-03-adr-003-json-schema-reuse.md`；可行性调研见
-> `docs/reference/REF-03-json-schema-reuse-research.md`。
+> `docs/99-archive/reference/REF-03-json-schema-reuse-research.md`。
 
 已确认方案：
 
@@ -76,7 +76,7 @@ last-updated: 2026-09-29
     - `null` -> `null`
     - `string` -> `string`
 - `default` 在 JSON Schema 中只是注解，由薄适配层在合并 values 后、校验前主动应用。`[FACT]`（来源：
-  `docs/reference/REF-03-json-schema-reuse-research.md`）
+  `docs/99-archive/reference/REF-03-json-schema-reuse-research.md`）
 - 未知非 `x-*` 关键字默认 **不报错**，以便 schema 复用到其它系统；可选 `--unknown-keywords=warn|error` 提高严格度。`[FACT]`
   （来源：需求提出者确认）
 - `x-sensitive` 等 `x-*` 扩展由薄适配层读取，不修改标准 JSON Schema 语义。`[INFERENCE]`

@@ -30,10 +30,8 @@ envsub
 
 | 参数               | 默认  | 说明                      |
 |--------------------|-------|---------------------------|
-| `--log-level=error | warn  | info                      |debug` | `warn` | 日志级别 |
-| `--no-color`       | false | 禁用彩色输出              |
+| `--log-level=debug\|info\|warn\|error` | `warn` | 日志级别 |
 | `--error-format=text\|json` | `text` | 错误输出的格式；`json` 时 stderr 为单个 JSON 对象（`kind`/`exitCode`/`message`） |
-| `--config FILE`    | -     | 工具自身配置；P1 预留     |
 
 ## 4. render 参数
 
@@ -91,7 +89,7 @@ envsub
 
 - stdout：只输出渲染结果。
 - stderr：日志、警告、错误。
-- `--json-errors` 时 stderr 输出结构化 JSON 错误。
+- `--error-format=json` 时 stderr 输出结构化 JSON 错误。
 - 默认不打印 bundle/进度信息。
 
 ## 7. 使用示例
@@ -99,7 +97,7 @@ envsub
 ```bash
 envsub render -f base.yaml -f prod.yaml --schema schema.yaml -o config.yaml template.tmpl
 
-envsub render --env-file .env --set app.port=8080 --validate-only
+envsub render --dotenv-file .env --set app.port=8080 --validate-only
 
 envsub render --in-place --on-missing=error config.tmpl
 
@@ -108,7 +106,7 @@ envsub completion bash > /etc/bash_completion.d/envsub
 
 ## 8. P1/P2 预留
 
-- P1：`--dry-run`、`--diff`、`--check`、include/条件/循环相关参数。
+- P1：`--diff`、include/条件/循环相关参数。（`--dry-run` 已删除，`--check` 已实现）
 - P2：`--compat=gnu|a8m|drone`、`migrate`、`convert`。
 - 所有新命令通过 engine/source/schema/writer 接口接入，不修改现有 CLI 主流程。`[INFERENCE]`
 

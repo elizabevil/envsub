@@ -19,11 +19,11 @@ last-updated: 2026-10-12
 
 | 来源 | 覆盖内容 | 备注 |
 |------|----------|------|
-| `00-raw/00-0[1-4]` | 线上痛点、需求提出者补充、语法/类型约束、优先级与 schema | 原始输入 |
-| `02-product/02-01-feature-map.md` | 场景矩阵与功能全景（3.1–3.9） | 候选地图 |
-| `02-product/02-03-prd.md`、`02-04-user-stories.md` | 验收口径与用户故事 | 验收来源 |
+| `99-archive/00-raw/00-0[1-4]` | 线上痛点、需求提出者补充、语法/类型约束、优先级与 schema | 原始输入（已归档） |
+| `99-archive/02-product/02-01-feature-map.md` | 场景矩阵与功能全景（3.1–3.9） | 候选地图（已归档） |
+| `99-archive/02-product/02-03-prd.md`、`02-04-user-stories.md` | 验收口径与用户故事 | 验收来源（已归档） |
 | `04-decisions/ADR-001..004` | 语言/渲染模型、兼容分期、schema 复用、依赖选型 | 决策约束 |
-| `reference/REF-01..04` | 竞品能力差、兼容基线、schema 复用调研、性能基线 | **外部需求来源** |
+| `reference/REF-02`、`REF-04`；`99-archive/reference/REF-01`、`REF-03` | 兼容基线、性能基线、竞品能力差、schema 复用调研 | **外部需求来源** |
 | `05-tasks/05-03-pending-work.md` | 已登记待办与待决项 | 执行侧 |
 | `07-serialization/99-non-goals.md`、`01-05-conflicts-and-non-goals.md` | 明确不做的事 | 排除依据 |
 | 同类工具（gomplate / consul-template / Helm / Kustomize / ytt / confd 等） | 对照补缺 | 见 `REF-01` §4/§5 |

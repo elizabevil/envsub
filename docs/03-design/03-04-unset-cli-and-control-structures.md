@@ -47,7 +47,8 @@ last-updated: 2026-10-08
 优先级与处理顺序建议：
 
 > 注：以下是**处理阶段**顺序，不是值来源优先级。值来源优先级见 `07-serialization/04-cli.md` §6.2：
-> `--set`/`--set-json` > YAML/JSON 值文件 > `.env` > 进程环境 > schema `default`（兜底）。`[FACT]`
+> `--set`/`--set-json`/`--set-file` > `.env` 文件 > YAML/JSON 值文件 > schema `default`（兜底）。`[FACT]`
+> 进程环境不在层序里：它只经 `${@process.NAME}` 显式读取，不参与层序。`[FACT]`
 > （来源：需求提出者确认，2026-10-10）
 
 1. 模板显式操作符：`${path:-default}`、`${path-default}`。
@@ -76,17 +77,17 @@ tool render [flags] [template...]
       --set KEY=VALUE        按 schema 解析
       --set-string KEY=VALUE 已删除；强制字符串改用 --set-json KEY='"value"'
       --set-json KEY=JSON    原生 JSON
-      --set-file KEY=FILE    从文件读取字符串（设计草案，未实现；P1）
+      --set-file KEY=FILE    从文件读取字符串（已实现）
 
 渲染:
       --output FILE
   -i, --in-place             安全原地写回
       --output-dir DIR       多文件输出目录
       --recursive            递归模板
-      --dry-run
-      --diff
-      --check
+      --check                 检测目标是否过期（已实现，退出码 7）
       --validate-only
+      --strip-suffix EXT      批量输出名去掉后缀（已实现）
+      --report=unused         列出未被引用的值（已实现）
 
 策略:
       --on-missing=error|empty|keep|zero
@@ -94,7 +95,10 @@ tool render [flags] [template...]
       --unknown-keywords=ignore|warn|error
       --only-vars VAR...
       --ignore-vars VAR...
-      --json-errors
+
+全局:
+      --log-level=debug|info|warn|error
+      --error-format=text|json
 ```
 
 说明：

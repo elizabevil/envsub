@@ -14,7 +14,7 @@ last-updated: 2026-10-10
 建议采用两个顶层命名空间：
 
 - **`@process`**：只读的**进程**环境变量，类型均为 string，只能经 `${@process.NAME}` 读取
-  。`[FACT]`（来源：[`06-15`](../06-review/06-15-namespace-and-layering.md) §2）
+  。`[FACT]`（来源：[`06-15`](../99-archive/06-review/06-15-namespace-and-layering.md) §2）
 - 根命名空间：由 `.env`（`--dotenv-file`）、结构化 values 文件、CLI `--set*` 合并后的值树。`[FACT]`
 
 路径规则：

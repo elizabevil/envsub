@@ -1,8 +1,8 @@
 ---
-status: draft-ai
-owner: [ 待指定 ]
-version: 0.9
-last-updated: 2026-10-09
+status: active
+owner: 技术负责人
+version: 0.12
+last-updated: 2026-10-22
 ---
 
 # 序列化规则（规范性）
@@ -36,7 +36,7 @@ _列：项 | 内容。_
 | 项 | 内容 |
 |----|------|
 | 范围 | 值树 ↔ JSON/YAML 文本；值来源解码与物化；模板操作符；formatter 管道；`\| type`；schema 关键字/默认值/校验；CLI 行为；输出形态；后端等价 |
-| 非范围 | 模板语法词法（见 [03-02 值模型与模板语法](03-02-value-model-and-template-syntax.md)）、CLI flag 定义（见 [03-08 CLI 设计](03-08-cli-design.md)） |
+| 非范围 | 模板语法词法（见 [03-02 值模型与模板语法](../03-design/03-02-value-model-and-template-syntax.md)）、CLI flag 定义（见 [03-08 CLI 设计](../03-design/03-08-cli-design.md)） |
 | 相关实现 | `internal/values`、`internal/types`、`internal/codec`、`internal/jsonx`、`internal/yamlx`、`internal/schema`、`internal/pipeline`、`internal/engine/extended`、`internal/render`、`internal/cli` |
 | 相关测试 | `test/encoding/`（规则一致性）、`test/jsonx/`、`test/yamlx/`（后端/编码器对照）、`internal/*_test.go`、`internal/engine/extended/testdata/`、`test/e2e/` |
 
@@ -63,10 +63,11 @@ _列：版本 | 日期 | 变更 | 影响章节。_
 | 0.5 | 2026-10-09 | 按章节拆分为多篇（docs/07-serialization/） | 00-index |
 | 0.6 | 2026-10-09 | 删除 `--set-string`，统一到 `--set`（flag、`Options.SetStrings`、`values.SetTyped` 全部移除）；G17 随之消除；优先级表去掉该档 | §6.1、§13.1、§14 |
 | 0.7 | 2026-10-09 | 落地 F7/F8/Q7/T6/OV8/TY3/TY6（NaN/±Inf 三路径拒绝、float 范围校验、删除 null 字符串隐式转换）；G9 非法 JSON 统一为 KindType exit 4；FB3 整数精度余项（v0.8 补齐） | §3、§6、§8、§13、§14 |
-| 0.9 | 2026-10-09 | 记录 Go 1.27 中 `encoding/json`(v1) 与 v2 的关系：v1 = v1 语义 + v2 引擎，默认值仍不同（重复键/非法 UTF-8/键序/越界文案）；纯文法校验统一用 `jsontext`（§12.3） | §10、§12 |
 | 0.8 | 2026-10-09 | 步骤 9 落地：新增 `codec.LiteralNumber`，未声明数字字面量保留原文（F3/F6/Q6/FB2）；步骤 8 落地：`test/encoding/types_test.go` 类型矩阵 | §3、§7、§13、§14 |
+| 0.9 | 2026-10-09 | 记录 Go 1.27 中 `encoding/json`(v1) 与 v2 的关系：v1 = v1 语义 + v2 引擎，默认值仍不同（重复键/非法 UTF-8/键序/越界文案）；纯文法校验统一用 `jsontext`（§12.3） | §10、§12 |
 | 0.10 | 2026-10-10 | CLI 契约修订：值来源优先级定稿（`--set`/`--set-json` > 值文件 > `.env` > 进程环境 > `default` 兜底，G21）；`--values` → **`-f, --values-file`**、`--env-prefix` → **`--process-env-prefix`**（旧名移除、不保留别名）；`--env-file` 强制 dotenv（忽略文件名）；`--explain` 改为固定 JSONL 并支持 `--explain[=PATH]` | §6.1、§6.2、§13.1、§14、§15 |
-| 0.11 | 2026-10-10 | **命名空间与分层重构（方案 C，定案）**：`@` 成为唯一命名空间记号（`${@process.NAME}`，只允许首字节）；`.env` 写入**根**且 **`.env` > `-f`**，层序改为 `--set`/`--set-json` > `--dotenv-file` > `-f/--values-file` > schema `default`；**进程环境退出层序**；**取消 `${NAME}` → 环境的分层便利**；顶层特殊键 `${["a.b"].k}` 可达；`--env-file` → **`--dotenv-file`**（不留别名）。方案与实测见 `06-review/06-15` | §6.1、§6.2、§13、§14、§15 |
+| 0.11 | 2026-10-10 | **命名空间与分层重构（方案 C，定案）**：`@` 成为唯一命名空间记号（`${@process.NAME}`，只允许首字节）；`.env` 写入**根**且 **`.env` > `-f`**，层序改为 `--set`/`--set-json` > `--dotenv-file` > `-f/--values-file` > schema `default`；**进程环境退出层序**；**取消 `${NAME}` → 环境的分层便利**；顶层特殊键 `${["a.b"].k}` 可达；`--env-file` → **`--dotenv-file`**（不留别名）。方案与实测见 `../99-archive/06-review/06-15` | §6.1、§6.2、§13、§14、§15 |
+| 0.12 | 2026-10-22 | 层序与旗标名与代码对齐（`--dotenv-file`、C5 规则行）；修正指向已归档文档的引用 | §6.2、§13 |
 
 ## 2. 术语、规则用语与规则索引
 
@@ -202,7 +203,7 @@ _列：ID | 一句话规则 | 状态 | 验收测试。索引只做导航，规�
 | C2 | ~~`--set-string`~~ | **已删除（v0.6）**；`--set` 存字符串，类型由 schema 或 `\| type` 决定 | §6.1 |
 | C3 | `--set-json` JSON 字面量 → 精确类型树（命名理由见 §6.1，v0.6 复核保留） | ✅ | e2e/set_json_big_int |
 | C4 | 同一来源内后赋值覆盖前赋值；set 组按固定顺序覆盖 | ✅ | 实测 |
-| C5 | 值来源优先级表（`--set`/`--set-json` > YAML/JSON 值文件 > `.env` > 进程环境 > schema `default`；`default` 为兜底） | ✅ | §6.2 |
+| C5 | 值来源优先级表（`--set`/`--set-json`/`--set-file` > `--dotenv-file` > `-f/--values-file` > schema `default`；进程环境不参与层序） | ✅ | §6.2 |
 | C6 | schema 与 inline `\| type` 交互：先 schema 物化、再兼容检查、再断言 | ✅ | engine.go:325-362 |
 | C7 | `type` 必须是首个管道步骤，先于 formatter | ✅ | expression.go:89-91 |
 | C8 | `--on-missing=error\|empty\|keep\|zero` 行为 | ✅ | §6.4 |

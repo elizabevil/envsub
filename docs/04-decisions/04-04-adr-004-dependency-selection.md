@@ -108,7 +108,7 @@ native kernel 与 cpuid/x-arch。编译期开关实测无法替代依赖裁剪�
 - 被拒绝的备选：单遍 `jsontext` token 遍历（自建树）。它更快——同一负载 3.55 ms vs 12.04 ms
   （3.4×）——但属于"自行封装一层解析逻辑"，与"优先使用标准库 API"的规则冲突，故**不作生产
   实现**；该实现保留在 `test/jsonx/walker_test.go`，与生产实现做功能等价与性能对照，
-  数据与复现命令见 [06-06 JSON 数字精度核查](../06-review/06-06-json-number-precision.md)。`[FACT]`
+  数据与复现命令见 [06-06 JSON 数字精度核查](../99-archive/06-review/06-06-json-number-precision.md)。`[FACT]`
 
 ### 8.4 实测（2026-10-08，本机）
 
@@ -124,7 +124,7 @@ native kernel 与 cpuid/x-arch。编译期开关实测无法替代依赖裁剪�
 两个后端的 18 个测试包（含 160 fixture、18 E2E、REF-04 性能门禁、`test/jsonx` 对照）均通过。`[FACT]`
 
 体积的按包归因与可选优化（含与外部对照物 a8m/envsubst 的同口径比较）见
-[06-07 二进制体积归因与优化选项](../06-review/06-07-binary-size-attribution.md)；
+[06-07 二进制体积归因与优化选项](../99-archive/06-review/06-07-binary-size-attribution.md)；
 复现命令 `just size-deps`。`[FACT]`
 
 ### 8.5 两后端的行为差异

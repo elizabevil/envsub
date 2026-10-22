@@ -11,21 +11,25 @@ last-updated: 2026-10-08
 
 ## 子文档
 
-- [03-01 背景、目标与非目标](03-01-overview-and-goals.md)
 - [03-02 值模型与模板语法](03-02-value-model-and-template-syntax.md)
 - [03-03 值来源、多文件与 Schema](03-03-values-merge-and-schema.md)
 - [03-04 Unset、CLI 与控制结构](03-04-unset-cli-and-control-structures.md)
-- [03-05 API、数据、替代方案与权衡](03-05-api-data-tradeoffs.md)
-- [03-06 开放问题与评审清单](03-06-open-questions-and-review.md)
 - [03-07 代码与仓库目录结构](03-07-code-and-repo-structure.md)
 - [03-08 CLI 设计](03-08-cli-design.md)
-- [03-09 扩展与兼容架构](03-09-extension-and-compat-architecture.md)
 - [03-10 Go 代码开发规范](03-10-go-code-standards.md)
 - [序列化规则（多篇，见 docs/07-serialization/00-index.md）](../07-serialization/00-index.md)
 
+已归档（被后续设计与实际代码取代，仅供追溯）：
+
+- [03-01 背景、目标与非目标](../99-archive/03-design/03-01-overview-and-goals.md)
+- [03-05 API、数据、替代方案与权衡](../99-archive/03-design/03-05-api-data-tradeoffs.md)
+- [03-06 开放问题与评审清单](../99-archive/03-design/03-06-open-questions-and-review.md)
+- [03-09 扩展与兼容架构](../99-archive/03-design/03-09-extension-and-compat-architecture.md)
+- [03-10 外部插件协议](../99-archive/03-design/03-10-external-plugin-protocol.md)
+
 ## 已确认的核心决策
 
-- 技术选型：v0/v1 继续使用 Go，`go.mod` 使用 Go 1.27.1。`[FACT]`
+- 技术选型：v0/v1 继续使用 Go，`go.mod` 使用 Go 1.27.3。`[FACT]`
 - 代码规范：严格遵循 Google Go Style Guide。`[FACT]`
 - 依赖选型：JSON `encoding/json/v2`（`-tags=sonic` 可切 sonic）、YAML `go.yaml.in/yaml/v3`、JSON Schema `santhosh v6`。`[FACT]`（2026-10-08 更新）
 - 发布：GitHub Actions + `justfile` 快捷编译。`[FACT]`

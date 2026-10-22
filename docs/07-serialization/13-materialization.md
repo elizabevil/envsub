@@ -172,7 +172,7 @@ HOSTS='["x","y"]'
 # input.tmpl
 ${PORT | toJson} ${DEBUG | toJson} ${HOSTS | toJson}
 
-envsub render --env-file .env --schema schema.yaml input.tmpl
+envsub render --dotenv-file .env --schema schema.yaml input.tmpl
 # 8080 true ["x","y"]
 ```
 
@@ -206,7 +206,7 @@ properties:
 # ① 字符串来源：按非 null 成员物化
 # .env
 TIMEOUT=30
-envsub render --env-file .env --schema schema.yaml input.tmpl   # 30
+envsub render --dotenv-file .env --schema schema.yaml input.tmpl   # 30
 
 # ② null 只能来自 JSON/YAML
 envsub render --set-json TIMEOUT=null --schema schema.yaml input.tmpl   # null
@@ -241,7 +241,7 @@ properties:
 # .env
 PORT=eighty
 
-envsub render --env-file .env --schema schema.yaml input.tmpl
+envsub render --dotenv-file .env --schema schema.yaml input.tmpl
 # stderr 形如：PORT at <来源> (eighty): expected an integer, got "eighty"
 # 退出码：4（type）
 ```
@@ -373,7 +373,7 @@ ${app.hosts | join ","}      # a,b
 
 ## 15. `--explain` 规格（已实现）
 
-**目标**：让"这个值到底从哪来"可判定，尤其是 `.env` 与进程环境同名、或多个 `--env-file` 叠加时。
+**目标**：让"这个值到底从哪来"可判定，尤其是 `.env` 与进程环境同名、或多个 `--dotenv-file` 叠加时。
 
 ### 选项与输出通道
 

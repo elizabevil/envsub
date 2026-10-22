@@ -15,7 +15,7 @@ ADR-007：外部扩展走**独立进程 + YAML 清单 + NDJSON 帧**；插件只
 
 **Proposed**，2026-10-14。**本 ADR 只记录方向，不实现**：本阶段先做的是 L0 仓内接口统一重构
 （`05-04` TASK-207），插件（L1–L3）分别对应 TASK-208/209/210，需另行授权。
-协议草案与功能边界见 [`03-10`](../03-design/03-10-external-plugin-protocol.md)。
+协议草案与功能边界见 [`03-10`](../99-archive/03-design/03-10-external-plugin-protocol.md)。
 
 ## 3. 背景
 

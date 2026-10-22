@@ -45,14 +45,11 @@ last-updated: 2026-09-29
 │   ├── output/                  # stdout/file/in-place/批量写回
 │   ├── diag/                    # 错误码、错误报告、脱敏
 │   └── version/                 # 版本与 build info
-├── pkg/
-│   └── envsub/                  # 可选的公共库 API；一期可暂不暴露
 ├── test/
 │   ├── justfile                 # test/ 目录统一测试入口（非数据）
 │   ├── e2e/
 │   │   ├── e2e_test.go          # E2E Go 测试（非数据）
 │   │   └── testdata/            # E2E 数据（纯数据）
-│   └── conformance/             # P2 兼容性一致性测试（预留）
 ├── examples/                    # 可运行示例模板、values、schema
 ├── deploy/
 │   ├── docker/                  # Dockerfile、scratch/distroless 示例
@@ -95,13 +92,13 @@ last-updated: 2026-09-29
   schema 默认值与模板赋值都把它记在值树上，`--explain` 的帧由它派生（`metaOrigin`），
   不再各自手工拼字段。**层序**（同一路径被多层覆盖时谁先谁后）仍由 `load` 在装载过程中按序报告：
   值树只保留**当前赢家**的 meta，不存谱系，这是当前的固有限制。`[FACT]`
-- `internal/output`：安全 in-place、批量输出、dry-run/diff/check（P1 预留）。`[INFERENCE]`
+- `internal/output`：安全 in-place、批量输出、`--check` 过期检测（已实现）、`--diff`（P1 预留）。`[FACT]`
 - `internal/diag`：错误码、错误上下文、敏感字段脱敏。`[INFERENCE]`
-- `pkg/envsub`：如果后续需要库 API，再暴露稳定接口；一期 CLI 优先。`[ASSUMPTION]`
+- 一期不提供公共库 API；如果后续需要，再暴露稳定接口；一期 CLI 优先。`[ASSUMPTION]`
 
 ## 5. 依赖选型对接
 
-- JSON：`github.com/bytedance/sonic`。`[FACT]`（来源：需求提出者确认，2026-09-29）
+- JSON：标准库 `encoding/json/v2`（默认），`-tags=sonic` 切 `github.com/bytedance/sonic`。`[FACT]`（2026-10-08 更新，见 ADR-004 第 8 节）
 - YAML：`go.yaml.in/yaml/v3`（解码与编码同一库；2026-10-08 起，见 ADR-004 第 10 节）。`[FACT]`
 - JSON Schema：`github.com/santhosh-tekuri/jsonschema/v6`。`[FACT]`
 - CLI：`github.com/spf13/cobra`。`[FACT]`
@@ -129,5 +126,5 @@ last-updated: 2026-09-29
 ## 7. 非目标（Non-Goals）
 
 - 本结构不承诺未来所有包名保持稳定；P1/P2 可以新增包。`[ASSUMPTION]`
-- 一期不公开 `pkg/` 稳定 API 承诺。`[ASSUMPTION]`
+- 一期不承诺任何公共库 API。`[ASSUMPTION]`
 - `deploy/` 不承担 K8s/Helm 编排替代职责。`[FACT]`
