@@ -25,15 +25,23 @@ test-examples:
 # Parser fuzz targets: seeds run as ordinary tests on every `just check`; this
 # recipe additionally fuzzes each target, which is what catches new panics.
 # The corpus lives in .tmp/ so a finding does not pollute the tracked tree.
+#
+# FuzzParseExpression lives in internal/engine/extended because parseExpression
+# is unexported; the other targets reach their parsers through exported APIs.
 test-fuzz:
     go test -count=1 ./fuzz
     go test -run '^$' -fuzz '^FuzzTemplateScanner$' -fuzztime=30s ./fuzz
     go test -run '^$' -fuzz '^FuzzTemplateSpans$' -fuzztime=30s ./fuzz
     go test -run '^$' -fuzz '^FuzzPathParser$' -fuzztime=30s ./fuzz
     go test -run '^$' -fuzz '^FuzzDotenvParser$' -fuzztime=30s ./fuzz
+    go test -run '^$' -fuzz '^FuzzExpressionPaths$' -fuzztime=30s ./fuzz
+    go test -run '^$' -fuzz '^FuzzNumberText$' -fuzztime=30s ./fuzz
+    go test -run '^$' -fuzz '^FuzzParseExpression$' -fuzztime=30s ../internal/engine/extended
+    go test -run '^$' -fuzz '^FuzzStreamWindow$' -fuzztime=30s ../internal/engine/extended
 
 fuzz-list:
     @go test -list 'Fuzz.*' ./fuzz
+    @go test -list 'Fuzz.*' ../internal/engine/extended
 
 e2e-list:
     @find e2e/testdata -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort

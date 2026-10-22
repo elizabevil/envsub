@@ -117,6 +117,13 @@ test-race: caches
 test-e2e: caches
     cd test && just test-e2e
 
+# Fuzz the parsers (TASK-106): every target runs for 30s. The seeds already run
+# as ordinary tests in `just test`; this recipe is what actually fuzzes them.
+# It is not part of `check` because seven targets at 30s each would dominate the
+# gate; `just test-all` runs it.
+test-fuzz: caches
+    cd test && just test-fuzz
+
 # Every example recipe in sequence: renders each template against its golden,
 # walks the failure cases by exit code and compares the checked-in output tree.
 # The recipes live in examples/justfile so the guard and the human-facing demo
@@ -148,7 +155,7 @@ test-decode: caches
 test-perf: caches
     go test -count=1 -v ./test/perf
 
-test-all: test test-e2e test-perf test-examples
+test-all: test test-e2e test-perf test-examples test-fuzz
 
 test-fixtures: caches
     cd internal/engine/extended && just test-fixtures

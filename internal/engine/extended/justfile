@@ -12,6 +12,13 @@ test-fixtures:
 test-race:
     go test -race -count=1 .
 
+# FuzzParseExpression and FuzzStreamWindow live here because the functions they
+# cover are unexported; the other parser targets are in test/fuzz. The seeds run
+# with `just test`.
+test-fuzz:
+    go test -run '^$' -fuzz '^FuzzParseExpression$' -fuzztime=30s .
+    go test -run '^$' -fuzz '^FuzzStreamWindow$' -fuzztime=30s .
+
 fixtures-list:
     @find testdata -name input.tmpl -printf '%h\n' | sed 's#^testdata/##' | sort
 

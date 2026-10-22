@@ -34,6 +34,31 @@ jobs:
       - name: Test with the sonic JSON backend
         run: go test -tags=sonic -count=1 ./...
 
+  # TASK-106: fuzz every parser. The seeds run as ordinary tests in the `test`
+  # job; this job is what actually fuzzes each target, which is what catches a
+  # new panic. A failure writes the offending input to the package's testdata
+  # and fails the job.
+  fuzz:
+    runs-on: ubuntu-latest
+    env:
+      GOCACHE: ${{ github.workspace }}/.gocache
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '1.27.x'
+          check-latest: true
+      - name: Fuzz the scanner, the path grammar, the .env parser, the expression parser and the number ladder
+        run: |
+          go test -run '^$' -fuzz '^FuzzTemplateScanner$' -fuzztime=20s ./test/fuzz/
+          go test -run '^$' -fuzz '^FuzzTemplateSpans$' -fuzztime=20s ./test/fuzz/
+          go test -run '^$' -fuzz '^FuzzPathParser$' -fuzztime=20s ./test/fuzz/
+          go test -run '^$' -fuzz '^FuzzDotenvParser$' -fuzztime=20s ./test/fuzz/
+          go test -run '^$' -fuzz '^FuzzExpressionPaths$' -fuzztime=20s ./test/fuzz/
+          go test -run '^$' -fuzz '^FuzzNumberText$' -fuzztime=20s ./test/fuzz/
+          go test -run '^$' -fuzz '^FuzzParseExpression$' -fuzztime=20s ./internal/engine/extended/
+          go test -run '^$' -fuzz '^FuzzStreamWindow$' -fuzztime=20s ./internal/engine/extended/
+
   lint:
     runs-on: ubuntu-latest
     steps:
