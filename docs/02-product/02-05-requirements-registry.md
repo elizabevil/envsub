@@ -134,7 +134,7 @@ last-updated: 2026-10-12
 | REQ-SEC-02 | 敏感值脱敏（日志与诊断不泄露值） | P1 | ✅ 已实现 | ✅ | 脱敏修复（TASK-106）；`--explain` 只输出来源不输出值；测试 `internal/schema/redaction_test.go`；`x-sensitive` 标记见 REQ-TYP-07 |
 | REQ-SEC-03 | 临时文件权限安全（`0600`、原子替换） | P1 | ✅ 已实现 | ✅ | `internal/output` 原子替换 + 0600 权限守护（TASK-106；`internal/output/writer_test.go`）；mode 保真见 REQ-OUT-06 |
 | REQ-SEC-04 | 发布校验：checksums/SBOM/可复现构建 | P1 | 部分（checksums、sbom 脚本已存在） | ✅ | 补签名与可复现性验证 |
-| REQ-SEC-05 | 解析器/扫描器 fuzz | P1 | ✅ 已实现 | ✅ | 4 个 `func Fuzz` 目标（扫描器/表达式/`.env`/数值）于 `test/fuzz/`；`just test-fuzz` 覆盖 |
+| REQ-SEC-05 | 解析器/扫描器 fuzz | P1 | ✅ 已实现 | ✅ | 8 个 `func Fuzz` 目标（扫描器/流式 span/路径文法/表达式路径/数值/`.env`/窗口读取器）：6 个在 `test/fuzz/`，另外 2 个在 `internal/engine/extended/`（`parseExpression`、`streamWindow` 未导出）；`just test-fuzz` 与 CI job `fuzz` 覆盖 |
 | REQ-SEC-06 | 远程 secret 自动读取 | P3 | ❌ | ⛔ | 与 K1 冲突 |
 
 ### 3.7 分发与平台（REQ-DIS）

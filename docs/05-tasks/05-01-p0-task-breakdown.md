@@ -9,7 +9,7 @@ last-updated: 2026-10-08
 
 > 输入：`docs/02-product/02-03-prd.md`、`docs/02-product/02-04-user-stories.md`、`docs/03-design/`。  
 > 当前只实现 P0；P1/P2 保留为待办。  
-> 进度（2026-10-08 收尾）：P0 共 27 项，**26 项已完成**；仅 TASK-026（试用发布）未开始。
+> 进度（2026-10-22 更新）：P0 共 27 项，**27 项已完成**（TASK-026 试用发布已于 2026-10-21 之后完成）。
 > 详见"状态总览"。
 > 本轮另完成编解码层与体积优化（`internal/jsonx`、`internal/yamlx`、`test/jsonx` 对照），
 > 见"编解码层与体积优化"一节；供应链基础（govulncheck / checksums / SBOM）见"供应链基础"一节。
@@ -17,7 +17,7 @@ last-updated: 2026-10-08
 > `06-03-p0-implementation-round2.md`、`06-04-optimization-round3.md`（模板输入抽象与并行渲染修复）、
 > `06-05-code-review-round4.md`（6 条评审整改）、`06-06-json-number-precision.md`（JSON 数字精度与解码方案对照）。
 
-## 状态总览（2026-10-08）
+## 状态总览（2026-10-22 更新）
 
 | 任务 | 状态 | 证据 |
 |------|------|------|
@@ -42,14 +42,14 @@ last-updated: 2026-10-08
 | TASK-018 | 已完成 | `output` 原子替换单测（权限、取消、目录拒绝、无残留）+ E2E `in_place` |
 | TASK-019 | 已完成 | E2E `output_dir_batch`（`--recursive`、`expect.dir`）+ `render_features_test` |
 | TASK-020 | 已完成 | policies 16 fixture + E2E `unset_keep`/`unset_empty`/`empty_error`/`unset_zero_no_type` |
-| TASK-021 | 已完成 | 160 engine fixture + 18 E2E + 156 个测试函数（7 个基准）；`just check` 与 `go test -race ./...`（19 包）通过 |
-| TASK-022 | 已完成 | justfile 多架构配方 + release 6 目标矩阵（2026-10-21 补 windows/arm64）；交叉编译 linux/amd64 **4.92 MiB**、linux/arm64 4.63、darwin/arm64 4.72、windows/amd64 5.11（linux/amd64 与 linux/arm64 实测 `statically linked`） |
+| TASK-021 | 已完成 | engine fixture 165 + E2E 64 + 346 个测试函数（8 个 fuzz 目标、17 个基准，2026-10-22 复点）；`just check` 与 `go test -race ./...`（28 包）通过 |
+| TASK-022 | 已完成 | justfile 多架构配方 + release 6 目标矩阵（2026-10-21 补 windows/arm64）；交叉编译 linux/amd64 **5.02 MiB**、linux/arm64 4.75、darwin/arm64 4.82、windows/amd64 5.22（2026-10-22 用 go1.27.3 复测；linux/amd64 与 linux/arm64 实测 `statically linked`） |
 | TASK-023 | 已完成 | 门禁 `test/perf`（`just test-perf`，CI job `perf`）：REF-04 同款 10,466,670 字节模板，本轮复测耗时 0.49×、峰值 RSS 1.29×、启动 4.8 ms，并断言与 GNU 输出逐字节一致 |
 | TASK-024 | 已完成 | CI job `security` 跑 govulncheck（固定 v1.8.0，本机实测 `No vulnerabilities found.`）；release job `supply-chain` 产出 `SHA256SUMS`（并断言清单覆盖全部产物）与 SPDX JSON SBOM，tag 推送时创建 draft release；本地可用 `just vuln` / `just checksums` / `just checksums-verify` / `just sbom` |
 | TASK-025 | 已完成 | README 的 CLI/语法/开发章节 + 示例（2026-10-13 重构为 `data/` + 逐模板 golden + 24 条配方）+ E2E `examples_tree` + ADR-002 迁移说明 |
-| TASK-026 | 未开始 | 无 tag/发布产物，无试用反馈记录 |
+| TASK-026 | 已完成 | 试用发布已进行（tag `v0.1.0`）；发布后的验证补齐见 [`05-06-verification-todo.md`](05-06-verification-todo.md) |
 
-合计：已完成 26 / 部分完成 0 / 未开始 1。
+合计：已完成 27 / 部分完成 0 / 未开始 0。
 
 ## 性能实测（2026-10-08，本机）
 
@@ -84,7 +84,7 @@ CI 由 job `perf` 执行（先安装 `gettext-base` 提供 GNU envsubst），阈
 |----|------|------|
 | JSON 编解码 | 统一入口 `internal/jsonx`，build tag 双后端：默认标准库 `encoding/json/v2`（`Unmarshal` + 文档化 `WithUnmarshalers`，数字落 `json.Number` 保精度），`-tags=sonic` 切 sonic | `jsonv2.go`/`sonic.go`；契约测试与两后端差异测试 |
 | YAML 编解码 | 统一入口 `internal/yamlx`，单一库 `go.yaml.in/yaml/v3`：解码走节点（查重、合并键），`toYaml` 用同库编码 | `yamlv3.go`/`marshal.go`；6 个落盘 fixture；对照在 `test/yamlx` |
-| 默认二进制 | 8.43 MiB → **4.92 MiB（-42%）**；启动 9.5 ms → **4.6 ms**；REF-04 峰值 RSS 2.09× → **1.29×** | `just size`、`just test-perf` |
+| 默认二进制 | 8.55 MiB → **5.03 MiB（-41%）**；启动 9.5 ms → **4.6 ms**；REF-04 峰值 RSS 2.09× → **1.29×** | `just size`、`just test-perf` |
 | JSON 吞吐取舍 | 默认后端 364 KB 解码 ~12.0 ms；`-tags=sonic` 2.45 ms；被拒的 token 遍历备选 3.55 ms 保留在 `test/jsonx` 可复现对比 | `go test -v/-bench ./test/jsonx/` |
 | 版本信息 | Kubernetes `version.Info` 字段形状；`buildDate` 取可执行文件 mtime，彻底移除 `-X` 注入 | `internal/version`、`internal/cli/version_test.go` |
 | 开发规则 | "优先标准库既有 API、不自行封装解析层；方案对比实验必须落盘可复现" 写入提示词 | `docs/prompts/_common.md` 第 7 节 |
@@ -195,25 +195,27 @@ TASK-017 → TASK-019 → TASK-020 → TASK-021 → TASK-022 → TASK-024 → TA
 
 > 优化与规则差异的待办清单见 [05-03 待办工作交接](05-03-pending-work.md)（自包含，可冷启动接手）。
 
-## 本轮核实发现的缺口（状态：3 项待办、3 项已闭环）
+## 本轮核实发现的缺口（状态：2 项待办、4 项已闭环）
 
 **仍待办**（各有 owner 与触发条件）：
 
-1. **TASK-026 试用发布未开始**：仓库无 tag、无试用反馈记录；`examples/` 已可运行，可作为试用输入。
-   owner：产品负责人（与 `04-02` ADR 的落地验证同源）。
-2. **`gitVersion` 与 `gitTreeState` 可能语义重复**：`internal/version/version.go` 只输出
+1. **`gitVersion` 与 `gitTreeState` 可能语义重复**：`internal/version/version.go` 只输出
    `GitVersion`（`debug.ReadBuildInfo` 的模块版本）与 `GitTreeState`（clean/dirty），**未做 `+dirty` 后缀剥离**；
    是否剥离待定。owner：技术负责人。
-3. **`sonic` 后端实机运行未验证**：交叉编译已覆盖 linux/amd64、linux/arm64、darwin/arm64、windows/amd64，
+2. **`sonic` 后端实机运行未验证**：交叉编译已覆盖 linux/amd64、linux/arm64、darwin/arm64、windows/amd64，
    但 Windows/macOS 实机运行仍未验证（ADR-004 §7）。触发条件：有实机或 CI 矩阵 runner；owner：技术负责人。
 
 **已闭环**（保留结论，避免重复排查）：
 
-4. **Fuzz 已落地**：`test/fuzz/fuzz_test.go` 有 4 个 `func Fuzz` 目标（扫描器/表达式/`.env`/数值），
-   `test/justfile` 的 `test` 目标含 `test-fuzz`。
-5. **应用层单测已补**：`internal/app/app_test.go`、`cmd/envsub/main_test.go` 覆盖参数装配、输入/输出形态、
-   `--validate-only`、`--explain`、退出码 2/3/4/5/6 与诊断文案（覆盖率见 `05-03` §8）。
-6. **序列化规则收尾完成**：第 7 步 `NaN`/`±Inf` 拒绝已实现（`09-gaps` G5：解码拒绝 + `codec.RejectNonFinite`
+1. **Fuzz 已落地**（2026-10-22 补齐）：`test/fuzz/fuzz_test.go` 有 6 个 `func Fuzz` 目标
+   （扫描器/流式 span/路径文法/表达式路径/数值/`.env`），表达式解析器那 1 个在
+   `internal/engine/extended/expression_fuzz_test.go`（`parseExpression` 未导出），共 7 个；
+   `test/justfile` 的 `test` 目标含 `test-fuzz`，CI job `fuzz` 跑短时版本。
+2. **TASK-026 试用发布已完成**：tag `v0.1.0` 已打，发布后的验证补齐见
+   [`05-06-verification-todo.md`](05-06-verification-todo.md)。
+3. **应用层单测已补**：`internal/app/app_test.go`、`cmd/envsub/main_test.go` 覆盖参数装配、输入/输出形态、
+   `--validate-only`、`--explain`、退出码 1/2/3/4/5/6 与诊断文案（覆盖率见 `05-03` §8）。
+4. **序列化规则收尾完成**：第 7 步 `NaN`/`±Inf` 拒绝已实现（`09-gaps` G5：解码拒绝 + `codec.RejectNonFinite`
    的编码侧拒绝）；第 8 步 §3 类型表逐行测试——`01-types.md` 的 8 条规则行全部带证据列与 ✅；
    第 9 步 `uint` 类型名已定为**不提供**并从落地步骤中删除（`00-index` 变更记录）。
 

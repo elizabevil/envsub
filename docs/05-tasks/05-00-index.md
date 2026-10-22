@@ -12,6 +12,7 @@ last-updated: 2026-10-08
 - [05-03 待办工作交接](05-03-pending-work.md)：执行侧待办、待决项与 P1/P2 候选（冷启动接手入口）
 - [05-04 P1/P2 任务拆分](05-04-p1-p2-task-breakdown.md)：P1/P2 的**可排期清单**（需求编号、目标、验收、依赖、风险）
 - [05-05 示例与测试架构](05-05-examples-and-test-architecture.md)：`examples/` 重构方案（共享数据集 + 自洽案例 + 按问题组织的配方）与 e2e 命名对齐
+- [05-06 验证强化代办清单](05-06-verification-todo.md)：试用发布之后的验证补齐轮次（fuzz 覆盖、fixture 流式/并行、`--explain` 顺序断言、退出码覆盖、文档对齐）
 
 > 需求本身与可实现性判定见 [`../02-product/02-05-requirements-registry.md`](../02-product/02-05-requirements-registry.md)；
 > 本目录只负责"怎么落地"。

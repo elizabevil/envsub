@@ -169,8 +169,10 @@ test/e2e/testdata/<case>/
 - 序列化规则一致性：`test/encoding/` 按 [序列化规则](../07-serialization/00-index.md)
   逐条测试（编码/解码/确定性/空值），未实现项以 `t.Skip` 标注为实施清单；
   `go test -v ./test/encoding/` 与 `go test -tags=sonic ./test/encoding/` 均可运行。`[FACT]`
-- **缺口 1（已闭环）**：Fuzz 已落地——`test/fuzz/fuzz_test.go` 有 4 个 `func Fuzz` 目标
-  （扫描器/表达式/`.env`/数值），`just test-fuzz` 覆盖。`[FACT]`
+- **缺口 1（已闭环）**：Fuzz 已落地——`test/fuzz/fuzz_test.go` 有 6 个 `func Fuzz` 目标
+  （扫描器/流式 span/路径文法/表达式路径/数值/`.env`），另外 2 个在
+  `internal/engine/extended/`（表达式解析器与窗口读取器，受测函数未导出），共 8 个；
+  `just test-fuzz` 与 CI job `fuzz` 覆盖。`[FACT]`
 - **缺口 2（已解决）**：供应链检查已接入——CI job `security` 跑 govulncheck（本机实测
   `No vulnerabilities found.`），release job `supply-chain` 产出 SHA256SUMS 与 SPDX SBOM
   （见 05-01"供应链基础"）。`[FACT]`
@@ -245,9 +247,15 @@ test/e2e/testdata/<case>/
 
 ### 8.5 仍然存在的缺口（未解决，如实记录）
 
-- `--explain` 报告里 `shadowed` 链的**顺序**没有独立断言（只有内容断言）
+> 2026-10-22 更新：下列两条已闭环，过程与判据见
+> [`05-06-verification-todo.md`](05-06-verification-todo.md)。
+
+- ~~`--explain` 报告里 `shadowed` 链的**顺序**没有独立断言（只有内容断言）~~ → **已闭环**：
+  `internal/render/explain_test.go` 的 `TestExplainTemplateShadowedOrder` 断言 4 帧 shadowed
+  的完整 JSONL，e2e 的 `TestExplainShadowedOrder` 用真实 CLI 解码后逐帧比对
 - `internal/app` 与 `cmd/envsub` 的装配仍主要靠 e2e 覆盖（缺口 3）
-- 引擎 fixture 只经缓冲 `Render` 路径；`StreamTo`/`RenderTo`/并行由 Go 测试覆盖，未纳入 fixture
+- ~~引擎 fixture 只经缓冲 `Render` 路径~~ → **已闭环**：每个 fixture 现在都跑缓冲与流式两条路径
+  并逐字节比对；`parallel/parallel_window_split` 用 `meta.yaml` 的 `repeat` 触发并行路径
 - `test/perf` 只与 GNU envsubst 在同一台机器上对比，没有跨平台基线
 
 ## 9. 示例层重构（已实施，2026-10-13）

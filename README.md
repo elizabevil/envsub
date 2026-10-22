@@ -2,9 +2,9 @@
 
 Extended configuration renderer.
 
-> P0 (TASK-001 ~ TASK-021) is implemented and covered by unit tests, a 160-case
-> fixture matrix and 18 CLI end-to-end cases (180 test functions, 9 benchmarks,
-> 19 packages green under `-race`). See
+> P0 (TASK-001 ~ TASK-021) is implemented and covered by unit tests, a 165-case
+> fixture matrix and 64 CLI end-to-end cases (346 test functions, 8 fuzz targets,
+> 17 benchmarks, 28 packages green under `-race`). See
 > `docs/06-review/06-03-p0-implementation-round2.md`; the large-template
 > streaming/parallel path and its fixes are in
 > `docs/06-review/06-04-optimization-round3.md`; the JSON/YAML codec layer is in
@@ -54,11 +54,12 @@ type, source, operator, formatter and render setting to a file or a case.
 envsub render [flags] [template...]
 
 value sources
-  -f, --values-file FILE...   YAML/JSON values files, repeatable
-      --dotenv-file FILE...   dotenv files (parsed as dotenv, any name), repeatable
+  -f, --values-file FILE      YAML/JSON values files, repeatable
+      --dotenv-file FILE      dotenv files (parsed as dotenv, any name), repeatable
       --schema FILE           JSON Schema (Draft 2020-12), JSON or YAML
       --set KEY=VALUE         raw string override (typed by schema or | type)
       --set-json KEY=JSON     native JSON value
+      --set-file KEY=FILE     value read from a file, kept as a string
       --no-process-env        ignore the process environment (dotenv files still load)
       --process-env-prefix P  expose only process variables with this prefix (dotenv files unaffected)
 
@@ -66,19 +67,31 @@ rendering
   -o, --output FILE           single output file
   -i, --in-place              atomic replace of each template
       --output-dir DIR        batch output directory (mirrors input layout)
+      --strip-suffix EXT      drop this suffix from batch output names, repeatable (longest match wins)
       --recursive             walk template directories recursively
       --validate-only         load, materialize and validate, write nothing
+      --check                 report targets that are out of date, write nothing (exit 7)
       --explain[=PATH]        JSON source report on stderr (PATH limits it, repeatable)
+      --report=unused         list value-file entries no template referenced, on stderr
 
 policies
       --on-missing=error|empty|keep|zero    default: error
       --on-empty=ok|error                   default: ok
       --unknown-keywords=ignore|warn|error  default: ignore
       --only-vars VAR... / --ignore-vars VAR...
+
+global
+      --log-level=debug|info|warn|error     default: warn
+      --error-format=text|json              default: text
 ```
 
-Exit codes: `0` success, `1` internal, `2` usage, `3` template syntax,
-`4` type/schema, `5` IO, `6` missing value or value policy.
+Other commands: `envsub version` prints the build information as JSON,
+`envsub completion bash|zsh|fish|powershell` prints a shell completion script,
+and `envsub help` lists the commands.
+
+Exit codes: `0` success, `1` internal or unclassified error, `2` usage,
+`3` template syntax, `4` type/schema, `5` IO, `6` missing value or value
+policy, `7` out-of-date target (`--check`).
 
 Value precedence (first match wins), all of it inside the root namespace:
 
@@ -116,6 +129,7 @@ just fmt
 just lint       # golangci-lint v2, see .golangci.yml
 just test
 just test-race
+just test-fuzz  # fuzz every parser (8 targets, 30s each); the CI fuzz job runs the short version
 just test-perf  # REF-04 performance gate, needs GNU envsubst (gettext-base)
 just bench
 just size       # binary size report (total + biggest sections)
@@ -133,11 +147,13 @@ JSON goes through `internal/jsonx`, which has two build-time implementations
 
 | | default (stdlib `encoding/json/v2`) | `-tags=sonic` |
 |---|---|---|
-| linux/amd64 binary | 4.92 MiB | 8.43 MiB |
+| linux/amd64 binary | 5.03 MiB | 8.55 MiB |
 | startup | 4.6 ms | 9.5 ms |
 | REF-04 peak RSS | 1.30x GNU | 1.80-2.25x GNU |
 | JSON decode (364 KB) | 12.04 ms | 2.45 ms |
 
+The binary sizes are measured with the Go release named in `go.mod`; a newer Go
+release shifts them by a few hundred KiB, so compare within one toolchain.
 The default keeps the binary 41% smaller with better startup and memory; use
 `-tags=sonic` when JSON throughput matters more than size. The default backend
 decodes through `encoding/json/v2`'s `Unmarshal` plus its documented
@@ -165,15 +181,18 @@ See `CONTRIBUTING.md` and `docs/03-design/03-10-go-code-standards.md`.
 - windowed streaming for small/streamed input and marked parallel rendering for
   large file templates (>=4 windows, no assignment operators, deterministic order)
 - multi-arch static builds (linux/darwin/windows amd64+arm64); the default
-  linux/amd64 binary is 4.92 MiB (8.43 MiB with `-tags=sonic`)
+  linux/amd64 binary is 5.03 MiB (8.55 MiB with `-tags=sonic`)
 - JSON/YAML codecs centralized in `internal/jsonx` (standard-library
   `encoding/json/v2` by default, sonic behind a build tag) and `internal/yamlx`
 
 Measured against the REF-04 baseline (10.47 MB / 200k variables, GNU envsubst
 0.23.1) and enforced by `just test-perf` plus the CI `perf` job: 33 ms vs 67 ms
 (0.49x), 15.6 MB vs 10.5 MB peak RSS (1.29x), 4.8 ms startup (target 100 ms).
-TASK-022, TASK-023, TASK-024 and TASK-025 are done; outstanding P0 work is
-TASK-026 (trial release), plus the Fuzz targets listed in the test matrix. See
+TASK-022, TASK-023, TASK-024, TASK-025 and TASK-026 (trial release) are done,
+so P0 is complete. The verification gaps that were still open after the trial
+release — the missing fuzz targets, the `--explain` shadowed order, the
+streaming and parallel render paths and the exit-code-1 coverage — are closed
+in `docs/05-tasks/05-06-verification-todo.md`. See
 `docs/05-tasks/05-01-p0-task-breakdown.md` for the per-task status snapshot.
 
 ## Supply chain
@@ -193,5 +212,13 @@ section above, `examples/` and `docs/04-decisions/04-02-adr-002-compatibility-an
 
 ## P1/P2
 
-- P1: include, condition, loop, profiles, dry-run/diff/check
-- P2: GNU/a8m/drone compatibility and conversion commands
+Already shipped: `--check` (out-of-date target detection), `--report=unused`,
+`--error-format=json`, `--set-file`, `--strip-suffix` and shell completion.
+
+- P1: include/partials, restricted condition and loop, profiles, `--diff`,
+  TOML value files, value interpolation, Windows/CRLF fidelity, output
+  permissions, a Docker image
+- P2: GNU/a8m/drone compatibility and conversion commands, HTTP(S) value
+  sources, package-manager channels, a man page
+
+See `docs/05-tasks/05-04-p1-p2-task-breakdown.md` for the full list.
