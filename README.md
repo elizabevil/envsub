@@ -408,6 +408,21 @@ global
 | 6 | missing value or value policy error |
 | 7 | target is out of date (`--check`) |
 
+Every usage problem is a 2, including a mistyped subcommand:
+
+```console
+$ envsub rendr
+unknown command "rendr" for "envsub"
+
+Did you mean this?
+	render
+$ echo $?
+2
+```
+
+A 1 is reserved for the tool's own defects: an internal error, or an error that
+carries no classification at all.
+
 ## Development
 
 ```bash

@@ -180,15 +180,22 @@ last-updated: 2026-10-22
 
 ## 3. 待决项（本轮不擅自改，交产品负责人定）
 
-- [!] **未识别的子命令该退出 1 还是 2（文档没有裁定）**：`envsub bogus`（拼错子命令）当前退出 **1**。逐条核对三处文档后，**当前行为并没有违反契约**：
+- [x] **未识别的子命令该退出 1 还是 2 —— 已定为 2（2026-10-22）**
+
+  核对三处文档后发现，**原来的行为并没有违反契约**，只是文档之间措辞不一致、且没有裁定这一类输入：
 
   - [`../03-design/03-08-cli-design.md`](../03-design/03-08-cli-design.md) §5 的退出码表把 1 写成「**通用/未分类错误**」、2 写成「CLI 用法错误」，并注明「退出码 1–6 由 `diag.Kind` 映射」；
   - [`../07-serialization/08-errors.md`](../07-serialization/08-errors.md) 的 kind 表里，`usage`(2) 列举的触发条件全是 flag 值、赋值语法、类型名、扩展名，**没有**「未知子命令」；`internal`(1) 的触发条件写的是「未分类内部错误」；
   - cobra 的未知子命令错误是裸 error，**不带 `diag.Kind`**，正好落进「未分类」→ 1。
 
-  所以这不是「实现偏离文档」，而是「**文档之间措辞不一致**（README 写「1 internal」，设计文档写「通用/未分类错误」）+ 文档没裁定未知子命令属于哪一类」。README 的措辞已按设计文档改齐。
+  **裁定结果**：拼错子命令是**用法错误**，退出码改为 **2**。理由是脚本会按退出码分支，`1`（内部错误）会让人往工具本身查，而 `2` 才是「命令用错了」。落进 1 的只剩两类：带 `internal` kind 的内部错误，和完全不带 kind 的错误——那是工具自身的缺陷。
 
-  真正要产品定的是：拼错子命令对脚本来说算「用法错」还是「内部错」，两种都说得通：(a) 把 unknown-command 归类为 `diag.KindUsage` → 退出 2；(b) 保留 1。改退出码属用户可见行为变更，按 [`../prompts/_common.md`](../prompts/_common.md) §7.10 需先讨论，故本轮只补覆盖（V-5）不动行为。
+  实施：`internal/cli/root.go` 给根命令加 `Args` 钩子，把 cobra 的未知子命令错误包成 `diag.KindUsage`；措辞与 `Did you mean this?` 列表沿用 cobra 自己的。副作用是这条错误现在也服从 `--error-format=json`。
+
+  文档同步：[`../07-serialization/08-errors.md`](../07-serialization/08-errors.md) 的 kind 表与案例表、
+  [`../07-serialization/04-cli.md`](../07-serialization/04-cli.md) 的新规则 C19、
+  [`../03-design/03-08-cli-design.md`](../03-design/03-08-cli-design.md) 的 1/2 边界说明、
+  两份 README 的退出码表。
 - [!] **公共测试辅助包**：仓库现状是每个包自带局部 helper（`writeFile` 在 3 个包里各写一份、`metaSegments` 在 2 个包里各写一份）。本轮沿用现状不合并，若要顺手收敛可另开一项。
 
 ## 4. 验收门禁

@@ -389,6 +389,20 @@ envsub completion bash|zsh|fish|powershell         生成 shell 补全脚本
 | 6 | 缺值或取值策略错误 |
 | 7 | 目标已过期（`--check`） |
 
+所有"用法"问题都是 2，包括子命令名拼错：
+
+```console
+$ envsub rendr
+unknown command "rendr" for "envsub"
+
+Did you mean this?
+	render
+$ echo $?
+2
+```
+
+1 只留给工具自身的缺陷：内部错误，或完全没有分类的错误。
+
 ## 开发
 
 ```bash

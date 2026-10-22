@@ -57,7 +57,7 @@
 | 1 | `--process-env-prefix` 的**正例** e2e 怎么落 | ✅ **已完成**：e2e runner 支持 `env` 注入文件，`env_prefix_positive` 钉住"白名单命中→生效、前缀外→缺失" | — |
 | 2 | `--process-env-prefix` 是**保留前缀**还是**剥掉前缀** | ✅ **已定**：保留原名（白名单闸门，不剥离）；`--process-env-prefix` 作用域收窄为 `@process` 命名空间 | 见 `06-15` §2.2/§4 |
 | 3 | `internal/app` / `cmd/envsub` 的 CLI 测试深度 | ✅ **已定：方案 (a)**——app 层只测装配（flag → `render.Request`）与退出码，命令矩阵（`--output-dir`/`--in-place`/stdin/glob/batch）由 e2e 的 case 端到端保证，避免同一契约在两处维护（依据 `06-17` 的 CLI/runner 分离）。补强：输出模式三选一的装配有专门用例（`internal/cli`） | 见 `03-07`、`06-17` |
-| 4 | 错误 fixture 是否覆盖**全部退出码** | ✅ **已完成**（2026-10-22）：e2e 已覆盖 1/2/3/4/5/6——退出码 1 由 `unknown_command` 用例覆盖（cobra 的未知子命令错误不带 `diag` kind，按 `03-08` §5 落入「通用/未分类错误」→ 1）| 退出码是用户可见契约 |
+| 4 | 错误 fixture 是否覆盖**全部退出码** | ✅ **已完成**（2026-10-22）：e2e 已覆盖 1/2/3/4/5/6——退出码 2 由 `unknown_command` 用例覆盖（未识别的子命令按 C19 归为用法错误）| 退出码是用户可见契约 |
 | 5 | `test/e2e` fixture 规模 | ✅ **已定：不设上限、不分组**——用例见 `test/e2e/testdata/`（全量 `just test-e2e`，单跑 `just test-e2e-case NAME`），文档不再写死数量；**触发条件**：用例数 >100 或热耗时 >2s 时重新评审 | 热耗时约 0.5s |
 | 6 | **环境变量映射契约** | ✅ **已实现**：路径推导已移除（`envName` 仅保留单段同名；`envMetaName` 删除；物化自动收窄）；环境读取只剩 `${@process.NAME}`，`.env` 写入根，层序 `--set` > `--dotenv-file` > `-f` > `default`。见 `13-materialization.md` §13/§14、`04-cli.md` §6.2 |
 | 7 | **`.env` 与进程环境优先级** | ✅ **已定案**：`.env` 与进程环境不同格（`.env` 进根、进程环境只在 `@process`），"谁压谁"不存在 | 见 `13-materialization.md` §12/§14 |

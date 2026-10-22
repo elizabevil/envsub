@@ -223,7 +223,10 @@ func TestRunExplain(t *testing.T) {
 }
 
 // TestRunExitCodes pins the user-visible exit-code contract through the real
-// command tree (1 is an internal error that has no stable trigger).
+// command tree.
+//
+// Exit 1 is the internal code, and it is also what an unclassified error gets:
+// an error that carries no diag kind falls back to it.
 func TestRunExitCodes(t *testing.T) {
 	dir := t.TempDir()
 	ok := writeFile(t, dir, "ok.tmpl", "K=${K}\n")
@@ -250,6 +253,9 @@ func TestRunExitCodes(t *testing.T) {
 		// A namespace is read-only: --set and --set-json accept root paths only.
 		{name: "set rejects the process namespace", args: []string{"render", "--set", "@process.K=v", ok}, want: 2},
 		{name: "set-json rejects the process namespace", args: []string{"render", "--set-json", "@process.K=1", ok}, want: 2},
+		// A name that is not a subcommand is a usage error: the CLI reports
+		// it as one, so the exit code is 2 and not the internal 1.
+		{name: "unknown command", args: []string{"bogus"}, want: 2},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -258,6 +264,34 @@ func TestRunExitCodes(t *testing.T) {
 				t.Fatalf("exit = %d, want %d; stderr=%q", code, tt.want, stderr)
 			}
 		})
+	}
+}
+
+// TestRunUnknownCommand pins how a name that is not a subcommand is reported:
+// the usage exit code, the wording, and the "Did you mean this?" list.
+func TestRunUnknownCommand(t *testing.T) {
+	_, stderr, code := captureRun(t, []string{"rendr"}, "")
+	if code != 2 {
+		t.Fatalf("exit = %d, want 2; stderr=%q", code, stderr)
+	}
+	for _, want := range []string{`unknown command "rendr" for "envsub"`, "Did you mean this?", "render"} {
+		if !strings.Contains(stderr, want) {
+			t.Fatalf("stderr = %q, want it to contain %q", stderr, want)
+		}
+	}
+}
+
+// TestRunUnknownCommandAsJSON pins that the usage error also follows the
+// requested error format: the report names the kind and the exit code.
+func TestRunUnknownCommandAsJSON(t *testing.T) {
+	_, stderr, code := captureRun(t, []string{"--error-format=json", "bogus"}, "")
+	if code != 2 {
+		t.Fatalf("exit = %d, want 2; stderr=%q", code, stderr)
+	}
+	for _, want := range []string{`"kind":"usage"`, `"exitCode":2`, `unknown command \"bogus\"`} {
+		if !strings.Contains(stderr, want) {
+			t.Fatalf("stderr = %q, want it to contain %q", stderr, want)
+		}
 	}
 }
 

@@ -211,8 +211,17 @@ _列：ID | 规则 | 证据。_
 | 编号 | 规则 | 证据 |
 |------|------|------|
 | C10 | 所有错误按 `diag.Kind` 分类并映射到固定退出码；完整目录见 §11 | diag/errors.go:111-136 |
+| C19 | **未识别的子命令是用法错误**：`KindUsage` exit 2，措辞为 `unknown command "<name>" for "envsub"`；名字接近某个子命令时附 `Did you mean this?` 列表。该错误**服从 `--error-format`**（`json` 时为单个 JSON 对象，`kind` 为 `usage`） | `internal/cli/root.go` 的 `unknownCommand`；单测 `TestRunUnknownCommand`、`TestRunUnknownCommandAsJSON`；e2e fixture `unknown_command` |
 
 **案例（C10）**：见 §11 每行的"文案示例"，均可用 exit code 断言。
+
+**案例（C19）**
+
+| 命令 | 输出 / exit | 标注 |
+|------|-------------|------|
+| `envsub bogus` | `unknown command "bogus" for "envsub"`，exit 2 | 现状；fixture `unknown_command` |
+| `envsub rendr` | 同上 + `Did you mean this?` 与 `render`，exit 2 | 现状；单测 `TestRunUnknownCommand` |
+| `envsub --error-format=json bogus` | `{"kind":"usage","exitCode":2,"message":"unknown command \"bogus\" for \"envsub\""}`，exit 2 | 现状；单测 `TestRunUnknownCommandAsJSON` |
 
 ### 6.5.0 从文件取值（`--set-file KEY=FILE`）
 

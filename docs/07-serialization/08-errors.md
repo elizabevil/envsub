@@ -6,12 +6,15 @@
 **本章解决**：把 `diag.Kind` 映射到退出码与典型文案，供评测与用户对照。触发点全部可用
 `file:line` 定位。
 
+**退出码 1 的含义**：带 `internal` kind 的错误，以及**不带任何 kind** 的错误。CLI 层把所有
+"用法"类问题都归成 `usage`(2)，包括拼错的子命令，所以未分类错误只剩下工具自身的缺陷。
+
 _列：kind | 退出码 | 触发条件 | 文案示例 | 证据。_
 
 | kind | 退出码 | 触发条件 | 文案示例 | 证据 |
 |------|--------|----------|----------|------|
-| `internal` | 1 | 未分类内部错误（engine 未注册、批量渲染部分失败） | `engine "extended" is not registered` / `N of M templates failed: ...` | diag/errors.go:132-134；render.go:133-136 |
-| `usage` | 2 | 非法 flag 值、赋值语法错误、未提供/未知类型名、非法值文件扩展名 | `invalid --on-missing value "bogus": want error, empty, keep or zero` | diag/errors.go:123-124；render.go:460-470 |
+| `internal` | 1 | 内部错误（engine 未注册、批量渲染部分失败），或任何不带 kind 的错误 | `engine "extended" is not registered` / `N of M templates failed: ...` | diag/errors.go:132-134；render.go:133-136 |
+| `usage` | 2 | 非法 flag 值、赋值语法错误、未提供/未知类型名、非法值文件扩展名、**未识别的子命令** | `invalid --on-missing value "bogus": want error, empty, keep or zero` / `unknown command "rendr" for "envsub"` | diag/errors.go:123-124；render.go:460-470；cli/root.go:70-90 |
 | `template` | 3 | 模板语法：未闭合、空表达式、未知 formatter、type 位置错误、非支持操作符、indent 参数 | `unclosed variable expression` / `unknown formatter %q` | diag/errors.go:125-126；scanner.go:257；expression.go:175 |
 | `type` | 4 | 类型断言/物化/编码失败 | `value "1.5" is not a valid int` / `array value requires a formatter` | diag/errors.go:127-128；convert.go:121；stringify.go:49-50 |
 | `schema` | 4 | schema 归一化/编译/校验/未知关键字失败 | `schema validation failed: at /port: ...` | diag/errors.go:127-128；jsonschema.go:32,48 |
@@ -28,4 +31,6 @@ _列：kind | 退出码 | 触发条件 | 文案示例 | 证据。_
 | `--set 'x=1.5'` + `${x \| type int}` | `value "1.5" is not a valid int`，exit 4 | 现状 |
 | schema `required: [port]` + 缺 port | exit 4 | 现状 |
 | `--on-empty=keep` | exit 2 | 现状 |
+| `envsub rendr` | `unknown command "rendr" for "envsub"` + `Did you mean this?`，exit 2 | 现状 |
+| `envsub --error-format=json rendr` | `{"kind":"usage","exitCode":2,...}`，exit 2 | 现状 |
 

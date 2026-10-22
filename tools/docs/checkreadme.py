@@ -58,6 +58,18 @@ def main() -> int:
                     continue
                 subprocess.run(block, shell=True, cwd=work, capture_output=True, text=True)
             for command, expected in parse_console(text):
+                if command.strip() == "echo $?":
+                    # The transcript documents an exit code; check it against
+                    # the code the previous command actually returned.
+                    total += 1
+                    want = str(last_code)
+                    got = "\n".join(expected).strip()
+                    if want and got != want:
+                        failures += 1
+                        print(f"{path}: command: {command}")
+                        print(f"  want:\n{want}")
+                        print(f"  got:\n{got}")
+                    continue
                 if "envsub " not in command:
                     continue
                 command = command.replace("envsub ", f"{binary} ", 1)
@@ -65,13 +77,9 @@ def main() -> int:
                 proc = subprocess.run(
                     command, shell=True, cwd=work, capture_output=True, text=True
                 )
+                last_code = proc.returncode
                 got = (proc.stdout + proc.stderr).rstrip("\n")
                 want = "\n".join(expected).rstrip("\n")
-                if command.strip() == "echo $?":
-                    # The transcript documents an exit code; check it against
-                    # the code the previous command actually returned.
-                    want = str(last_code)
-                last_code = proc.returncode
                 if want and got != want:
                     failures += 1
                     print(f"{path}: command: {command}")

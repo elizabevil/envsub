@@ -211,6 +211,7 @@ _列：ID | 一句话规则 | 状态 | 验收测试。索引只做导航，规�
 | C10 | 错误分类与退出码（见 §11） | ✅ | diag/errors.go:111-136 |
 | C11 | `--set-json` 与 `.env` 物化非法 JSON 统一为 KindType exit 4；赋值语法错误仍为 KindUsage exit 2 | 已统一（v0.7） | §6.6 |
 | C12 | CLI 层**不做类型猜测**；暂不引入 `--set-int`/`--set-float`/`--set-bool` | 已决 | §6.7 |
+| C19 | 未识别的子命令 → `KindUsage` exit 2，附 `Did you mean this?` 建议；该错误服从 `--error-format` | ✅ | §6.5 |
 | G1 | `sonic` 重复成员名 last-wins | 已决例外 | §13.1 |
 | G2 | ~~`\| type float` 对超精度整数静默丢精度~~ | **已消除（v0.7）**：`checkFloatExact` 统一拒绝 | §13.1 |
 | G3 | 超出 float64 字面量当前保留原文 | **已消除（v0.8）**：未声明按 F6 保留、转 float 按 F7 报错 | §13.1 |
