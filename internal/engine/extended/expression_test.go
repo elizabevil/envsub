@@ -17,6 +17,11 @@ func TestParseExpressionErrors(t *testing.T) {
 		{name: "unquoted join argument", raw: "hosts | join ,"},
 		{name: "unsupported type", raw: "PORT | type map"},
 		{name: "toJson with argument", raw: "PORT | toJson x"},
+		// A name that begins with a digit is not a path, so the path grammar
+		// must reject it rather than the expression parser taking it for a
+		// reference the resolver cannot address.
+		{name: "digit leading name", raw: "0"},
+		{name: "digit leading name with digits", raw: "0abc"},
 	}
 	for _, tt := range tests {
 

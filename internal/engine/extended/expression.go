@@ -290,8 +290,14 @@ func unquote(raw string) string {
 
 // isBareIdentifier reports whether raw is exactly one identifier character
 // run, with no operator, quoting or pipeline separator.
+//
+// The first byte must start an identifier, not merely continue one: a name
+// that begins with a digit is not a path, so it has to reach the path grammar
+// and be reported as "expected identifier" instead of being taken for a
+// reference the resolver cannot address. This is the same first-byte test the
+// scanner's $NAME rule and simpleSpanName use.
 func isBareIdentifier(raw string) bool {
-	if raw == "" || !isIdentifierByte(raw[0]) {
+	if raw == "" || !isIdentifierStart(raw[0]) {
 		return false
 	}
 	for i := 1; i < len(raw); i++ {
