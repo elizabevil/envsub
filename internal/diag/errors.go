@@ -68,11 +68,6 @@ func WrapIfNot(kind Kind, err error) error {
 	return Wrap(kind, err)
 }
 
-// NotImplemented returns a standard internal not-implemented error.
-func NotImplemented(feature string) error {
-	return New(KindInternal, "%s is not implemented yet", feature)
-}
-
 // offsetUnknown marks a Location whose byte offset was never recorded.
 const offsetUnknown = -1
 

@@ -5,8 +5,8 @@
 # Why build from source: a prebuilt release is compiled with an older Go than this
 # repository uses, and a type checker can only read export data from its own Go
 # release or older. The system install (2.13.2, built with go1.27.0) therefore
-# fails on this tree (go1.27.2) with "export data version 5 is greater than
-# maximum supported version 4".
+# fails on this tree with "export data version 5 is greater than maximum
+# supported version 4".
 #
 # Where things go: the standard locations, exactly as a manual `go install` would
 # use them ($GOBIN or $GOPATH/bin for the binary, ~/.cache/golangci-lint for its
@@ -20,8 +20,14 @@
 set -euo pipefail
 
 version="v2.14.0"
-toolchain="go1.27.2"
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
+# The linter must be built with the Go release the tree uses, so it can read
+# the tree's export data. The version comes from go.mod, so the two cannot
+# drift apart: a hard-coded pin failed as soon as go.mod moved to 1.27.3.
+# GOTOOLCHAIN then picks that toolchain up, downloading it when the local one
+# is older.
+toolchain="go$(awk '$1 == "go" { print $2; exit }' "$root/go.mod")"
 
 export GOTOOLCHAIN="$toolchain"
 
