@@ -27,7 +27,7 @@ _列：ID | 规则 | 证据。_
 | SC6 | 只在 `properties` 中缺失的键写入 `default`；已存在不覆盖 | defaults.go:34-39；schema_test.go:120-136 |
 | SC7 | `default` 原样克隆、**不做类型转换**；字符串由后续 `Materialize` 转换 | defaults.go:36；materialize.go:58-77 |
 | SC8 | 嵌套对象递归；数组只对已存在元素补默认 | defaults.go:44-49,54-72 |
-| SC9 | 仅遍历 `properties`/`items`；`$ref`/`allOf`/`patternProperties`/`additionalProperties` 处的 default 不生效 | defaults.go:19-26；**待定** |
+| SC9 | 走展开后的 schema：本地 `$ref` 按 JSON Pointer 展开、`allOf` 分支合并，`$ref`/`allOf` 处的 default 生效；`patternProperties`/`additionalProperties` 仍不生效 | refs.go:17-21；load.go:40 |
 
 ### 9.3 Materialize 对 `.env` / `--set` 字符串的处理
 
@@ -75,7 +75,7 @@ _列：取值 | 行为 | 退出码 | 证据。_
 | SC6 | schema `port: {type: integer, default: 8080}` + 无 `port` | 输出 `8080` | 现状 |
 | SC7 | schema `hosts: {type: array, default: []}` + `${hosts \| toJson}` | `[]` | 现状 |
 | SC8 | schema 嵌套 `app.port` default + `app: {}` | 补出 `app.port` | 现状 |
-| SC9 | schema `$ref` 指向的定义含 default | default 不生效（仅 `properties`/`items`） | 现状（待定） |
+| SC9 | schema `$ref` 指向的定义含 default | default 生效（`$ref` 在装载时展开） | 现状 |
 | SC10 | 校验只覆盖 root | `.env` 未复制进 root 的嵌套 key 不参与校验（G15） | 现状 |
 | SC11 | `--set-json 'id=2^64（18446744073709551616）'` + schema `integer` | 校验通过，值不被改动 | 现状 |
 | SC12 | 多个校验错误 | 至多 8 条 `at /ptr: reason` | 现状 |

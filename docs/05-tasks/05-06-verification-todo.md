@@ -112,7 +112,7 @@ last-updated: 2026-10-22
 
 - [x] **V-5.1 `internal/app/app_test.go`**：`TestRunExitCodes` 增加一条 `want: 1` 用例（拼错的子命令），并加注释说明 cobra 的 unknown-command error 不带 `diag` kind，故 `diag.ExitCode` 回落到 internal（`internal/diag/errors.go:35-43`）
 - [x] **V-5.2 `internal/diag/errors_test.go`**：~~补 `diag.ExitCode(errors.New(...)) == 1`~~ —— **原判断有误**：`TestExitCode` 的 `plain` 用例（`errors.New("boom")` → 1）**已经**覆盖了「未分类错误回落 internal」这条分支，无需再加。本项因此关闭但不改代码。
-- [x] **V-5.3 `test/e2e/testdata/unknown_command/`**：`expect.exit: 1`
+- [x] **V-5.3 `test/e2e/testdata/unknown_command/`**：`expect.exit: 2`
 - [x] 完成判据：退出码 1 在 app 层、e2e 层有覆盖，diag 层原本已覆盖
 
 ### V-6 让文档与代码一致

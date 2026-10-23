@@ -194,7 +194,7 @@ _列：ID | 一句话规则 | 状态 | 验收测试。索引只做导航，规�
 | SC6 | `default` 只补缺失键、不覆盖 | ✅ | schema_test.go:120-136 |
 | SC7 | `default` 原样克隆、不做类型转换 | ✅ | defaults.go:36 |
 | SC8 | 嵌套对象递归；数组只补已存在元素 | ✅ | defaults.go:44-72 |
-| SC9 | `default` 只遍历 `properties`/`items`（`$ref` 等不生效） | 待定 | §9.2 |
+| SC9 | `default` 走展开后的 schema：本地 `$ref` 按 JSON Pointer 展开、`allOf` 分支合并（`$ref` 处的 default 生效） | ✅ | §9.2 |
 | SC10 | 校验对象为 `codec.ToJSON(tree.Root)` | ✅ | jsonschema.go:25-35 |
 | SC11 | `ExactInt` 校验前转 `json.Number` | ✅ | schema_test.go:271-298 |
 | SC12 | 校验错误扁平化为至多 8 条 `at /ptr: reason` | ✅ | jsonschema.go:53-74 |
@@ -207,30 +207,12 @@ _列：ID | 一句话规则 | 状态 | 验收测试。索引只做导航，规�
 | C6 | schema 与 inline `\| type` 交互：先 schema 物化、再兼容检查、再断言 | ✅ | engine.go:325-362 |
 | C7 | `type` 必须是首个管道步骤，先于 formatter | ✅ | expression.go:89-91 |
 | C8 | `--on-missing=error\|empty\|keep\|zero` 行为 | ✅ | §6.4 |
-| C9 | `--on-empty=ok\|error` 行为（`keep`/`zero` 不支持，G19） | ✅/待定 | §6.4 |
+| C9 | `--on-empty=ok\|error` 行为（`keep`/`zero` 不支持，G19） | ✅ | §6.4 |
 | C10 | 错误分类与退出码（见 §11） | ✅ | diag/errors.go:111-136 |
 | C11 | `--set-json` 与 `.env` 物化非法 JSON 统一为 KindType exit 4；赋值语法错误仍为 KindUsage exit 2 | 已统一（v0.7） | §6.6 |
 | C12 | CLI 层**不做类型猜测**；暂不引入 `--set-int`/`--set-float`/`--set-bool` | 已决 | §6.7 |
 | C19 | 未识别的子命令 → `KindUsage` exit 2，附 `Did you mean this?` 建议；该错误服从 `--error-format` | ✅ | §6.5 |
-| G1 | `sonic` 重复成员名 last-wins | 已决例外 | §13.1 |
-| G2 | ~~`\| type float` 对超精度整数静默丢精度~~ | **已消除（v0.7）**：`checkFloatExact` 统一拒绝 | §13.1 |
-| G3 | 超出 float64 字面量当前保留原文 | **已消除（v0.8）**：未声明按 F6 保留、转 float 按 F7 报错 | §13.1 |
-| G4 | `${x}` 定点展开 vs `toJson`/`toYaml` 最短形式 | 不统一（有意） | §13.1 |
-| G5 | YAML `.nan`/`.inf` 曾被接受 | 已消除（v0.7） | §13.1 |
-| G6 | `:=`/`=` 写回字符串 | 待定 | §13.1 |
-| G7 | 浮点拼写当前不保留 | **已消除（v0.8）**：未声明数字按 F6 保留；声明 `float` 仍按最短形式 | §13.1 |
-| G8 | `--set` 文案与实现不一致 | 待定 | §13.1 |
-| G9 | `--set-json` 与 `.env` 非法 JSON 退出码曾不同 | 已统一（v0.7） | §13.1 |
-| G10 | JSON→结构体两条路数字表示不同 | 待定 | §13.1 |
-| G11 | YAML 大整数两条路不同 | 待定 | §13.1 |
-| G12 | schema 校验与物化能力不对称 | 待定 | §13.1 |
-| G13 | 联合 `type` 不触发物化 | 待定 | §13.1 |
-| G14 | `array<T>` schema 与 inline 语义不同 | 待定 | §13.1 |
-| G15 | ~~嵌套 env fallback 不参与 `Validate`~~ | **已消除（功能移除）**：无路径推导 | §13.1 |
-| G16 | `pipeline.Names()` 不含 `type` | 无需改代码 | §13.1 |
-| G17 | ~~`--set-string` 仍按 schema 物化~~ | **已消除（v0.6，随 C2 删除）** | §13.1 |
-| G18 | `\| type null` 对 `""` 曾隐式转 `nil` | 已消除（v0.7） | §8.2 |
-| G19 | `--on-empty` 不支持 `keep`/`zero` | 待定 | §6.4 |
+| G1–G25 | 已知差异、已消除项与遗留动作 | 逐条见 §13 缺口台 | 09-gaps.md |
 
 
 ### 2.4 章节 → 文件映射

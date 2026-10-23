@@ -90,7 +90,7 @@
 | 输出 | ✅ stdout、`--output`、`--output-dir`（镜像路径）、`--in-place`；权限保留由 `internal/output` 单测与 e2e `in_place` 覆盖 |
 | 校验 | ✅ `--validate-only` 有/无 schema；与输出选项互斥 → exit 2 |
 | 值来源 | ✅ `--set`、`--values-file`（多文件后者覆盖前者）、`--env-file`（强制 dotenv，多文件后者覆盖前者）、`--no-process-env`、`--process-env-prefix`（互斥）、`--explain`；`--set-json`／`--process-env-prefix` 正例由 e2e（`set_json_big_int`／`env_prefix_positive`）与单测覆盖 |
-| 退出码 | ✅ 1/2/3/4/5/6（1 由 `unknown_command` 用例覆盖；它是否该归为 usage(2) 仍是待决项，见 `05-06`） |
+| 退出码 | ✅ 1/2/3/4/5/6（1 由 diag 层未分类错误覆盖；未知子命令按 C19 归为 usage 2，由 `unknown_command` 用例覆盖） |
 | 诊断 | ✅ 模板错误定位（`broken.tmpl:2`）、缺失变量文案；未知关键字策略由 schema/engine fixture 覆盖 |
 
 ## 12. 本轮结构变更（已落盘）

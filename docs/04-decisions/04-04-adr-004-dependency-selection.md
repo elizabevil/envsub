@@ -5,7 +5,7 @@ version: 0.2
 last-updated: 2026-10-08
 ---
 
-# ADR-004：项目依赖库选型（Proposed）
+# ADR-004：项目依赖库选型
 
 ## 1. 标题
 
