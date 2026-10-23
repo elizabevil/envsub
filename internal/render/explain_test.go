@@ -54,7 +54,8 @@ func newExplainEvents(w *bytes.Buffer) *event.Writer {
 // spelling the template used.
 func TestExplainTemplateWritesJSONL(t *testing.T) {
 	t.Parallel()
-	run := explainRun{tree: values.NewTree(), sources: explainer{
+	run := explainRun{
+		tree: values.NewTree(),
 		root: map[string][]values.Meta{
 			"A": {{Kind: "set", Method: "flag", Source: "A"}},
 			"K": {
@@ -63,7 +64,7 @@ func TestExplainTemplateWritesJSONL(t *testing.T) {
 			},
 		},
 		env: map[string][]values.Meta{"K": {{Kind: "process", Method: "env", Source: "K"}}},
-	}}
+	}
 	req := Request{Explain: Explain{Enabled: true}}
 	eng := stubPathEngine{paths: []string{"@process.K", "A", "K", "NOPE"}}
 
@@ -91,7 +92,8 @@ func TestExplainTemplateWritesJSONL(t *testing.T) {
 // carries no information at all.
 func TestExplainTemplateShadowedOrder(t *testing.T) {
 	t.Parallel()
-	run := explainRun{tree: values.NewTree(), sources: explainer{
+	run := explainRun{
+		tree: values.NewTree(),
 		root: map[string][]values.Meta{
 			// Recorded lowest priority first: the schema default is the bottom
 			// layer, then the value file, then the two .env files, then --set.
@@ -103,7 +105,7 @@ func TestExplainTemplateShadowedOrder(t *testing.T) {
 				{Kind: "set", Method: "flag", Source: "K"},
 			},
 		},
-	}}
+	}
 	req := Request{Explain: Explain{Enabled: true}}
 	eng := stubPathEngine{paths: []string{"K"}}
 
@@ -127,11 +129,12 @@ func TestExplainTemplateShadowedOrder(t *testing.T) {
 // is exact rather than a prefix.
 func TestExplainTemplateFiltersByExactPath(t *testing.T) {
 	t.Parallel()
-	run := explainRun{tree: values.NewTree(), sources: explainer{
+	run := explainRun{
+		tree: values.NewTree(),
 		root: map[string][]values.Meta{
 			"app.port": {{Kind: "values", Method: "file", Source: "values.yaml", File: "values.yaml"}},
 		},
-	}}
+	}
 	req := Request{Explain: Explain{Enabled: true, Paths: []string{"app.port", "app.port.x"}}}
 	eng := stubPathEngine{paths: []string{"app.host", "app.port", "app.port.x"}}
 
@@ -148,8 +151,8 @@ func TestExplainTemplateFiltersByExactPath(t *testing.T) {
 	}
 }
 
-// TestExplainMatches pins the exact-match filter rules.
-func TestExplainMatches(t *testing.T) {
+// TestExplainFilterMatches pins the exact-match filter rules.
+func TestExplainFilterMatches(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name   string
@@ -171,18 +174,18 @@ func TestExplainMatches(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			explain := Explain{Paths: tt.paths}
-			if got := explain.matches(tt.target); got != tt.want {
+			filter := newExplainFilter(tt.paths)
+			if got := filter.matches(tt.target); got != tt.want {
 				t.Fatalf("matches(%q) with %#v = %v, want %v", tt.target, tt.paths, got, tt.want)
 			}
 		})
 	}
 }
 
-// TestExplainNameAndLookupKeys pins the canonical spelling and the namespace a
-// path reads: only @process reads the process environment, everything else reads
-// the root.
-func TestExplainNameAndLookupKeys(t *testing.T) {
+// TestParseExplainKey pins the canonical spelling and the namespace a path
+// reads: only @process reads the process environment, everything else reads the
+// root. Parsing happens once per reference.
+func TestParseExplainKey(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		path        string
@@ -201,29 +204,29 @@ func TestExplainNameAndLookupKeys(t *testing.T) {
 		// The report names the canonical spelling, and --explain compares against it,
 		// so surrounding whitespace in the reference does not change the lookup key.
 		{path: `  app.port  `, wantName: "app.port", wantRootKey: "app.port"},
+		// A path the grammar rejects is reported verbatim but has no lookup key.
+		{path: `["unclosed`, wantName: `["unclosed`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.path, func(t *testing.T) {
 			t.Parallel()
-			if got := explainName(tt.path); got != tt.wantName {
-				t.Fatalf("explainName(%q) = %q, want %q", tt.path, got, tt.wantName)
-			}
-			envName, rootKey := explainLookupKeys(tt.path)
-			if envName != tt.wantEnv || rootKey != tt.wantRootKey {
-				t.Fatalf("explainLookupKeys(%q) = (%q, %q), want (%q, %q)",
-					tt.path, envName, rootKey, tt.wantEnv, tt.wantRootKey)
+			key := parseExplainKey(tt.path)
+			if key.Name != tt.wantName || key.EnvName != tt.wantEnv || key.RootKey != tt.wantRootKey {
+				t.Fatalf("parseExplainKey(%q) = %+v, want name %q env %q root %q",
+					tt.path, key, tt.wantName, tt.wantEnv, tt.wantRootKey)
 			}
 		})
 	}
 }
 
-// TestExplainerSource pins the priority stack: the root layers decide a bare name
-// (--set beats dotenv beats value files), the @process namespace reads the process
-// environment, and the shadowed list runs from the closest loser to the most
+// TestResolvePriority pins the priority stack: the root layers decide a bare
+// name (--set beats dotenv beats value files), the @process namespace reads the
+// process environment, and shadowed runs from the closest loser to the most
 // distant.
-func TestExplainerSource(t *testing.T) {
+func TestResolvePriority(t *testing.T) {
 	t.Parallel()
-	expl := explainer{
+	run := explainRun{
+		tree: values.NewTree(),
 		root: map[string][]values.Meta{
 			"FROM_FILE": {{Kind: "values", Method: "file", Source: "values.yaml", File: "values.yaml"}},
 			"K": {
@@ -266,40 +269,41 @@ func TestExplainerSource(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.path, func(t *testing.T) {
 			t.Parallel()
-			origin, shadowed := expl.source(tt.path, values.NewTree())
-			if origin.Source != tt.wantSource || origin.Kind != string(tt.wantKind) {
-				t.Fatalf("source(%q) = %+v, want source %q kind %q", tt.path, origin, tt.wantSource, tt.wantKind)
+			lineage := run.resolve(parseExplainKey(tt.path))
+			if lineage.winner.Source != tt.wantSource || lineage.winner.Kind != string(tt.wantKind) {
+				t.Fatalf("resolve(%q) = %+v, want source %q kind %q",
+					tt.path, lineage.winner, tt.wantSource, tt.wantKind)
 			}
-			got := make([]string, 0, len(shadowed))
-			for _, frame := range shadowed {
+			got := make([]string, 0, len(lineage.shadowed))
+			for _, frame := range lineage.shadowed {
 				got = append(got, frame.Source)
 			}
 			if !equalStrings(got, tt.wantShadowed) {
-				t.Fatalf("source(%q) shadowed = %#v, want %#v", tt.path, got, tt.wantShadowed)
+				t.Fatalf("resolve(%q) shadowed = %#v, want %#v", tt.path, got, tt.wantShadowed)
 			}
 		})
 	}
 }
 
-// TestExplainerSourceFallsBackToTreeMeta pins that an origin recorded on the tree
-// but not layered (for example a value written by an assignment) is still reported
-// with its file and line.
-func TestExplainerSourceFallsBackToTreeMeta(t *testing.T) {
+// TestResolveFallsBackToTreeMeta pins that an origin recorded on the tree but not
+// layered (for example a value written by an assignment) is still reported with
+// its file and line.
+func TestResolveFallsBackToTreeMeta(t *testing.T) {
 	t.Parallel()
 	tree := values.NewTree()
 	tree.RecordMeta(metaSegments(t, "K"), values.Meta{Kind: values.SourceEnvFile, File: ".env", Line: 4})
 
-	origin, shadowed := (explainer{}).source("K", tree)
-	if origin.Kind != "envfile" || origin.File != ".env" || origin.Line != 4 {
-		t.Fatalf("source(K) = %+v, want envfile .env:4", origin)
+	lineage := (explainRun{tree: tree}).resolve(parseExplainKey("K"))
+	if lineage.winner.Kind != "envfile" || lineage.winner.File != ".env" || lineage.winner.Line != 4 {
+		t.Fatalf("resolve(K) = %+v, want envfile .env:4", lineage.winner)
 	}
-	if len(shadowed) != 0 {
-		t.Fatalf("source(K) shadowed = %#v, want none", shadowed)
+	if len(lineage.shadowed) != 0 {
+		t.Fatalf("resolve(K) shadowed = %#v, want none", lineage.shadowed)
 	}
 }
 
 // TestFrameFor pins how recorded metadata maps onto the report vocabulary.
-func TestMetaOrigin(t *testing.T) {
+func TestFrameFor(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name       string
@@ -367,75 +371,80 @@ func TestObserverRecordsThroughTheInterface(t *testing.T) {
 	observer.AddRoot("K", values.Meta{Kind: values.SourceEnvFile, Method: values.MethodFile, Source: ".env", File: ".env", Line: 1})
 	observer.AddRoot("K", values.Meta{Kind: values.SourceSet, Method: values.MethodFlag, Source: "K"})
 
-	winner, shadowed := run.sources.source("K", run.tree)
-	if winner.Kind != string(values.SourceSet) {
-		t.Fatalf("winner = %+v, want the set origin", winner)
+	lineage := run.resolve(parseExplainKey("K"))
+	if lineage.winner.Kind != string(values.SourceSet) {
+		t.Fatalf("winner = %+v, want the set origin", lineage.winner)
 	}
-	if len(shadowed) != 1 || shadowed[0].Kind != string(values.SourceEnvFile) || shadowed[0].File != ".env" || shadowed[0].Line != 1 {
-		t.Fatalf("shadowed = %#v, want the envfile frame", shadowed)
+	if len(lineage.shadowed) != 1 || lineage.shadowed[0].Kind != string(values.SourceEnvFile) ||
+		lineage.shadowed[0].File != ".env" || lineage.shadowed[0].Line != 1 {
+		t.Fatalf("shadowed = %#v, want the envfile frame", lineage.shadowed)
 	}
-	if got := run.sources.env["FROM_PROCESS"]; len(got) != 1 {
+	if got := run.env["FROM_PROCESS"]; len(got) != 1 {
 		t.Fatalf("@process origins = %#v, want one", got)
 	}
 }
 
-// TestExplainerSourceAssignmentClosesTheChain pins that an assignment the
-// renderer wrote, which never passes through the loader observer, still ends the
-// lineage as the newest frame.
-func TestExplainerSourceAssignmentClosesTheChain(t *testing.T) {
+// TestResolveAssignmentClosesTheChain pins that an assignment the renderer wrote,
+// which never passes through the loader observer, still ends the lineage as the
+// newest frame.
+func TestResolveAssignmentClosesTheChain(t *testing.T) {
 	t.Parallel()
 	tree := values.NewTree()
 	tree.RecordMeta(metaSegments(t, "K"), values.Meta{
 		Kind: values.SourceAssign, Method: values.MethodAssign, Source: "app.tmpl", File: "app.tmpl", Line: 3,
 	})
-	sources := explainer{root: map[string][]values.Meta{
-		"K": {{Kind: values.SourceValues, Method: values.MethodFile, Source: "values.yaml", File: "values.yaml"}},
-	}}
-
-	winner, shadowed := sources.source("K", tree)
-	if winner.Kind != string(values.SourceAssign) || winner.Method != string(values.MethodAssign) || winner.Line != 3 {
-		t.Fatalf("winner = %+v, want the assignment frame", winner)
+	run := explainRun{
+		tree: tree,
+		root: map[string][]values.Meta{
+			"K": {{Kind: values.SourceValues, Method: values.MethodFile, Source: "values.yaml", File: "values.yaml"}},
+		},
 	}
-	if len(shadowed) != 1 || shadowed[0].Kind != string(values.SourceValues) {
-		t.Fatalf("shadowed = %+v, want the value file it covered", shadowed)
+
+	lineage := run.resolve(parseExplainKey("K"))
+	if lineage.winner.Kind != string(values.SourceAssign) ||
+		lineage.winner.Method != string(values.MethodAssign) || lineage.winner.Line != 3 {
+		t.Fatalf("winner = %+v, want the assignment frame", lineage.winner)
+	}
+	if len(lineage.shadowed) != 1 || lineage.shadowed[0].Kind != string(values.SourceValues) {
+		t.Fatalf("shadowed = %+v, want the value file it covered", lineage.shadowed)
 	}
 }
 
-// TestExplainerSourceFallsBackToAncestorOnlyForExistingValues pins E3's repair:
-// an exact origin always wins, an ancestor's origin is used only when the value
-// itself exists (schema materialization creates such paths without their own
-// meta), and a path that does not exist is missing rather than inheriting its
-// parent's source.
-func TestExplainerSourceFallsBackToAncestorOnlyForExistingValues(t *testing.T) {
+// TestResolveUsesAncestorOnlyForExistingValues pins E3's repair: an exact origin
+// always wins, an ancestor's origin is used only when the value itself exists
+// (schema materialization creates such paths without their own meta), and a path
+// that does not exist is missing rather than inheriting its parent's source.
+func TestResolveUsesAncestorOnlyForExistingValues(t *testing.T) {
 	t.Parallel()
 	tree := values.NewTree()
 	tree.Root["app"] = map[string]any{"port": 8080}
 	tree.RecordMeta(metaSegments(t, "app"), values.Meta{
 		Kind: values.SourceValues, Method: values.MethodFile, Source: "values.yaml", File: "values.yaml",
 	})
+	run := explainRun{tree: tree}
 
-	origin, shadowed := (explainer{}).source("app.port", tree)
-	if origin.Kind != string(values.SourceValues) || origin.Source != "values.yaml" {
-		t.Fatalf("source(app.port) = %+v, want the file origin inherited from app", origin)
+	lineage := run.resolve(parseExplainKey("app.port"))
+	if lineage.winner.Kind != string(values.SourceValues) || lineage.winner.Source != "values.yaml" {
+		t.Fatalf("resolve(app.port) = %+v, want the file origin inherited from app", lineage.winner)
 	}
-	if len(shadowed) != 0 {
-		t.Fatalf("source(app.port) shadowed = %+v, want none", shadowed)
+	if len(lineage.shadowed) != 0 {
+		t.Fatalf("resolve(app.port) shadowed = %+v, want none", lineage.shadowed)
 	}
 
 	// The exact child origin wins over the ancestor.
 	tree.RecordMeta(metaSegments(t, "app.port"), values.Meta{
 		Kind: values.SourceSet, Method: values.MethodFlag, Source: "app.port",
 	})
-	origin, _ = (explainer{}).source("app.port", tree)
-	if origin.Kind != string(values.SourceSet) {
-		t.Fatalf("source(app.port) = %+v, want the exact set origin", origin)
+	lineage = run.resolve(parseExplainKey("app.port"))
+	if lineage.winner.Kind != string(values.SourceSet) {
+		t.Fatalf("resolve(app.port) = %+v, want the exact set origin", lineage.winner)
 	}
 
 	// app.port.x does not exist, so it must not inherit app's or app.port's
 	// origin (the original E3 symptom).
-	origin, _ = (explainer{}).source("app.port.x", tree)
-	if origin.Kind != string(values.SourceMissing) {
-		t.Fatalf("source(app.port.x) = %+v, want missing", origin)
+	lineage = run.resolve(parseExplainKey("app.port.x"))
+	if lineage.winner.Kind != string(values.SourceMissing) {
+		t.Fatalf("resolve(app.port.x) = %+v, want missing", lineage.winner)
 	}
 }
 
@@ -444,10 +453,13 @@ func TestExplainerSourceFallsBackToAncestorOnlyForExistingValues(t *testing.T) {
 // not pretend it came from a source.
 func TestExplainTemplateSkipsFilteredVariables(t *testing.T) {
 	t.Parallel()
-	run := explainRun{tree: values.NewTree(), sources: explainer{root: map[string][]values.Meta{
-		"A": {{Kind: values.SourceSet, Method: values.MethodFlag, Source: "A"}},
-		"B": {{Kind: values.SourceSet, Method: values.MethodFlag, Source: "B"}},
-	}}}
+	run := explainRun{
+		tree: values.NewTree(),
+		root: map[string][]values.Meta{
+			"A": {{Kind: values.SourceSet, Method: values.MethodFlag, Source: "A"}},
+			"B": {{Kind: values.SourceSet, Method: values.MethodFlag, Source: "B"}},
+		},
+	}
 	req := Request{Explain: Explain{Enabled: true}, Policies: Policies{Only: []string{"A"}}}
 	eng := stubPathEngine{paths: []string{"A", "B"}}
 
