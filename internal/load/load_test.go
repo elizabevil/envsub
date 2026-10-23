@@ -192,3 +192,101 @@ func TestOriginKindAgreesBetweenTreeAndReport(t *testing.T) {
 		}
 	}
 }
+
+// TestLoadReportsOnlyReachableDefaults pins the schema-default report rule: a
+// default belongs to a value's lineage only when the merge actually reaches its
+// path. A default below a missing parent is not applied, so reporting it would
+// invent a source; a default below an existing object is applied or shadowed and
+// must stay in the chain (ADR-005 I6).
+func TestLoadReportsOnlyReachableDefaults(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	schemaFile := writeFile(t, dir, "schema.json", `{
+		"type":"object",
+		"properties":{
+			"app":{"type":"object","properties":{"port":{"type":"integer","default":8080}}},
+			"K":{"type":"string","default":"from_schema"}
+		}
+	}`)
+
+	t.Run("unreachable nested default is not reported", func(t *testing.T) {
+		t.Parallel()
+		valuesFile := writeFile(t, dir, "values.yaml", "K: from_values\n")
+		observer := newRecordingObserver()
+		result, err := load.Load(context.Background(), load.Spec{
+			Files:  []string{valuesFile},
+			Schema: schemaFile,
+		}, observer)
+		if err != nil {
+			t.Fatalf("Load() error = %v", err)
+		}
+		if origins := observer.root["app.port"]; len(origins) != 0 {
+			t.Fatalf("app.port origins = %+v, want none: app does not exist", origins)
+		}
+		if _, exists := result.Tree.Root["app"]; exists {
+			t.Fatalf("app = %#v, want the loader not to invent the parent object", result.Tree.Root["app"])
+		}
+		// K is reachable: its own default was shadowed by the value file, so it
+		// stays in the chain, below the winner (ADR-005 I6).
+		origins := observer.root["K"]
+		if len(origins) != 2 || origins[0].Kind != values.SourceSchema || origins[1].Kind != values.SourceValues {
+			t.Fatalf("K origins = %+v, want [schema default, values]", origins)
+		}
+	})
+
+	t.Run("default under an existing object is reported", func(t *testing.T) {
+		t.Parallel()
+		valuesFile := writeFile(t, dir, "values-object.yaml", "app:\n  host: localhost\n")
+		observer := newRecordingObserver()
+		result, err := load.Load(context.Background(), load.Spec{
+			Files:  []string{valuesFile},
+			Schema: schemaFile,
+		}, observer)
+		if err != nil {
+			t.Fatalf("Load() error = %v", err)
+		}
+		origins := observer.root["app.port"]
+		if len(origins) == 0 || origins[len(origins)-1].Kind != values.SourceSchema {
+			t.Fatalf("app.port origins = %+v, want the schema default", origins)
+		}
+		app, ok := result.Tree.Root["app"].(map[string]any)
+		if !ok || app["port"] != 8080 {
+			t.Fatalf("app = %#v, want port filled from the default", result.Tree.Root["app"])
+		}
+	})
+}
+
+// TestLoadDefaultOriginsUseTheValueThatSuppliedThePath pins attribution when a
+// parent default is an object: the child declaration exists, but its default was
+// never applied, so only the parent's declaration owns the value.
+func TestLoadDefaultOriginsUseTheValueThatSuppliedThePath(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	schemaFile := writeFile(t, dir, "schema.json", `{
+		"type":"object",
+		"properties":{
+			"app":{
+				"type":"object",
+				"default":{"port":1},
+				"properties":{"port":{"type":"integer","default":2}}
+			}
+		}
+	}`)
+
+	observer := newRecordingObserver()
+	result, err := load.Load(context.Background(), load.Spec{Schema: schemaFile}, observer)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if origins := observer.root["app.port"]; len(origins) != 0 {
+		t.Fatalf("app.port origins = %+v, want none: the parent default supplied the value", origins)
+	}
+	origins := observer.root["app"]
+	if len(origins) == 0 || origins[len(origins)-1].Source != "#/properties/app/default" {
+		t.Fatalf("app origins = %+v, want the parent default pointer", origins)
+	}
+	app, ok := result.Tree.Root["app"].(map[string]any)
+	if !ok || app["port"] != 1 {
+		t.Fatalf("app = %#v, want the parent default's literal", result.Tree.Root["app"])
+	}
+}

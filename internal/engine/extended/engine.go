@@ -331,7 +331,7 @@ func (e *Engine) renderedWord(ctx context.Context, word string, in engine.Input)
 // expression assigns.
 func (e *Engine) assignWord(ctx context.Context, expr expression, word string, in engine.Input) (renderResult, error) {
 	meta := values.Meta{
-		Kind:   values.SourceSet,
+		Kind:   values.SourceAssign,
 		Method: values.MethodAssign,
 		Source: in.Name,
 		File:   in.Name,

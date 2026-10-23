@@ -142,6 +142,17 @@ type PathEngine interface {
 	Paths(src []byte) ([]string, error)
 }
 
+// PathFilterEngine is an optional refinement of PathEngine: it lists only the
+// paths the renderer's substitution policy keeps. It matters for references
+// nested inside an operator word, because an excluded outer path leaves the
+// whole token literal and its word is never evaluated.
+type PathFilterEngine interface {
+	PathEngine
+	// PathsFor is Paths restricted to the paths replaces selects. A nil
+	// predicate selects every path.
+	PathsFor(src []byte, replaces func(string) bool) ([]string, error)
+}
+
 // StreamEngine is implemented by engines that can render straight into a writer,
 // so a large template is never buffered.
 type StreamEngine interface {

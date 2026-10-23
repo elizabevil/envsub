@@ -698,7 +698,7 @@ func TestExplainReportsAssignmentOrigins(t *testing.T) {
 	if stdout != "first=written\nsecond=written\n" {
 		t.Fatalf("stdout = %q, want both references resolved", stdout)
 	}
-	want := `"origin":{"kind":"set","method":"assign","source":"` + tmpl + `","file":"` + tmpl + `","line":1}`
+	want := `"origin":{"kind":"assign","method":"assign","source":"` + tmpl + `","file":"` + tmpl + `","line":1}`
 	if !strings.Contains(stderr, want) {
 		t.Fatalf("--explain report = %q, want it to contain %q", stderr, want)
 	}
@@ -719,7 +719,7 @@ func TestExplainReportsBeforeAFailure(t *testing.T) {
 		t.Fatalf("exit = %d, want 6 (missing); stderr=%q", status, stderr)
 	}
 	for _, want := range []string{
-		`"variable":"K","origin":{"kind":"set","method":"assign"`,
+		`"variable":"K","origin":{"kind":"assign","method":"assign"`,
 		`"variable":"NO_SUCH_VAR","origin":{"kind":"missing","method":"missing"`,
 	} {
 		if !strings.Contains(stderr, want) {

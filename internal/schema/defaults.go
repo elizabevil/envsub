@@ -58,6 +58,69 @@ func applyDefaults(tree *values.Tree, schemaNode any, node map[string]any, prefi
 // pointerPrefix is the JSON Pointer root every schema location hangs off.
 const pointerPrefix = "#"
 
+// DefaultOrigins returns the schema defaults that belong to the value lineage
+// after ApplyDefaults ran, keyed by the canonical path.
+//
+// A declaration belongs to the lineage only when the tree records an exact
+// origin at its path. That check separates the three cases the schema walk
+// alone cannot:
+//
+//   - the path came from a real source, so the default was shadowed and stays in
+//     the lineage (ADR-005 I6);
+//   - the path is missing and this default filled it, so tree meta names it as
+//     the winner;
+//   - the path is unreachable (its parent object does not exist), or it only
+//     exists inside an ancestor default's literal value, so this declaration
+//     never entered the tree and must not be reported.
+func (s *Schema) DefaultOrigins(tree *values.Tree) map[string]values.Meta {
+	origins := map[string]values.Meta{}
+	if s == nil || tree == nil {
+		return origins
+	}
+	collectDefaultOrigins(s.effective(), tree, tree.Root, nil, s.DefaultDecls(), s.Source, origins)
+	return origins
+}
+
+// collectDefaultOrigins walks the schema and the existing objects of the tree,
+// reporting a declaration only where the tree has an exact recorded origin.
+func collectDefaultOrigins(schemaNode any, tree *values.Tree, node map[string]any, prefix []values.Segment, decls map[string]string, schemaFile string, origins map[string]values.Meta) {
+	object, ok := schemaNode.(map[string]any)
+	if !ok {
+		return
+	}
+	properties, ok := object[keywordProperties].(map[string]any)
+	if !ok {
+		return
+	}
+	for _, key := range utils.SortedKeys(properties) {
+		childSchema, ok := properties[key].(map[string]any)
+		if !ok {
+			continue
+		}
+		childPath := values.AppendSegment(prefix, values.Segment{Key: key})
+		canonical := values.CanonicalPath(childPath)
+		if pointer, hasDefault := decls[canonical]; hasDefault {
+			if _, recorded := tree.MetaAt(canonical); recorded {
+				origins[canonical] = values.Meta{
+					Kind:   values.SourceSchema,
+					Method: values.MethodDefault,
+					Source: pointer,
+					File:   schemaFile,
+				}
+			}
+		}
+		child, exists := node[key]
+		if !exists {
+			continue
+		}
+		childNode, ok := child.(map[string]any)
+		if !ok {
+			continue
+		}
+		collectDefaultOrigins(childSchema, tree, childNode, childPath, decls, schemaFile, origins)
+	}
+}
+
 // DefaultDecls maps every declared default to the JSON pointer of its declaration,
 // keyed by the canonical spelling of the value path it fills.
 func (s *Schema) DefaultDecls() map[string]string {

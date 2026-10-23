@@ -8,8 +8,9 @@ import (
 	"github.com/elizabevil/envsub/internal/jsonx"
 )
 
-// SourceKind names the layering stage a value came through. It is stable: a new
-// way to supply a value extends SourceMethod, not this list
+// SourceKind names the layering stage a value came through. It is a closed set:
+// a new way to supply a value within a stage extends SourceMethod; a new stage
+// (template assignment) is added here explicitly
 // (docs/04-decisions/04-05-adr-005-explain-origin-model.md).
 type SourceKind string
 
@@ -22,6 +23,9 @@ const (
 	SourceEnvFile SourceKind = "envfile"
 	// SourceSet marks a value supplied on the command line.
 	SourceSet SourceKind = "set"
+	// SourceAssign marks a value written back into the tree by a template
+	// assignment (${K:=v}).
+	SourceAssign SourceKind = "assign"
 	// SourceProcess marks a value read through the @process namespace.
 	SourceProcess SourceKind = "process"
 	// SourceMissing marks a referenced name that resolved to nothing.

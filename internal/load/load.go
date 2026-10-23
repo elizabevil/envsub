@@ -83,12 +83,14 @@ func Load(ctx context.Context, spec Spec, observer Observer) (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
-	// The schema defaults are the bottom layer, so they are reported before any
-	// other layer: a default a later layer covered then appears in that value's
-	// lineage instead of after its winner (ADR-005 I6). The tuple comes from the
-	// declaration, because an overridden default is never written to the tree.
-	if observer != nil && sch != nil {
-		reportDefaults(observer, sch)
+	// Origins are collected instead of reported immediately. Whether a schema
+	// default is part of a value's lineage depends on the tree every source
+	// builds, so it can be decided only after the merge; the layers are replayed
+	// in their fixed order below (ADR-005 I6).
+	var origins originLog
+	var sink Observer
+	if observer != nil {
+		sink = &origins
 	}
 
 	// Layer order, lowest first: value files, dotenv files, --set. A .env file is
@@ -102,14 +104,14 @@ func Load(ctx context.Context, spec Spec, observer Observer) (*Result, error) {
 			return nil, diag.New(diag.KindUsage,
 				"--values-file accepts YAML/JSON value files, not %s: use --dotenv-file for .env files", path)
 		}
-		if err := loadInto(tree, format, path, observer); err != nil {
+		if err := loadInto(tree, format, path, sink); err != nil {
 			return nil, err
 		}
 	}
 
 	for _, path := range spec.DotenvFiles {
 		// --dotenv-file names the format, so the file name does not matter.
-		if err := loadInto(tree, source.DotenvFormat(), path, observer); err != nil {
+		if err := loadInto(tree, source.DotenvFormat(), path, sink); err != nil {
 			return nil, err
 		}
 	}
@@ -118,43 +120,79 @@ func Load(ctx context.Context, spec Spec, observer Observer) (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
-	if observer != nil {
+	if sink != nil {
 		for _, key := range setKeys {
 			if meta, ok := tree.MetaAt(key); ok {
-				observer.AddRoot(key, meta)
+				sink.AddRoot(key, meta)
 			}
 		}
 	}
 
 	if sch != nil {
 		sch.ApplyDefaults(tree)
+		// Report before Materialize: parsing a declared object out of a string
+		// creates paths the default traversal never saw, so collecting later would
+		// make an unreachable default look reachable.
+		flushOrigins(observer, sch, tree, origins)
 		if err := sch.Materialize(tree); err != nil {
 			return nil, err
 		}
 		if err := sch.Validate(tree); err != nil {
 			return nil, err
 		}
+	} else {
+		flushOrigins(observer, nil, tree, origins)
 	}
 	return &Result{Tree: tree, Schema: sch}, nil
 }
 
-// reportDefaults reports every declared schema default, lowest layer first, in a
-// stable order. A default a later layer covered leaves no trace on the tree, so the
-// declaration itself supplies the origin (its JSON pointer and the schema file).
-func reportDefaults(observer Observer, sch *schema.Schema) {
-	decls := sch.DefaultDecls()
-	paths := make([]string, 0, len(decls))
-	for path := range decls {
+// rootOrigin is one deferred root-layer report, kept in layering order.
+type rootOrigin struct {
+	path string
+	meta values.Meta
+}
+
+// originLog collects root origins while sources merge, so the loader can report
+// the schema defaults first once it knows which of them the tree can reach.
+type originLog struct {
+	origins []rootOrigin
+}
+
+func (*originLog) AddEnv(string) {}
+
+func (l *originLog) AddRoot(path string, meta values.Meta) {
+	l.origins = append(l.origins, rootOrigin{path: path, meta: meta})
+}
+
+// flushOrigins reports the schema defaults that are part of the lineage, then the
+// deferred file and set origins. The default layer comes first because it is the
+// lowest priority, so a default a later layer covered ends up in that value's
+// shadowed list (ADR-005 I6).
+func flushOrigins(observer Observer, sch *schema.Schema, tree *values.Tree, origins originLog) {
+	if observer == nil {
+		return
+	}
+	reportDefaultOrigins(observer, sch, tree)
+	for _, origin := range origins.origins {
+		observer.AddRoot(origin.path, origin.meta)
+	}
+}
+
+// reportDefaultOrigins reports the declared defaults the value tree can reach,
+// lowest layer first, in a stable order. The declaration supplies the JSON
+// pointer and the schema file; the tree decides reachability.
+func reportDefaultOrigins(observer Observer, sch *schema.Schema, tree *values.Tree) {
+	if sch == nil {
+		return
+	}
+	origins := sch.DefaultOrigins(tree)
+	paths := make([]string, 0, len(origins))
+	for path := range origins {
 		paths = append(paths, path)
 	}
 	sort.Strings(paths)
 	for _, path := range paths {
-		observer.AddRoot(path, values.Meta{
-			Kind:   values.SourceSchema,
-			Method: values.MethodDefault,
-			Source: decls[path],
-			File:   sch.Source,
-		})
+		observer.AddRoot(path, origins[path])
 	}
 }
 
