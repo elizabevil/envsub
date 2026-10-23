@@ -164,7 +164,7 @@ func (req Request) collectReferences(eng RenderEngine, templates []template, ref
 	}
 	for i := range templates {
 		data := templates[i].Text
-		paths, err := listPaths(pathEngine, data, req.Policies.replaces)
+		paths, err := pathEngine.PathsFor(data, req.Policies.replaces)
 		if err != nil {
 			return diag.Wrapf(diag.KindTemplate, "report %s: %w", templates[i].Input, err)
 		}
@@ -173,30 +173,6 @@ func (req Request) collectReferences(eng RenderEngine, templates []template, ref
 		}
 	}
 	return nil
-}
-
-// listPaths lists the paths a template references under the substitution
-// policy. An engine implementing engine.PathFilterEngine can also drop
-// references nested inside an excluded expression, which a flat filter cannot
-// see; a plain PathEngine falls back to filtering the path list.
-func listPaths(pathEngine engine.PathEngine, src []byte, replaces func(string) bool) ([]string, error) {
-	if filtered, ok := pathEngine.(engine.PathFilterEngine); ok {
-		return filtered.PathsFor(src, replaces)
-	}
-	paths, err := pathEngine.Paths(src)
-	if err != nil {
-		return nil, err
-	}
-	if replaces == nil {
-		return paths, nil
-	}
-	kept := make([]string, 0, len(paths))
-	for _, path := range paths {
-		if replaces(path) {
-			kept = append(kept, path)
-		}
-	}
-	return kept, nil
 }
 
 // reportUnused writes the value-file entries no template referenced.

@@ -60,7 +60,7 @@ last-updated: 2026-10-22
 
 - [x] **V-1.2 `FuzzExpressionPaths`**
   - 文件：`test/fuzz/fuzz_test.go` 追加（黑盒，`package fuzz_test`）
-  - 主体：`extended.New().Paths(data)`（`internal/engine/extended/explain.go:8`）→ 打通「扫描 → 表达式解析 → 路径规范化」
+  - 主体：`extended.New().PathsFor(data, nil)`（`internal/engine/extended/explain.go:8`）→ 打通「扫描 → 表达式解析 → 路径规范化」
   - 断言：每个返回路径非空，且能 `values.ParsePath` → `values.CanonicalPath` → 再 `ParsePath` 往返成功
   - 与 `FuzzPathParser` 的分工：后者只测 `values.ParsePath` 的路径文法，本目标测的是表达式解析器
   - 完成判据：`go test -fuzz=FuzzExpressionPaths -fuzztime=30s ./test/fuzz/` 无 crash

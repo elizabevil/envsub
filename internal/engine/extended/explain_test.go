@@ -33,7 +33,7 @@ func TestPaths(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got, err := New().Paths([]byte(tt.src))
+			got, err := New().PathsFor([]byte(tt.src), nil)
 			if err != nil {
 				t.Fatalf("Paths() error = %v", err)
 			}

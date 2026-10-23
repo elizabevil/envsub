@@ -21,7 +21,7 @@ P0 全部完成、试用发布已做之后，剩下的开放项汇总在这里�
 | E1 | observer 候选链尾补值树上的 `assign` 帧；只有 `:=`/`=` 真正写回时才出现 | `TestExplainerSourceAssignmentClosesTheChain`、`TestExplainReportsAssignmentOverAnEmptySource` |
 | E2 | 不再报“所有声明”，改为 **精确 meta 可达性**：只有值树能到达的 default 进入链；被覆盖但仍可达的仍在 `shadowed`（I6） | `TestLoadReportsOnlyReachableDefaults`、`TestLoadDefaultOriginsUseTheValueThatSuppliedThePath`、`TestExplainOmitsUnreachableSchemaDefault` |
 | E3 | 来源报告先精确查找；精确 meta 不存在但值存在时回退最近祖先（物化子路径）；值不存在才报 `missing` | `TestExplainerSourceFallsBackToAncestorOnlyForExistingValues`、`TestExplainKeepsMaterializedChildOrigin`、`TestExplainDoesNotInheritAncestorForMissingChild` |
-| E4 | `explainTemplate` 同时按 `Policies.replaces` 过滤，与 `--report=unused` 同口径；可选 `PathsFor` 让被排除外层词内的嵌套引用也不上报 | `TestExplainTemplateSkipsFilteredVariables`、`TestExplainSkipsFilteredVariables`、`TestPathsForHonorsPolicy`、`TestExplainSkipsNestedReferenceUnderExcludedParent` |
+| E4 | `explainTemplate` 同时按 `Policies.replaces` 过滤，与 `--report=unused` 同口径；`PathEngine.PathsFor` 让被排除外层词内的嵌套引用也不上报 | `TestExplainTemplateSkipsFilteredVariables`、`TestExplainSkipsFilteredVariables`、`TestPathsForHonorsPolicy`、`TestExplainSkipsNestedReferenceUnderExcludedParent` |
 | E5 | `Paths` 递归扫描操作符的默认词，`${A:-${B}}` 同时枚举 A、B | `TestPaths` 嵌套用例、`TestExplainReportsNestedDefaultWord` |
 | E6 | 报告失败与渲染错误 `errors.Join`，渲染错误在前，kind/exit code 不变 | `TestExplainReportFailureKeepsRenderError` |
 | E7 | 新增 `SourceAssign`，帧为 `kind=assign, method=assign`；`frameFor` 补 method 推断 | `TestExplainFramesFollowADR005`、两个 assignment e2e |

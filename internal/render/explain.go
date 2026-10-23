@@ -190,7 +190,7 @@ func (e Explain) matches(name string) bool {
 // first-appearance order. It only reads names and recorded origins, so it cannot
 // change the rendered output.
 func explainTemplate(events *event.Writer, pathEngine engine.PathEngine, req Request, tmpl string, src []byte, run explainRun) error {
-	paths, err := listPaths(pathEngine, src, req.Policies.replaces)
+	paths, err := pathEngine.PathsFor(src, req.Policies.replaces)
 	if err != nil {
 		return diag.Wrapf(diag.KindTemplate, "explain %s: %w", tmpl, err)
 	}
@@ -198,13 +198,6 @@ func explainTemplate(events *event.Writer, pathEngine engine.PathEngine, req Req
 	for _, path := range paths {
 		name := explainName(path)
 		if name == "" || seen[name] || !req.Explain.matches(name) {
-			continue
-		}
-		// A path the Only/Ignore filters exclude is not substituted, so it
-		// never resolved to anything and must not be reported as if it had.
-		// listPaths already applies the same rule; this also covers a plain
-		// PathEngine that returned the full flat list.
-		if !req.Policies.replaces(path) {
 			continue
 		}
 		seen[name] = true

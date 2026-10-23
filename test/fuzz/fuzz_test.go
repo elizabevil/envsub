@@ -98,7 +98,7 @@ func FuzzExpressionPaths(f *testing.F) {
 		f.Add([]byte(seed))
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		paths, err := extended.New().Paths(data)
+		paths, err := extended.New().PathsFor(data, nil)
 		if err != nil {
 			return
 		}

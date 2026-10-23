@@ -133,23 +133,13 @@ type Engine interface {
 	Render(ctx context.Context, in Input) ([]byte, error)
 }
 
-// PathEngine is implemented by engines that can list the variable paths a template
-// references; --explain uses it.
+// PathEngine is implemented by engines that can list the variable paths a
+// template references; --explain and --report=unused use it.
 type PathEngine interface {
 	Engine
-	// Paths returns the referenced variable paths, deduplicated and ordered by
-	// first appearance in the template.
-	Paths(src []byte) ([]string, error)
-}
-
-// PathFilterEngine is an optional refinement of PathEngine: it lists only the
-// paths the renderer's substitution policy keeps. It matters for references
-// nested inside an operator word, because an excluded outer path leaves the
-// whole token literal and its word is never evaluated.
-type PathFilterEngine interface {
-	PathEngine
-	// PathsFor is Paths restricted to the paths replaces selects. A nil
-	// predicate selects every path.
+	// PathsFor returns the referenced paths, deduplicated and ordered by first
+	// appearance, keeping only those replaces selects. A nil predicate keeps
+	// every path.
 	PathsFor(src []byte, replaces func(string) bool) ([]string, error)
 }
 

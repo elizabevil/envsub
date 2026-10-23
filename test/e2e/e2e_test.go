@@ -15,6 +15,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	eventpkg "github.com/elizabevil/envsub/internal/event"
 )
 
 const (
@@ -665,7 +667,7 @@ func TestExplainFramesFollowADR005(t *testing.T) {
 	}
 
 	for _, report := range reports {
-		if report.Schema != 1 || report.Type != "explain" || report.Time == "" || report.Seq == 0 {
+		if report.Schema != 1 || report.Type != eventpkg.TypeExplain || report.Time == "" || report.Seq == 0 {
 			t.Errorf("envelope = schema %d type %q time %q seq %d, want a complete explain event", report.Schema, report.Type, report.Time, report.Seq)
 		}
 		check(report.Data.Variable+".origin", report.Data.Origin)
@@ -743,7 +745,7 @@ func TestExplainShadowedOrder(t *testing.T) {
 	if err := json.Unmarshal([]byte(lines[0]), &report); err != nil {
 		t.Fatalf("decode explain line %q: %v", lines[0], err)
 	}
-	if report.Schema != 1 || report.Type != "explain" || report.Time == "" || report.Seq == 0 {
+	if report.Schema != 1 || report.Type != eventpkg.TypeExplain || report.Time == "" || report.Seq == 0 {
 		t.Fatalf("envelope = schema %d type %q time %q seq %d, want a complete explain event", report.Schema, report.Type, report.Time, report.Seq)
 	}
 
@@ -906,7 +908,7 @@ func unusedPaths(t *testing.T, stderr string) []string {
 		if err := json.Unmarshal([]byte(line), &event); err != nil {
 			t.Fatalf("decode stderr line %q: %v", line, err)
 		}
-		if event.Type == "unused" {
+		if event.Type == eventpkg.TypeUnused {
 			paths = append(paths, event.Data.Path)
 		}
 	}

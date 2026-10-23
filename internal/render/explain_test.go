@@ -25,7 +25,21 @@ func (stubPathEngine) Name() string { return "stub" }
 func (stubPathEngine) Render(context.Context, engine.Input) ([]byte, error) {
 	return nil, nil
 }
-func (s stubPathEngine) Paths([]byte) ([]string, error) { return s.paths, s.err }
+func (s stubPathEngine) PathsFor(_ []byte, replaces func(string) bool) ([]string, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	if replaces == nil {
+		return s.paths, nil
+	}
+	kept := make([]string, 0, len(s.paths))
+	for _, path := range s.paths {
+		if replaces(path) {
+			kept = append(kept, path)
+		}
+	}
+	return kept, nil
+}
 
 // fixedEventTime keeps envelope timestamps out of the assertions while still
 // exercising the real encoder.

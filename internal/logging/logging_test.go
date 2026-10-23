@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/elizabevil/envsub/internal/event"
+	eventpkg "github.com/elizabevil/envsub/internal/event"
 	"github.com/elizabevil/envsub/internal/logging"
 )
 
@@ -64,7 +64,7 @@ func TestLoggerRoundTrip(t *testing.T) {
 func TestEventLoggerWritesEnvelope(t *testing.T) {
 	t.Parallel()
 	var buf bytes.Buffer
-	logger, err := logging.NewEvent("debug", event.NewWriter(&buf))
+	logger, err := logging.NewEvent("debug", eventpkg.NewWriter(&buf))
 	if err != nil {
 		t.Fatalf("NewEvent() error = %v", err)
 	}
@@ -84,7 +84,7 @@ func TestEventLoggerWritesEnvelope(t *testing.T) {
 	if err := json.Unmarshal(buf.Bytes(), &event); err != nil {
 		t.Fatalf("log line is not JSON: %v (%q)", err, buf.String())
 	}
-	if event.Schema != 1 || event.Type != "log" || event.Seq != 1 {
+	if event.Schema != 1 || event.Type != eventpkg.TypeLog || event.Seq != 1 {
 		t.Fatalf("envelope = %+v, want schema 1, type log, seq 1", event)
 	}
 	if _, err := time.Parse(time.RFC3339, event.Time); err != nil {

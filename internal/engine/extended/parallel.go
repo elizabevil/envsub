@@ -87,37 +87,22 @@ func prepareWindow(window []byte, tree *values.Tree) error {
 // inspected too, because they are rendered as templates of their own.
 func inspectText(text []byte, tree *values.Tree) (bool, error) {
 	assigns := false
-	err := ScanSpans(text, func(span Span) error {
-		if span.Kind != TokenVariable || assigns {
-			return nil
+	err := walkReferences(text, func(ref reference) (bool, error) {
+		if assigns || ref.Bare {
+			return false, nil
 		}
 		// A bare ${NAME} resolves through the renderer's fast path, which never
 		// compiles a path. The options that send it down the general path
 		// instead (--only-vars/--ignore-vars, --on-missing=keep) keep the whole render
 		// sequential, so skipping it here cannot leave a worker compiling.
-		if _, bare := simpleSpanName(text, span); bare {
-			return nil
-		}
-		expr, err := parseExpression(spanToken(text, span).Path)
-		if err != nil {
-			return err
-		}
-		if expr.Op == opAssignDefault || expr.Op == opAssignIfUnset {
+		if ref.Op == opAssignDefault || ref.Op == opAssignIfUnset {
 			assigns = true
-			return nil
+			return false, nil
 		}
-		if _, err := tree.CompilePath(expr.Path); err != nil {
-			return err
+		if _, err := tree.CompilePath(ref.Path); err != nil {
+			return false, err
 		}
-		if expr.Word == "" {
-			return nil
-		}
-		nested, err := inspectText([]byte(expr.Word), tree)
-		if err != nil {
-			return err
-		}
-		assigns = nested
-		return nil
+		return true, nil
 	})
 	if err != nil {
 		return false, err

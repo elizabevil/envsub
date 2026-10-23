@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	eventpkg "github.com/elizabevil/envsub/internal/event"
 )
 
 // jsonlEvent is the shared envelope plus the error payload the tests inspect.
@@ -63,7 +65,7 @@ func TestJSONLStreamOnSuccess(t *testing.T) {
 		t.Fatalf("exit = %d, want 0; stderr=%q", code, stderr)
 	}
 	events := decodeJSONL(t, stderr)
-	if len(events) != 1 || events[0].Type != "explain" {
+	if len(events) != 1 || events[0].Type != eventpkg.TypeExplain {
 		t.Fatalf("events = %+v, want one explain record", events)
 	}
 }
@@ -81,9 +83,9 @@ func TestJSONLStreamOnFailure(t *testing.T) {
 	var seenExplain, seenError bool
 	for _, event := range events {
 		switch event.Type {
-		case "explain":
+		case eventpkg.TypeExplain:
 			seenExplain = true
-		case "error":
+		case eventpkg.TypeError:
 			seenError = true
 			if event.Data.Kind != "missing" || event.Data.ExitCode != 6 {
 				t.Fatalf("error event = %+v, want missing/6", event)
@@ -113,7 +115,7 @@ func TestJSONLBatchFailureEmitsOneErrorPerFailure(t *testing.T) {
 	events := decodeJSONL(t, stderr)
 	var errors []jsonlEvent
 	for _, event := range events {
-		if event.Type == "error" {
+		if event.Type == eventpkg.TypeError {
 			errors = append(errors, event)
 		}
 	}
@@ -130,7 +132,7 @@ func TestJSONLUsageError(t *testing.T) {
 		t.Fatalf("exit = %d, want 2; stderr=%q", code, stderr)
 	}
 	events := decodeJSONL(t, stderr)
-	if len(events) != 1 || events[0].Type != "error" || events[0].Data.Kind != "usage" {
+	if len(events) != 1 || events[0].Type != eventpkg.TypeError || events[0].Data.Kind != "usage" {
 		t.Fatalf("events = %+v, want one usage error", events)
 	}
 }
@@ -170,7 +172,7 @@ func TestJSONLLogEvent(t *testing.T) {
 		t.Fatalf("exit = %d, want 0; stderr=%q", code, stderr)
 	}
 	events := decodeJSONL(t, stderr)
-	if len(events) == 0 || events[0].Type != "log" {
+	if len(events) == 0 || events[0].Type != eventpkg.TypeLog {
 		t.Fatalf("events = %+v, want a log record", events)
 	}
 }
@@ -188,7 +190,7 @@ func TestJSONLUnusedEvent(t *testing.T) {
 		t.Fatalf("exit = %d, want 0; stderr=%q", code, stderr)
 	}
 	events := decodeJSONL(t, stderr)
-	if len(events) != 1 || events[0].Type != "unused" {
+	if len(events) != 1 || events[0].Type != eventpkg.TypeUnused {
 		t.Fatalf("events = %+v, want one unused record", events)
 	}
 }
@@ -205,7 +207,7 @@ func TestJSONLExplicitWithoutExplain(t *testing.T) {
 		t.Fatalf("exit = %d, want 6; stderr=%q", code, stderr)
 	}
 	events := decodeJSONL(t, stderr)
-	if len(events) != 1 || events[0].Type != "error" || events[0].Data.Kind != "missing" {
+	if len(events) != 1 || events[0].Type != eventpkg.TypeError || events[0].Data.Kind != "missing" {
 		t.Fatalf("events = %+v, want one missing error", events)
 	}
 }
@@ -236,7 +238,7 @@ func TestJSONLSurvivesFlagParseError(t *testing.T) {
 		t.Fatalf("exit = %d, want 2; stderr=%q", code, stderr)
 	}
 	events := decodeJSONL(t, stderr)
-	if len(events) != 1 || events[0].Type != "error" || events[0].Data.Kind != "usage" {
+	if len(events) != 1 || events[0].Type != eventpkg.TypeError || events[0].Data.Kind != "usage" {
 		t.Fatalf("events = %+v, want one usage error", events)
 	}
 }

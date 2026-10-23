@@ -30,6 +30,7 @@ import (
 	"strings"
 	"sync"
 
+	eventpkg "github.com/elizabevil/envsub/internal/event"
 	"github.com/elizabevil/envsub/internal/yamlx"
 )
 
@@ -330,7 +331,7 @@ func summariseSources(path string, stdout io.Writer) error {
 		if err := json.Unmarshal([]byte(line), &event); err != nil {
 			return fmt.Errorf("explain line %d: %w", len(entries)+1, err)
 		}
-		if event.Type != "explain" {
+		if event.Type != eventpkg.TypeExplain {
 			continue
 		}
 		entries = append(entries, event.Data)

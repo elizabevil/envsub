@@ -530,7 +530,7 @@ jq -c 'select(.type=="explain" and .data.variable=="app.port")' events.jsonl
 
 | 部分 | 状态 |
 |------|------|
-| 引擎侧变量枚举 | ✅ `engine.PathEngine` 接口 + `extended.Engine.Paths(src)`：按**首次出现顺序**去重，表达式经 `parseExpression` 归约为路径（`${A \| toJson}` → `A`、`${B:-x}` → `B`），默认词递归展开（`${A:-${B}}` → `A`、`B`）；可选 `engine.PathFilterEngine` 的 `PathsFor` 按替换策略枚举，外层被 `--only-vars`/`--ignore-vars` 排除时不会把词内引用算进来；测试 `TestPaths`（含嵌套默认词）、`TestPathsForHonorsPolicy` |
+| 引擎侧变量枚举 | ✅ `engine.PathEngine.PathsFor(src, replaces)`：按**首次出现顺序**去重，表达式经 `parseExpression` 归约为路径（`${A \| toJson}` → `A`、`${B:-x}` → `B`），默认词递归展开（`${A:-${B}}` → `A`、`B`），外层被 `--only-vars`/`--ignore-vars` 排除时不会把词内引用算进来；测试 `TestPaths`（含嵌套默认词）、`TestPathsForHonorsPolicy` |
 | 渲染层输出 | ✅ `render.Request.Explain{Enabled, Paths}` + 共享的 `Request.Events`；`load.Load` 先收集各来源，再在 `ApplyDefaults` 之后按"精确 meta 可达性"补 schema `default` 帧，最后按 default → 值文件 → `.env` → `--set` 回放（G21；父对象不存在的 default 不报告），`explainTemplate` 通过 `event.Writer` 发出 `explain` 事件并做精确路径过滤；单测 `TestExplainTemplateWritesJSONL`/`TestExplainTemplateFiltersByExactPath`/`TestExplainerSource`/`TestMetaOrigin` |
 | CLI 选项 | ✅ `--explain[=PATH]`（pflag 可选值，裸 `--explain` 用 `*` 哨兵表示全部）；CLI 只解析，`internal/cli` 的 `renderFlags.request()` 装配成 `render.Request`，校验统一在 `Request.Validate()` |
 | e2e fixture | ✅ `explain_env_file`、`explain_multi_env`、`explain_set_wins`、`explain_missing`、`explain_batch`（多模板同构）、`explain_path`（`--explain=PATH` 过滤）、`explain_space_form`（空格形态 → exit 5）；`TestExplainStdoutUnchanged` 对拍加/不加 `--explain` 的 stdout。`shadowed` 不再含 `process`（见下） |
