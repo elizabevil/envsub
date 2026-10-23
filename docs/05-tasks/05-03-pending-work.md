@@ -62,7 +62,7 @@
 | 6 | **环境变量映射契约** | ✅ **已实现**：路径推导已移除（`envName` 仅保留单段同名；`envMetaName` 删除；物化自动收窄）；环境读取只剩 `${@process.NAME}`，`.env` 写入根，层序 `--set` > `--dotenv-file` > `-f` > `default`。见 `13-materialization.md` §13/§14、`04-cli.md` §6.2 |
 | 7 | **`.env` 与进程环境优先级** | ✅ **已定案**：`.env` 与进程环境不同格（`.env` 进根、进程环境只在 `@process`），"谁压谁"不存在 | 见 `13-materialization.md` §12/§14 |
 | 8 | **`env.NAME` 前缀去留** | ✅ **已定**：`env` 降为**根对象里的普通键**，`${env.NAME}` 不再是命名空间写法；进程环境写 `${@process.NAME}`。原"是否弃用兼容形式"问题消失 | 见 `06-15` §2.1/§3.1 D1 |
-| 9 | **`--explain` 来源输出** | ✅ **已实现（JSONL 版）**：引擎侧变量枚举（`engine.PathEngine` + `extended.Engine.Paths`）＋渲染层 `Request.Explain{Enabled, Paths, Writer}`（来源栈在 `buildValues` 记录，`explainTemplate` 编码 JSONL 并做精确路径过滤）＋CLI `--explain[=PATH]`（stderr，裸 = all）＋7 个 e2e fixture 与 stdout 逐字节回归。**已决（2026-10-10）：不提供 `--explain-out`，固定 stderr + JSONL，落盘用 `2>`**。规格见 `13-materialization.md` §15，取舍与实测见 `06-review/06-11`。`variable` 用规范拼写、不再做 `env.` 归一；`shadowed` 已升级为**结构化帧数组**（ADR-005），
+| 9 | **`--explain` 来源输出** | ✅ **已实现（JSONL 版）**：引擎侧变量枚举（`engine.PathEngine` + `extended.Engine.Paths`）＋渲染层 `Request.Explain{Enabled, Paths}` + 共享 `Request.Events`（来源栈在 `buildValues` 记录，`explainTemplate` 发事件并做精确路径过滤）＋CLI `--explain[=PATH]`（stderr，裸 = all）＋7 个 e2e fixture 与 stdout 逐字节回归。**已决（2026-10-10）：不提供 `--explain-out`，固定 stderr + JSONL，落盘用 `2>`**。规格见 `13-materialization.md` §15，取舍与实测见 `06-review/06-11`。`variable` 用规范拼写、不再做 `env.` 归一；`shadowed` 已升级为**结构化帧数组**（ADR-005），
 含被覆盖的 schema `default` |
 | 10 | **命名空间重构的三个开放项** | ✅ **已裁决**：O1 `.env` 键**照常纳入 schema 校验**（`additionalProperties:false` 会拒收 `.env` 里的 `PATH` 等，属既定代价）；O2 `--dotenv-file` 键字符集**不放宽**；O3 `["0"]` 恒为键、`[0]` 恒为下标 | 见 `06-15` §6；实现按此执行 |
 

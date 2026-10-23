@@ -2,6 +2,7 @@ package source
 
 import (
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/elizabevil/envsub/internal/diag"
@@ -44,10 +45,8 @@ var (
 func FormatFor(path string) (Format, error) {
 	ext := strings.ToLower(filepath.Ext(path))
 	for _, format := range builtinFormats {
-		for _, candidate := range format.Extensions {
-			if candidate == ext {
-				return format, nil
-			}
+		if slices.Contains(format.Extensions, ext) {
+			return format, nil
 		}
 	}
 	return Format{}, diag.New(diag.KindUsage,

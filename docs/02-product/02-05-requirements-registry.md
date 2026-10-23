@@ -107,7 +107,7 @@ last-updated: 2026-10-12
 | REQ-OUT-05 | `--check`（有差异即非零退出，CI 门禁） | P1 | ✅ 已实现 | ✅ | TASK-105：`--check` + 专用退出码 7；5 fixture + 5 单测 |
 | REQ-OUT-06 | 权限/行尾/编码保真（CRLF、mode 位） | P1 | ❌ | ✅ | 原子写回已保留文件，需显式测试 mode 与 CRLF |
 | REQ-OUT-07 | 输出路径变量化（输出名由值决定） | P2 | ❌ | 🟡 | 需限制在输出根目录内（防路径穿越） |
-| REQ-OUT-08 | 机器可读输出（错误/报告 JSON） | P1 | ✅ 已实现 | ✅ | `--error-format=json`（TASK-102，2 fixture + 单测）；`--explain` 为 JSONL |
+| REQ-OUT-08 | 机器可读输出（错误/报告 JSON） | P1 | ✅ 已实现 | ✅ | `--jsonl` 统一事件信封（schema/type/time/seq/data）；`--error-format=json` 为兼容别名；`--explain` 为 JSONL |
 | REQ-OUT-09 | 渲染统计与未使用变量报告 | P1 | ✅ 已实现 | ✅ | `--report=unused`（TASK-103：6 单测 + 2 fixture）；口径见 `04-cli` C15 |
 | REQ-OUT-10 | 交互确认 / 覆盖保护 | P2 | ❌ | ✅ | 与 CI 非交互冲突：默认非交互，仅 `-i` 时加保护 |
 | REQ-OUT-11 | 批量输出名处理（模板后缀） | P2 | ✅ 已实现 | ✅ | `--strip-suffix EXT`（可重复、默认关；仅 `--output-dir`；最长匹配；撞名 exit 2）：ADR-006、`04-cli` C18、fixture `strip_suffix`/`strip_suffix_collision` |

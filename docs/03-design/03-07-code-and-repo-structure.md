@@ -73,7 +73,7 @@ last-updated: 2026-09-29
 
 - `cmd/envsub`：只负责调用 `internal/app`，不写业务逻辑。`[INFERENCE]`
 - `internal/cli`：Cobra 命令、flag、参数解析与退出码映射。命令树只把 flag 装配成 `render.Request`，执行由调用方注入的 `cli.Runner` 完成（`internal/app` 传入 `render.Run`）。`[FACT]`
-- `internal/engine`：定义 `Engine`、`StreamEngine`、`StreamReaderEngine`、`PathEngine` 接口；`extended` 实现承载 `$NAME`、`${path}`、`$$`、`$1`、默认值操作符。装配由 `internal/app` 注入一个引擎，流水线不按能力标记分支。`[INFERENCE]`
+- `internal/engine`：定义 `Engine`、`StreamEngine`、`StreamReaderEngine`、`PathEngine`、`PathFilterEngine` 接口；`extended` 实现承载 `$NAME`、`${path}`、`$$`、`$1`、默认值操作符。装配由 `internal/app` 注入一个引擎，流水线不按能力标记分支。`[INFERENCE]`
 - `internal/source`：`.env`、YAML、JSON 加载器；CLI `--set*` 由 source 层输入。`[INFERENCE]`
 - `internal/values`：值树、多文件合并、CLI `--set*` 优先级；**路径文法的唯一归属**
   （`ParsePath`/`CanonicalPath`，以及供其它包复用的 `AppendSegment`/`JoinIndex`/

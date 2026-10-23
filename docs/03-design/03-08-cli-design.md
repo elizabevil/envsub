@@ -31,7 +31,8 @@ envsub
 | 参数               | 默认  | 说明                      |
 |--------------------|-------|---------------------------|
 | `--log-level=debug\|info\|warn\|error` | `warn` | 日志级别 |
-| `--error-format=text\|json` | `text` | 错误输出的格式；`json` 时 stderr 为单个 JSON 对象（`kind`/`exitCode`/`message`） |
+| `--error-format=text\|json` | `text` | 错误输出的格式；`json` 是机器模式的兼容别名，输出 `type:"error"` 事件 |
+| `--jsonl` | `false` | stderr 统一为带 `type` 的 JSONL 事件流；`--explain`/`--report` 自动启用，`--jsonl=false` 关闭 |
 
 ## 4. render 参数
 
@@ -57,7 +58,7 @@ envsub
 | `--recursive`       | 递归处理目录模板             |
 | `--validate-only`   | 只做 schema/类型校验，不输出 |
 | `--check`           | 与现有目标逐字节比较，不写任何文件；有过期目标时 exit 7（需要 `-o`/`-i`/`--output-dir` 之一） |
-| `--report=unused`   | 把值文件中未被模板引用的叶子列到 stderr |
+| `--report=unused`   | 把值文件中未被模板引用的叶子列到 stderr；默认自动开启 `--jsonl`，输出 `type:"unused"` 记录 |
 
 ### 策略
 
@@ -92,8 +93,12 @@ envsub
 ## 6. stdout / stderr 约定
 
 - stdout：只输出渲染结果。
-- stderr：日志、警告、错误。
-- `--error-format=json` 时 stderr 输出结构化 JSON 错误。
+- stderr：日志、警告、错误，以及 `--explain`/`--report` 报告。
+- 默认 stderr 是**混合诊断流**；`--error-format=json` 是机器模式的兼容别名，会输出统一事件信封。
+- `--jsonl`（`--explain`/`--report` 自动开启）时，stderr 是**纯 JSONL 事件流**：每行固定为
+  `schema`/`type`/`time`/`seq`/`data` 信封，`data` 按 `explain`/`unused`/`error`/`log` 特化；
+  stdout 不变。`time` 统一由 `internal/timefmt` 生成（UTC、固定毫秒、`Z`）。
+- `--jsonl` 优先于 `--error-format`；`--error-format=json` 是兼容别名；`--jsonl=false` 显式退回混合流。
 - 默认不打印 bundle/进度信息。
 
 ## 7. 使用示例

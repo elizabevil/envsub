@@ -283,7 +283,7 @@ and the layers it shadowed — never the value itself, so it is safe to paste in
 a ticket.
 
 ```console
-{"template":"app.tmpl","variable":"PORT","origin":{"kind":"set","method":"flag","source":"PORT","file":"","line":0},"shadowed":[{"kind":"envfile","method":"file","source":".env","file":".env","line":1}]}
+{"schema":1,"type":"explain","time":"2026-10-22T23:43:37.041Z","seq":1,"data":{"template":"app.tmpl","variable":"PORT","origin":{"kind":"set","method":"flag","source":"PORT","file":"","line":0},"shadowed":[{"kind":"envfile","method":"file","source":".env","file":".env","line":1}]}}
 ```
 
 ## Template syntax
@@ -390,10 +390,22 @@ policies
 global
       --log-level=debug|info|warn|error     default: warn
       --error-format=text|json              default: text
+      --jsonl                               all stderr output as typed JSONL events
 ```
 
-`--error-format=json` makes stderr a single JSON object per failure, with
-`kind`, `exitCode` and `message` — handy for tooling.
+`--jsonl` makes stderr a single JSONL event stream for CI. Every line has the
+same envelope — `schema`, `type`, `time`, `seq`, `data` — and the payload is
+specialized by `type` (`explain`, `unused`, `error`, `log`). `time` is always
+UTC RFC3339 with fixed milliseconds, from one shared formatter. `--explain` and
+`--report` enable it automatically; use `--jsonl=false` to keep human-readable
+diagnostics. `--error-format=json` is a legacy alias and emits the same error
+event.
+
+```bash
+envsub render --explain -f values.yaml app.tmpl >out.txt 2>events.jsonl
+jq -c 'select(.type=="error")' events.jsonl
+jq -c 'select(.type=="explain" and .variable=="app.port")' events.jsonl
+```
 
 ## Exit codes
 

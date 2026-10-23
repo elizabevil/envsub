@@ -32,5 +32,5 @@ _列：kind | 退出码 | 触发条件 | 文案示例 | 证据。_
 | schema `required: [port]` + 缺 port | exit 4 | 现状 |
 | `--on-empty=keep` | exit 2 | 现状 |
 | `envsub rendr` | `unknown command "rendr" for "envsub"` + `Did you mean this?`，exit 2 | 现状 |
-| `envsub --error-format=json rendr` | `{"kind":"usage","exitCode":2,...}`，exit 2 | 现状 |
+| `envsub --error-format=json rendr` | `{"schema":1,"type":"error",...,"data":{"kind":"usage","exitCode":2,...}}`，exit 2 | 现状 |
 

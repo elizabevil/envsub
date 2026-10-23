@@ -50,12 +50,12 @@ last-updated: 2026-10-12
 | 风险 | 低 |
 | 参考 | `02-05` §5 第 1 项 |
 
-### TASK-102 机器可读错误报告 — ✅ 已完成（`--error-format=json`；2 fixture + 单测）
+### TASK-102 机器可读错误报告 — ✅ 已完成（`--error-format=json` / `--jsonl`；2 fixture + 单测）
 
 | 项 | 内容 |
 |----|------|
 | 需求 | REQ-OUT-08（P1，✅） |
-| 目标 | `--error-format=text\|json`；`json` 时错误以单个 JSON 对象写 stderr，含 `kind`/`exitCode`/`file`/`line`/`message` |
+| 目标 | `--jsonl` 统一事件流；`--error-format=json` 为兼容别名。错误事件为 `type:"error"`，载荷含 `kind`/`exitCode`/`message` |
 | 验收 | e2e：同一条错误在两种格式下的**退出码一致**；JSON 可被 `json.Unmarshal` 解析；`diag.Kind` 全覆盖 |
 | 依赖 | `internal/diag` 已有分类（K1..K6） |
 | 风险 | 低；需冻结 JSON 字段名（一次性契约） |

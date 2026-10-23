@@ -270,7 +270,7 @@ envsub render --explain --no-process-env \
 所以可以直接贴进工单。
 
 ```console
-{"template":"app.tmpl","variable":"PORT","origin":{"kind":"set","method":"flag","source":"PORT","file":"","line":0},"shadowed":[{"kind":"envfile","method":"file","source":".env","file":".env","line":1}]}
+{"schema":1,"type":"explain","time":"2026-10-22T23:43:37.041Z","seq":1,"data":{"template":"app.tmpl","variable":"PORT","origin":{"kind":"set","method":"flag","source":"PORT","file":"","line":0},"shadowed":[{"kind":"envfile","method":"file","source":".env","file":".env","line":1}]}}
 ```
 
 ## 模板语法
@@ -371,10 +371,19 @@ envsub completion bash|zsh|fish|powershell         生成 shell 补全脚本
 全局
       --log-level=debug|info|warn|error     默认 warn
       --error-format=text|json              默认 text
+      --jsonl                               把 stderr 统一成带 type 的 JSONL 事件流
 ```
 
-`--error-format=json` 会让 stderr 上的每个失败都是单个 JSON 对象，含 `kind`、`exitCode`
-与 `message`，方便工具消费。
+`--jsonl` 让 stderr 成为单一 JSONL 事件流，适合 CI。每行都有同一信封
+`schema`/`type`/`time`/`seq`/`data`，载荷按 `type`（`explain`、`unused`、`error`、`log`）特化。
+`time` 统一为 UTC RFC3339 固定毫秒，只有一个格式化实现。`--explain` 与 `--report` 会自动开启；
+要保留人类可读诊断，显式加 `--jsonl=false`。`--error-format=json` 是兼容别名，也输出同一错误事件。
+
+```bash
+envsub render --explain -f values.yaml app.tmpl >out.txt 2>events.jsonl
+jq -c 'select(.type=="error")' events.jsonl
+jq -c 'select(.type=="explain" and .variable=="app.port")' events.jsonl
+```
 
 ## 退出码
 

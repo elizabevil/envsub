@@ -221,7 +221,7 @@ _列：ID | 规则 | 证据。_
 |------|-------------|------|
 | `envsub bogus` | `unknown command "bogus" for "envsub"`，exit 2 | 现状；fixture `unknown_command` |
 | `envsub rendr` | 同上 + `Did you mean this?` 与 `render`，exit 2 | 现状；单测 `TestRunUnknownCommand` |
-| `envsub --error-format=json bogus` | `{"kind":"usage","exitCode":2,"message":"unknown command \"bogus\" for \"envsub\""}`，exit 2 | 现状；单测 `TestRunUnknownCommandAsJSON` |
+| `envsub --error-format=json bogus` | `{"schema":1,"type":"error",...,"data":{"kind":"usage","exitCode":2,"message":"unknown command \"bogus\" for \"envsub\""}}`，exit 2 | 现状；单测 `TestRunUnknownCommandAsJSON` |
 
 ### 6.5.0 从文件取值（`--set-file KEY=FILE`）
 
@@ -265,7 +265,7 @@ _列：ID | 规则 | 证据。_
 
 | 编号 | 规则 | 证据 |
 |------|------|------|
-| C14 | `--error-format=json` 时失败以**单个 JSON 对象**写 stderr，字段固定为 `kind`/`exitCode`/`message`；退出码与 text 形态**完全一致** | `internal/diag/report.go`；`internal/app/app.go` |
+| C14 | `--error-format=json` 是机器模式的兼容别名：错误以**单个 JSON 事件**写 stderr（`schema`/`type`/`time`/`seq`/`data`，`data` 含 `kind`/`exitCode`/`message`）；退出码与 text 形态**完全一致**。`--jsonl` 优先于它 | `internal/diag/report.go`；`internal/app/app.go`；`internal/event` |
 | C14 | 默认 `text`；非法取值 → KindUsage exit 2，且在任何 IO 之前拒绝 | `cli.ValidateErrorFormat` |
 | C14 | `kind` 取值为 `diag.Kind`（internal/usage/template/type/schema/io/missing/policy/diff），未分类错误为 `internal`+exit 1 | `diag.NewReport` |
 
@@ -273,16 +273,16 @@ _列：ID | 规则 | 证据。_
 
 | 命令 | 输出 / exit | 标注 |
 |------|-------------|------|
-| `--error-format=json` + 缺失变量 | `{"kind":"missing","exitCode":6,"message":"variable \"X\" is not set"}`，exit 6 | fixture `error_format_json` |
+| `--error-format=json` + 缺失变量 | `{"schema":1,"type":"error","time":"...Z","seq":1,"data":{"kind":"missing","exitCode":6,"message":"variable \"X\" is not set"}}`，exit 6 | fixture `error_format_json` |
 | 同上（不带 `--error-format`） | `variable "X" is not set`，exit 6 | 现有 fixture |
-| `--error-format=json --check -o out.txt`（过期） | `{"kind":"diff","exitCode":7,...}`，exit 7 | 单测 + fixture `check_outdated` |
+| `--error-format=json --check -o out.txt`（过期） | `data.kind="diff"`、`data.exitCode=7` 的错误事件，exit 7 | 单测 + fixture `check_outdated` |
 | `--error-format=yaml` | `invalid --error-format value "yaml": want text or json`，exit 2 | fixture `error_format_invalid` |
 
 ### 6.5.3 未使用值报告（`--report=unused`）
 
 | 编号 | 规则 | 证据 |
 |------|------|------|
-| C15 | 列出**值文件里**从未被任何模板引用的叶子，一行一个写到 stderr，按路径排序 | `internal/render/unused.go` |
+| C15 | 列出**值文件里**从未被任何模板引用的叶子，按路径排序写到 stderr；text 模式一行一个，JSONL 模式一条 `type:"unused"`、`data.path` 为路径的事件 | `internal/render/unused.go` |
 | C15 | 只统计 `--values-file` 的条目：schema `default`、`--set`/`--set-json`、`--dotenv-file`、`@process` 都不是"可删除的死配置"，不列出 | `meta.Kind == values.SourceValues` |
 | C15 | 引用**子树**即使用其下全部值（`${extra \| toJson}` 使 `extra[0]`/`extra[1]` 为已用）；被 `--only-vars`/`--ignore-vars` 排除的引用**不算**使用 | 单测 `TestReportUnusedListsValueFileLeaves`、`TestReportUnusedHonoursVariableFilters` |
 | C15 | 拼写与 `--explain` 的 `variable` 一致（`values.CanonicalPath`），需要引号的键写作 `["a.b"]` | `canonicalPath` |
@@ -292,9 +292,37 @@ _列：ID | 规则 | 证据。_
 
 | 命令 | 输出 / exit | 标注 |
 |------|-------------|------|
-| `--report=unused` + `${app.port}`，值文件有 `app.unused` 与 `extra: [a,b]` | stderr `app.unused` / `extra[0]` / `extra[1]`；stdout 不变，exit 0 | fixture `report_unused` |
+| `--report=unused` + `${app.port}`，值文件有 `app.unused` 与 `extra: [a,b]` | stderr 三条 `type:"unused"` 事件，`data.path` 分别为 `app.unused` / `extra[0]` / `extra[1]`；stdout 不变，exit 0 | fixture `report_unused` |
 | 同上但模板引用 `${extra \| toJson}` | 只列 `app.unused` | 单测 |
 | `--report=path` | `invalid --report value "path": want unused`，exit 2 | fixture `report_invalid` |
+
+### 6.5.3a 统一 JSONL 事件流（`--jsonl`，C16）
+
+| 编号 | 规则 | 证据 |
+|------|------|------|
+| C16 | `--jsonl` 打开后 stderr 每行都是一个事件信封：`schema`/`type`/`time`/`seq`/`data`；`type` 为 `explain`/`unused`/`error`/`log` 之一；stdout 不变 | `internal/event`；`internal/cli/root.go` |
+| C16 | `--explain`/`--report` 自动开启 `--jsonl`；显式 `--jsonl=false` 可退回混合流 | `cli.JSONLFrom` |
+| C16 | 所有事件共用 `internal/timefmt` 的 UTC 固定毫秒时间；`seq` 从 1 单调递增。`--jsonl` 优先于 `--error-format`；错误事件逐条输出（`errors.Join` 被展开） | `internal/timefmt`；`internal/app/app.go` |
+| C16 | 退出码与错误分类不变；usage 错误也走同一出口 | `internal/diag`；`internal/app` |
+| C16 | 日志事件为 `type:"log"`，`data` 含 `level`/`message`/`attrs`；属性统一收进 `attrs` 对象 | `internal/logging.NewEvent` |
+
+**案例（C16）**
+
+| 命令 | 输出 / exit | 标注 |
+|------|-------------|------|
+| `--explain` + 成功 | 每条 stderr 行是 `type:"explain"` 的事件信封；stdout 不变，exit 0 | 单测 `TestJSONLStreamOnSuccess` |
+| `--explain` + 缺失变量 | `type:"explain"` 事件 + `type:"error"`、`data.kind="missing"`、`data.exitCode=6` 事件，exit 6 | 单测 `TestJSONLStreamOnFailure` |
+| `--report=unused` + 死配置 | `type:"unused"`、`data.path="app.unused"`，exit 0 | fixture `report_unused` |
+| `--unknown-keywords=warn` + `--jsonl` | `type:"log"`、`data.level="WARN"`、`data.attrs.keyword=...` | 单测 `TestJSONLLogEvent` |
+| `--jsonl` + 未知子命令 | `type:"error"`、`data.kind="usage"`、`data.exitCode=2`，exit 2 | 单测 `TestJSONLUsageError` |
+
+CI 消费示例：
+
+```bash
+envsub render --explain -f values.yaml input.tmpl > out.txt 2> events.jsonl
+jq -c 'select(.type=="error")' events.jsonl
+jq -c 'select(.type=="explain" and .data.variable=="app.port")' events.jsonl
+```
 
 ### 6.5.4 值不入诊断（脱敏，C17）
 

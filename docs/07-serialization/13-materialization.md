@@ -381,31 +381,47 @@ ${app.hosts | join ","}      # a,b
 |----|------|
 | 选项 | `--explain[=PATH]`：裸 `--explain` 报告全部已引用变量；`--explain=PATH` 只报告该路径（可重复） |
 | 通道 | **stderr**（stdout 仍是纯渲染结果，逐字节不变） |
-| 格式 | **JSONL**（每变量一行 JSON 对象），无其它格式 |
+| 格式 | **JSONL 事件信封**（每变量一行）：`schema`/`type`/`time`/`seq`/`data`；无其它格式 |
 | 退出码 | 不受影响（渲染照常执行；`--explain` 不改变任何取值行为） |
 | 与 `--validate-only` | 允许并用（先解释后校验，顺序固定） |
 | 与渲染的先后 | 报告在渲染循环**之后**写出：模板文本在渲染前只读一次（stdin 不回绕），报告复用同一份文本，因此赋值写回的值也在链上。渲染失败时先写报告再返回错误 |
 | 值 | **不输出值**（值可能是密钥），只输出来源 |
 | `--explain-out FILE` | **不提供**（2026-10-10 已决）：固定写 stderr，落盘用 shell 重定向 `2> explain.jsonl`；也不加 table/YAML 等格式 |
+| `--jsonl` | 全局开关：stderr 全部变成带 `type` 的 JSONL 事件流；`--explain`/`--report` 自动启用，`--jsonl=false` 显式关闭 |
 
 `PATH` 是**过滤器**，不是求值目标：只在**模板已引用的名字**里筛选。比较前两侧都做**规范写法归一**
 ，
 然后**按字节精确相等**（不做前缀、不做 glob，大小写敏感）。
-命中 0 个变量时静默输出空、exit 0（stderr 是纯 JSONL 通道，不混警告）。
+命中 0 个变量时静默输出空、exit 0。**默认** stderr 是报告、日志、错误共用的诊断通道；
+开启 `--jsonl`（`--explain`/`--report` 会自动开启）后，stderr 保证每行都是一个带 `type` 的
+JSON 对象，CI 可按 `type` 过滤。显式 `--jsonl=false` 可退回混合流。事件协议见下。
 
 > pflag 的可选值 flag 只在 `=` 形式下取值：路径必须写 `--explain=app.port`；
 > `--explain app.port`（空格）不会消费 `app.port`，它会被当成模板路径。
 
-### 行格式（JSONL，稳定、可做 golden）
+### 行格式（JSONL 事件信封，稳定、可做 golden）
 
-每条一行，字段顺序固定。模型与理由见
-[ADR-005](../04-decisions/04-05-adr-005-explain-origin-model.md)：`kind` 记**层位**，
-`method` 记**入口写法**，`source` 是该 kind 下的**地址**，`file`/`line` 是**物理位置**。
+每条一行，信封字段顺序固定：`schema`、`type`、`time`、`seq`、`data`。
+来源模型见 [ADR-005](../04-decisions/04-05-adr-005-explain-origin-model.md)：
+`kind` 记**层位**，`method` 记**入口写法**，`source` 是该 kind 下的**地址**，
+`file`/`line` 是**物理位置**。
 
 ```json
-{"template":"a.tmpl","variable":"K","origin":{"kind":"envfile","method":"file","source":".env","file":".env","line":1},"shadowed":[{"kind":"schema","method":"default","source":"#/properties/K/default","file":"schema.json","line":0}]}
-{"template":"a.tmpl","variable":"@process.PORT","origin":{"kind":"process","method":"env","source":"PORT","file":"","line":0},"shadowed":[]}
+{"schema":1,"type":"explain","time":"2026-10-22T23:43:37.041Z","seq":1,"data":{"template":"a.tmpl","variable":"K","origin":{"kind":"envfile","method":"file","source":".env","file":".env","line":1},"shadowed":[{"kind":"schema","method":"default","source":"#/properties/K/default","file":"schema.json","line":0}]}}
+{"schema":1,"type":"explain","time":"2026-10-22T23:43:37.041Z","seq":2,"data":{"template":"a.tmpl","variable":"@process.PORT","origin":{"kind":"process","method":"env","source":"PORT","file":"","line":0},"shadowed":[]}}
 ```
+
+信封字段：
+
+| 字段 | 含义 |
+|------|------|
+| `schema` | 协议版本，当前为 `1`；字段语义变更时递增 |
+| `type` | 事件类型：`explain` / `unused` / `error` / `log` |
+| `time` | 事件时间，**UTC、RFC3339、固定 3 位毫秒、`Z` 后缀**，由 `internal/timefmt` 统一生成 |
+| `seq` | 同一进程内从 1 开始单调递增，用于同毫秒排序 |
+| `data` | 类型特化载荷，恒为对象 |
+
+`explain` 的 `data` 字段：
 
 | 字段 | 含义 |
 |------|------|
@@ -437,11 +453,11 @@ ${app.hosts | join ","}      # a,b
 | `missing` | `missing` | 空 | 空 / 0 |
 
 - 顺序：**按模板中首次出现顺序**去重输出（确定性，不排序）；
-- 链**不截断**，且包含**被覆盖的 schema `default`**（`kind:"schema"` 帧在链尾）；
+- 链**不截断**，且包含**可达且被覆盖的 schema `default`**（`kind:"schema"` 帧在链尾）；
 - 多个 `.env`/多个 `-f` 时**必须体现"后覆盖前"**（按参数数组顺序）。
 
 **写出时机**：报告在渲染循环**之后**写出（失败时也写出，再返回错误），这样 `${K:=v}`
-写回的值带着"模板 + 行号"出现在链上（`kind=set, method=assign`）。代价是 `--explain` 会和
+写回的值带着"模板 + 行号"出现在链上（`kind=assign, method=assign`）。代价是 `--explain` 会和
 `--report=unused` 一样**读取模板文本并走缓冲路径**（大模板不再流式），见 §16。
 
 ### 不变式（e2e 断言，见 `test/e2e` 的 `TestExplainFramesFollowADR005`）
@@ -453,8 +469,51 @@ ${app.hosts | join ","}      # a,b
 | I3 | `source` 只表达地址：`values`/`envfile` 帧等于 `file`；`schema` 为指针、`process` 为变量名、`set` 为键名 |
 | I4 | 五个字段恒在，不得 `omitempty` |
 | I5 | `origin` 是链尾，`shadowed` 近者在前，二者不重复同一帧 |
-| I6 | 被覆盖的 schema `default` 必须出现在链里 |
-| I7 | 行信封只有 `template`、`variable`、`origin`、`shadowed`，且不输出值 |
+| I6 | **可达**的被覆盖 schema `default` 必须出现在链里；父对象不存在的不可达 default 不得报告 |
+| I7 | 行信封固定为 `schema`/`type`/`time`/`seq`/`data`；`explain.data` 只有 `template`/`variable`/`origin`/`shadowed`，且不输出值 |
+
+### 统一 JSONL 事件流（`--jsonl`）
+
+`--jsonl` 把 stderr 规范成**单一机器可读事件流**。打开后（`--explain`、`--report` 会自动打开），
+每一行都有同一组信封字段；差异只放在 `data` 里：
+
+| `type` | `data` 字段 | 何时出现 |
+|---|---|---|
+| `explain` | `template`、`variable`、`origin`、`shadowed` | `--explain` |
+| `unused` | `path` | `--report=unused` |
+| `error` | `kind`、`exitCode`、`message` | 任何失败；`errors.Join` 批量失败**一条错误一行** |
+| `log` | `level`、`message`、`attrs` | `--log-level` 允许的日志 |
+
+示例：
+
+```text
+{"schema":1,"type":"explain","time":"2026-10-22T23:43:37.041Z","seq":1,"data":{"template":"a.tmpl","variable":"K","origin":{...},"shadowed":[]}}
+{"schema":1,"type":"error","time":"2026-10-22T23:43:37.041Z","seq":2,"data":{"kind":"missing","exitCode":6,"message":"variable \"MISSING\" is not set"}}
+{"schema":1,"type":"log","time":"2026-10-22T23:43:37.041Z","seq":3,"data":{"level":"WARN","message":"unknown schema keyword","attrs":{"keyword":"properties.K.bogus"}}}
+```
+
+规则：
+
+- **stdout 不变**：仍然只放渲染结果；`--jsonl` 只影响 stderr。
+- **时间只有一个来源**：`internal/timefmt` 统一生成 UTC、固定毫秒、`Z`；文本日志、事件流和
+  `version.buildDate` 都调用它，不再各自格式化；`seq` 解决同毫秒排序。
+- **每个失败一条**：批量失败不会把多个错误塞进一个对象的 `message`，便于日志系统逐条索引。
+- **退出码不变**：`error.data.exitCode` 与进程退出码一致，仍按 2/3/4/5/6/7 分类。
+- **优先级**：`--jsonl` 高于 `--error-format`；`--error-format=json` 是机器模式的兼容别名，
+  也输出同一个 `error` 信封。
+- **usage 错误也走同一条出口**：CLI 已 `SilenceErrors`，拼错的子命令等用法错误也会是 `type:"error"`。
+- **opt-out**：`--jsonl=false` 保留人类可读的错误/日志，但 `--explain` 的记录仍是事件信封。
+
+CI 用法：
+
+```bash
+envsub render --explain -f values.yaml input.tmpl > out.txt 2> events.jsonl
+jq -c 'select(.type=="error")' events.jsonl
+jq -c 'select(.type=="explain" and .data.variable=="app.port")' events.jsonl
+```
+
+> `--explain` 与 `--report` 自动开启 JSONL，因此 CI 不需要额外记一个开关；
+> 需要人类可读诊断时显式写 `--jsonl=false`。
 
 ### 数据来源（实现依据）
 
@@ -463,26 +522,27 @@ ${app.hosts | join ","}      # a,b
 | 值文件 | 加载器上报 `kind=values, method=file, source=路径` |
 | `.env` | `kind=envfile, method=file`，行号来自 dotenv 解析 |
 | `--set` / `--set-json` / `--set-file` | `kind=set`，`method` 分别为 `flag`/`json`/`file`；`--set-file` 另记被读文件 |
-| schema `default` | **先于其它层**播种 `kind=schema, method=default, source=JSON 指针`，因此被覆盖时仍在链尾 |
+| schema `default` | 在链上**先于其它层**报告 `kind=schema, method=default, source=JSON 指针`；只有值树能到达（父对象存在）的 default 才进入链，被覆盖时仍在链尾 |
 | 进程环境 | `kind=process, method=env, source=环境变量名`（只记名字，不记值） |
-| 模板赋值 | 写回时记录 `kind=set, method=assign, source=模板路径`（链上可见需报告改到渲染后，见上文限制） |
+| 模板赋值 | 写回时记录 `kind=assign, method=assign, source=模板路径`（报告改到渲染后，见上文限制） |
 
 ### 实现进度
 
 | 部分 | 状态 |
 |------|------|
-| 引擎侧变量枚举 | ✅ `engine.PathEngine` 接口 + `extended.Engine.Paths(src)`：按**首次出现顺序**去重，表达式经 `parseExpression` 归约为路径（`${A \| toJson}` → `A`、`${B:-x}` → `B`）；测试 `TestPaths`（9 例，含把 `env.PORT` 当普通根路径、点号/索引、`$${A}` 转义、无变量） |
-| 渲染层输出 | ✅ `render.Request.Explain{Enabled, Paths, Writer}`（`Explain` 组，Writer 默认 stderr）；`load.Load` 在加载各来源时记录每个路径的来源栈（由低到高：值文件 → `.env` → `--set`；schema `default` 只在无任何来源时兜底，见 G21），`explainTemplate` 编码 JSONL 并做精确路径过滤；单测 `TestExplainTemplateWritesJSONL`/`TestExplainTemplateFiltersByExactPath`/`TestExplainerSource`/`TestMetaOrigin` |
+| 引擎侧变量枚举 | ✅ `engine.PathEngine` 接口 + `extended.Engine.Paths(src)`：按**首次出现顺序**去重，表达式经 `parseExpression` 归约为路径（`${A \| toJson}` → `A`、`${B:-x}` → `B`），默认词递归展开（`${A:-${B}}` → `A`、`B`）；可选 `engine.PathFilterEngine` 的 `PathsFor` 按替换策略枚举，外层被 `--only-vars`/`--ignore-vars` 排除时不会把词内引用算进来；测试 `TestPaths`（含嵌套默认词）、`TestPathsForHonorsPolicy` |
+| 渲染层输出 | ✅ `render.Request.Explain{Enabled, Paths}` + 共享的 `Request.Events`；`load.Load` 先收集各来源，再在 `ApplyDefaults` 之后按"精确 meta 可达性"补 schema `default` 帧，最后按 default → 值文件 → `.env` → `--set` 回放（G21；父对象不存在的 default 不报告），`explainTemplate` 通过 `event.Writer` 发出 `explain` 事件并做精确路径过滤；单测 `TestExplainTemplateWritesJSONL`/`TestExplainTemplateFiltersByExactPath`/`TestExplainerSource`/`TestMetaOrigin` |
 | CLI 选项 | ✅ `--explain[=PATH]`（pflag 可选值，裸 `--explain` 用 `*` 哨兵表示全部）；CLI 只解析，`internal/cli` 的 `renderFlags.request()` 装配成 `render.Request`，校验统一在 `Request.Validate()` |
 | e2e fixture | ✅ `explain_env_file`、`explain_multi_env`、`explain_set_wins`、`explain_missing`、`explain_batch`（多模板同构）、`explain_path`（`--explain=PATH` 过滤）、`explain_space_form`（空格形态 → exit 5）；`TestExplainStdoutUnchanged` 对拍加/不加 `--explain` 的 stdout。`shadowed` 不再含 `process`（见下） |
+| JSONL 事件流 | ✅ `--jsonl` 全局开关；`--explain`/`--report` 自动启用；`--jsonl=false` 关闭。所有事件共享 `schema`/`type`/`time`/`seq`/`data` 信封，载荷按类型特化；批量错误逐条输出。`internal/event` 的 `TestWriterEmitsEnvelope`、`internal/timefmt` 的格式测试、`internal/logging` 的 `TestEventLoggerWritesEnvelope`、`internal/app` 的 `TestJSONL*` 覆盖 |
 
 **实现备注**
 
 - `--explain` 需要模板文本才能枚举引用名，因此开启时改为**内存渲染**（模板只读一次，stdin 不可回绕）；不开启时保持原有流式路径。
 - 报告写出时机：普通渲染在**渲染成功后**写出；与 `--validate-only` 并用时按固定顺序**先解释后校验**。
 - 遮蔽顺序：**从高到低**（最近的被覆盖者在前），与根层序（`--set`/`--set-json` > `--dotenv-file` > `-f/--values-file` > schema `default`，见 [`04-cli.md` §6.2](04-cli.md)）一致。`@process` 不参与该链。
-- 可省略的 `line` 用 `*int` + `omitempty`：两后端对 `omitempty` 数值 0 的处理不同（`encoding/json/v2` 保留、`sonic` 省略，见 `09-gaps.md` G20），指针形式才能让 JSON 在两种构建下一致。
-- 模板赋值（`:=`/`=`）写回时记录 `kind=set, method=assign, source=模板路径, line=写回行号`，
+- `line` 是普通 `int` 字段，不用 `omitempty`：五字段恒在（I4），`0` 也必须输出；两后端对 `omitempty` 数值 0 的处理不同（`encoding/json/v2` 保留、`sonic` 省略，见 `09-gaps.md` G20），所以这里刻意不用可省略字段。
+- 模板赋值（`:=`/`=`）写回时记录 `kind=assign, method=assign, source=模板路径, line=写回行号`，
   报告在渲染后写出，因此链上可见；`--explain` 因此走缓冲路径（与 `--report=unused` 相同）。
 
 ### 测试要求（已落地）
@@ -492,7 +552,11 @@ ${app.hosts | join ","}      # a,b
 - ✅ `schema_default_is_fallback`：`K` 的链为 `envfile → schema`，`D` 只有 `schema`；
 - ✅ `TestExplainFramesFollowADR005`（e2e，真实二进制）：断言 I1–I7——闭集、`values`/`envfile`
   的 `source` 等于 `file`、链序、被覆盖的 default 在链尾；
-- ✅ 单元测试：`internal/render/explain_test.go`（JSONL 帧字段、精确匹配、来源栈优先级、meta 回退）；
+- ✅ 单元测试：`internal/render/explain_test.go`（事件信封、精确匹配、来源栈优先级、赋值帧、过滤排除、精确/祖先回退）；`internal/load` 的 default 可达性测试；`internal/engine/extended` 的嵌套默认词测试；`internal/event` 信封/序号测试；`internal/timefmt` 时间格式测试；
+- ✅ E1–E7 回归：
+  `TestExplainReportsAssignmentOverAnEmptySource`、`TestExplainOmitsUnreachableSchemaDefault`、
+  `TestExplainDoesNotInheritAncestorForMissingChild`、`TestExplainSkipsFilteredVariables`、
+  `TestExplainReportsNestedDefaultWord`、`TestExplainKeepsMaterializedChildOrigin`；
 - ✅ 回归：`TestExplainStdoutUnchanged` 对拍加/不加 `--explain` 的 stdout **逐字节一致**；
 - ✅ 示例：`just --justfile examples/justfile explain-sources` 渲染后由 `tools/digest --sources`
   汇总，`string_prec_multi_layer` 演示 **4 层链**（default → values → values → .env）。

@@ -99,6 +99,8 @@ tool render [flags] [template...]
 全局:
       --log-level=debug|info|warn|error
       --error-format=text|json
+      --jsonl                 stderr 统一为带 type 的 JSONL（--explain/--report 自动开启）
+      --error-format=text|json
 ```
 
 说明：

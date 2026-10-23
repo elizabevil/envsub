@@ -44,8 +44,8 @@ schema default → yaml/json 值文件 → .env → --set/--set-json/--set-file 
 ### 4.2 kind 是层位，method 是入口写法
 
 `--set` / `--set-json` / `--set-file` 是**同一层的三种写法**（同一层位、同样覆盖值文件、互相顺序
-固定），因此不拆成多个 kind，而是 `kind` 记层位、`method` 记入口写法。层位集合稳定，
-新增语法只扩 `method`。
+固定），因此不拆成多个 kind，而是 `kind` 记层位、`method` 记入口写法。模板写回是独立层位
+`assign`，层位集合仍是闭集；新增**层内**语法只扩 `method`。
 
 | kind | method | `source`（该 kind 下的地址） | `file` | `line` |
 |------|--------|------------------------------|--------|--------|
@@ -84,28 +84,34 @@ schema default → yaml/json 值文件 → .env → --set/--set-json/--set-file 
 
 ### 4.4 行格式
 
+每行是统一信封 `schema`/`type`/`time`/`seq`/`data`；`explain` 的载荷在 `data` 里：
+
 ```json
-{"template":"examples/templates/scenarios-json.tmpl","variable":"string_type_root",
- "origin":{"kind":"values","method":"file","source":"examples/data/values-prod.yaml",
-           "file":"examples/data/values-prod.yaml","line":0},
- "shadowed":[
-   {"kind":"values","method":"file","source":"examples/data/values-base.yaml",
-    "file":"examples/data/values-base.yaml","line":0},
-   {"kind":"schema","method":"default","source":"#/properties/string_type_root/default",
-    "file":"examples/data/schema.yaml","line":0}
- ]}
+{"schema":1,"type":"explain","time":"2026-10-22T23:43:37.041Z","seq":1,
+ "data":{
+   "template":"examples/templates/scenarios-json.tmpl","variable":"string_type_root",
+   "origin":{"kind":"values","method":"file","source":"examples/data/values-prod.yaml",
+             "file":"examples/data/values-prod.yaml","line":0},
+   "shadowed":[
+     {"kind":"values","method":"file","source":"examples/data/values-base.yaml",
+      "file":"examples/data/values-base.yaml","line":0},
+     {"kind":"schema","method":"default","source":"#/properties/string_type_root/default",
+      "file":"examples/data/schema.yaml","line":0}
+   ]}}
 ```
 
 `--set-file` 的键：
 
 ```json
-{"variable":"string_setfile_from_file",
- "origin":{"kind":"set","method":"file","source":"string_setfile_from_file",
-           "file":"examples/secrets/tls.key","line":0},
- "shadowed":[]}
+{"schema":1,"type":"explain","time":"2026-10-22T23:43:37.041Z","seq":2,
+ "data":{"template":"a.tmpl","variable":"string_setfile_from_file",
+         "origin":{"kind":"set","method":"file","source":"string_setfile_from_file",
+                   "file":"examples/secrets/tls.key","line":0},
+         "shadowed":[]}}
 ```
 
 `shadowed` 恒输出，无被覆盖帧时为 `[]`；`origin` 恒为链尾。不输出值（值可能是密钥）。
+`time` 由 `internal/timefmt` 统一生成（UTC、固定毫秒、`Z`），`seq` 在同一进程内单调递增。
 
 ### 4.5 不变式（可直接写成断言）
 
@@ -116,8 +122,8 @@ schema default → yaml/json 值文件 → .env → --set/--set-json/--set-file 
 | I3 | `source` 只表达地址：`values`/`envfile` 帧等于其 `file`；`schema` 为 JSON 指针、`process` 为环境变量名、`set` 为键名（这些帧的 `file` 与 `source` 不同，或 `file` 为空） |
 | I4 | 五个字段恒在，空值 `""`/`0`，不得 `omitempty` |
 | I5 | `origin` 是链尾，`shadowed` 近者在前，二者不重复同一帧 |
-| I6 | 被覆盖的 schema `default` 必须出现在链里 |
-| I7 | 行信封只有 `template`、`variable`、`origin`、`shadowed`，且不输出值 |
+| I6 | **可达**的被覆盖 schema `default` 必须出现在链里；父对象不存在的不可达 default 不得报告 |
+| I7 | 行信封固定为 `schema`/`type`/`time`/`seq`/`data`；`explain.data` 只有 `template`/`variable`/`origin`/`shadowed`，且不输出值 |
 
 ## 5. 考虑的替代方案
 
@@ -132,7 +138,7 @@ schema default → yaml/json 值文件 → .env → --set/--set-json/--set-file 
 
 | 面 | 影响 |
 |----|------|
-| 产品 | `internal/render/explain.go` 重构为帧结构；`load` 观察者需上报 schema `default` 帧（当前 default 只报最终生效项）与 `--set-file` 的被读文件；`values` 的 kind 常量改为 kind+method 两段 |
+| 产品 | `internal/render/explain.go` 重构为帧结构；`load` 观察者需上报 schema `default` 帧（只报值树可达的 default；被覆盖但仍可达的仍在链尾）与 `--set-file` 的被读文件；`values` 的 kind 常量改为 kind+method 两段 |
 | 契约 | `--explain` JSONL 字段不兼容变更（已决：不保留旧形状） |
 | 测试 | 7 个 e2e `explain_*` fixture 重生成；补 `shadowed` **顺序**与**多层链**断言（`05-02` 登记的缺口）；补 I1–I5 |
 | 文档 | ✅ 已执行：`13-materialization.md` §15 重写；`06-11`/`06-13`/`06-14` 的 `[TODO]` 转正并更新字段表；`05-03` 待办 I 标记完成 |
@@ -142,6 +148,8 @@ schema default → yaml/json 值文件 → .env → --set/--set-json/--set-file 
 
 - 报告在**渲染循环之后**写出（渲染失败时先写报告再返回错误），这样 `${K:=v}` 写回的值也在链上；
   `--explain` 因此读取模板文本并走缓冲路径，与 `--report=unused` 相同。`[已决 2026-10-13]`
+- stderr 默认是诊断混合流；`--explain`/`--report` 自动开启 `--jsonl`，此时 stderr 每行是带
+  `type` 的 JSON 事件（`explain`/`unused`/`error`/`log`）。`--jsonl=false` 可退回混合流。`[已决 2026-10-22]`
 - 值文件（`values`）的行号仍为 `0`：需加载器记录位置，成本较高。`[未决]`
 - `schema` 帧的 `file` 取 schema 文件路径、`line` 为 `0`（JSON 无行概念）；若将来在 schema
   内联记录键的行号再更新。`[未决]`

@@ -1,8 +1,8 @@
 ---
 status: draft-ai
 owner: [ 待指定 ]
-version: 0.5
-last-updated: 2026-10-08
+version: 0.6
+last-updated: 2026-10-22
 ---
 
 # 任务索引
@@ -14,6 +14,7 @@ last-updated: 2026-10-08
 - [05-05 示例与测试架构](05-05-examples-and-test-architecture.md)：`examples/` 重构方案（共享数据集 + 自洽案例 + 按问题组织的配方）与 e2e 命名对齐
 - [05-06 验证强化代办清单](05-06-verification-todo.md)：试用发布之后的验证补齐轮次（fuzz 覆盖、fixture 流式/并行、`--explain` 顺序断言、退出码覆盖、文档对齐）
 - [05-07 未完成清单](05-07-outstanding-backlog.md)：当前仍未关闭的缺陷、文档欠账、P1/P2 功能与待产品拍板的事项
+- [05-08 `--explain` 八项修复通俗说明](05-08-explain-fixes-plain.md)：用最小案例解释 E1–E8 的“修复前/修复后”，不含内部实现细节
 
 > 需求本身与可实现性判定见 [`../02-product/02-05-requirements-registry.md`](../02-product/02-05-requirements-registry.md)；
 > 本目录只负责"怎么落地"。

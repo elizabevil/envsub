@@ -6,10 +6,11 @@ package load
 import (
 	"context"
 	"errors"
-	"github.com/elizabevil/envsub/internal/utils"
 	"os"
 	"sort"
 	"strings"
+
+	"github.com/elizabevil/envsub/internal/utils"
 
 	"github.com/elizabevil/envsub/internal/diag"
 	"github.com/elizabevil/envsub/internal/schema"
