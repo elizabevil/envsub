@@ -67,7 +67,7 @@ func TestReportsDefaultToStderr(t *testing.T) {
 		t.Fatalf("write template: %v", err)
 	}
 
-	// No Explain.Writer and no Report.Writer: both reports must pick stderr
+	// No Request.Events and no Report.Writer: both reports must fall back to stderr
 	// rather than panicking on a nil writer.
 	req := render.Request{
 		Input:   render.Input{Templates: []string{tmpl}},

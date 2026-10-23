@@ -1,1 +1,1 @@
-{"template":"input.tmpl","variable":"K","origin":{"kind":"envfile","method":"file","source":"debug.env","file":"debug.env","line":2},"shadowed":[{"kind":"envfile","method":"file","source":"base.env","file":"base.env","line":1}]}
+{"schema":1,"type":"explain","time":"1970-01-01T00:00:00.000Z","seq":0,"data":{"template":"input.tmpl","variable":"K","origin":{"kind":"envfile","method":"file","source":"debug.env","file":"debug.env","line":2},"shadowed":[{"kind":"envfile","method":"file","source":"base.env","file":"base.env","line":1}]}}

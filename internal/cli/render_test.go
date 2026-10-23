@@ -122,8 +122,8 @@ func TestRunnerReceivesAssembledRequest(t *testing.T) {
 	if !req.Explain.Enabled || len(req.Explain.Paths) != 1 || req.Explain.Paths[0] != "app.port" {
 		t.Fatalf("Explain = %+v, want the exact path filter", req.Explain)
 	}
-	if req.Explain.Writer == nil {
-		t.Fatal("Explain.Writer = nil, want the command's stderr")
+	if req.Events == nil {
+		t.Fatal("Events = nil, want the command's event writer")
 	}
 }
 

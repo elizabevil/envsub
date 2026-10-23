@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/elizabevil/envsub/internal/engine/extended"
+	"github.com/elizabevil/envsub/internal/event"
 	"github.com/elizabevil/envsub/internal/render"
 )
 
@@ -35,8 +36,9 @@ func TestStdinIsReadOnce(t *testing.T) {
 	req := render.Request{
 		Input:        render.Input{Templates: []string{"-"}},
 		Values:       render.Values{Files: []string{filepath.Join(dir, "values.yaml")}, NoProcessEnv: true},
-		Explain:      render.Explain{Enabled: true, Writer: &explain},
+		Explain:      render.Explain{Enabled: true},
 		Report:       render.Report{Name: render.ReportUnused, Writer: &unused},
+		Events:       event.NewWriter(&explain),
 		Output:       render.Output{},
 		ValidateOnly: false,
 		Stdin:        stdin,

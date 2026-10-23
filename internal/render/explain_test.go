@@ -6,9 +6,11 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/elizabevil/envsub/internal/diag"
 	"github.com/elizabevil/envsub/internal/engine"
+	"github.com/elizabevil/envsub/internal/event"
 	"github.com/elizabevil/envsub/internal/load"
 	"github.com/elizabevil/envsub/internal/values"
 )
@@ -24,6 +26,14 @@ func (stubPathEngine) Render(context.Context, engine.Input) ([]byte, error) {
 	return nil, nil
 }
 func (s stubPathEngine) Paths([]byte) ([]string, error) { return s.paths, s.err }
+
+// fixedEventTime keeps envelope timestamps out of the assertions while still
+// exercising the real encoder.
+var fixedEventTime = time.Date(2026, 10, 22, 23, 43, 37, 41_000_000, time.UTC)
+
+func newExplainEvents(w *bytes.Buffer) *event.Writer {
+	return event.NewWriterWithClock(w, func() time.Time { return fixedEventTime })
+}
 
 // TestExplainTemplateWritesJSONL pins the report shape: one JSON object per
 // referenced variable, in first-appearance order, with each path reported in the
@@ -44,14 +54,14 @@ func TestExplainTemplateWritesJSONL(t *testing.T) {
 	eng := stubPathEngine{paths: []string{"@process.K", "A", "K", "NOPE"}}
 
 	var got bytes.Buffer
-	if err := explainTemplate(&got, eng, req, "app.tmpl", []byte("irrelevant"), run); err != nil {
+	if err := explainTemplate(newExplainEvents(&got), eng, req, "app.tmpl", []byte("irrelevant"), run); err != nil {
 		t.Fatalf("explainTemplate() error = %v", err)
 	}
 	want := strings.Join([]string{
-		`{"template":"app.tmpl","variable":"@process.K","origin":{"kind":"process","method":"env","source":"K","file":"","line":0},"shadowed":[]}`,
-		`{"template":"app.tmpl","variable":"A","origin":{"kind":"set","method":"flag","source":"A","file":"","line":0},"shadowed":[]}`,
-		`{"template":"app.tmpl","variable":"K","origin":{"kind":"envfile","method":"file","source":".env","file":".env","line":1},"shadowed":[{"kind":"values","method":"file","source":"values.yaml","file":"values.yaml","line":0}]}`,
-		`{"template":"app.tmpl","variable":"NOPE","origin":{"kind":"missing","method":"missing","source":"","file":"","line":0},"shadowed":[]}`,
+		`{"schema":1,"type":"explain","time":"2026-10-22T23:43:37.041Z","seq":1,"data":{"template":"app.tmpl","variable":"@process.K","origin":{"kind":"process","method":"env","source":"K","file":"","line":0},"shadowed":[]}}`,
+		`{"schema":1,"type":"explain","time":"2026-10-22T23:43:37.041Z","seq":2,"data":{"template":"app.tmpl","variable":"A","origin":{"kind":"set","method":"flag","source":"A","file":"","line":0},"shadowed":[]}}`,
+		`{"schema":1,"type":"explain","time":"2026-10-22T23:43:37.041Z","seq":3,"data":{"template":"app.tmpl","variable":"K","origin":{"kind":"envfile","method":"file","source":".env","file":".env","line":1},"shadowed":[{"kind":"values","method":"file","source":"values.yaml","file":"values.yaml","line":0}]}}`,
+		`{"schema":1,"type":"explain","time":"2026-10-22T23:43:37.041Z","seq":4,"data":{"template":"app.tmpl","variable":"NOPE","origin":{"kind":"missing","method":"missing","source":"","file":"","line":0},"shadowed":[]}}`,
 	}, "\n") + "\n"
 	if got.String() != want {
 		t.Fatalf("explainTemplate() =\n%swant\n%s", got.String(), want)
@@ -84,15 +94,15 @@ func TestExplainTemplateShadowedOrder(t *testing.T) {
 	eng := stubPathEngine{paths: []string{"K"}}
 
 	var got bytes.Buffer
-	if err := explainTemplate(&got, eng, req, "app.tmpl", nil, run); err != nil {
+	if err := explainTemplate(newExplainEvents(&got), eng, req, "app.tmpl", nil, run); err != nil {
 		t.Fatalf("explainTemplate() error = %v", err)
 	}
-	want := `{"template":"app.tmpl","variable":"K","origin":{"kind":"set","method":"flag","source":"K","file":"","line":0},"shadowed":[` +
+	want := `{"schema":1,"type":"explain","time":"2026-10-22T23:43:37.041Z","seq":1,"data":{"template":"app.tmpl","variable":"K","origin":{"kind":"set","method":"flag","source":"K","file":"","line":0},"shadowed":[` +
 		`{"kind":"envfile","method":"file","source":"debug.env","file":"debug.env","line":2},` +
 		`{"kind":"envfile","method":"file","source":"base.env","file":"base.env","line":1},` +
 		`{"kind":"values","method":"file","source":"values.yaml","file":"values.yaml","line":0},` +
 		`{"kind":"schema","method":"default","source":"#/properties/K/default","file":"schema.json","line":0}` +
-		`]}` + "\n"
+		`]}}` + "\n"
 	if got.String() != want {
 		t.Fatalf("explainTemplate() =\n%swant\n%s", got.String(), want)
 	}
@@ -112,12 +122,12 @@ func TestExplainTemplateFiltersByExactPath(t *testing.T) {
 	eng := stubPathEngine{paths: []string{"app.host", "app.port", "app.port.x"}}
 
 	var got bytes.Buffer
-	if err := explainTemplate(&got, eng, req, "app.tmpl", nil, run); err != nil {
+	if err := explainTemplate(newExplainEvents(&got), eng, req, "app.tmpl", nil, run); err != nil {
 		t.Fatalf("explainTemplate() error = %v", err)
 	}
 	want := strings.Join([]string{
-		`{"template":"app.tmpl","variable":"app.port","origin":{"kind":"values","method":"file","source":"values.yaml","file":"values.yaml","line":0},"shadowed":[]}`,
-		`{"template":"app.tmpl","variable":"app.port.x","origin":{"kind":"missing","method":"missing","source":"","file":"","line":0},"shadowed":[]}`,
+		`{"schema":1,"type":"explain","time":"2026-10-22T23:43:37.041Z","seq":1,"data":{"template":"app.tmpl","variable":"app.port","origin":{"kind":"values","method":"file","source":"values.yaml","file":"values.yaml","line":0},"shadowed":[]}}`,
+		`{"schema":1,"type":"explain","time":"2026-10-22T23:43:37.041Z","seq":2,"data":{"template":"app.tmpl","variable":"app.port.x","origin":{"kind":"missing","method":"missing","source":"","file":"","line":0},"shadowed":[]}}`,
 	}, "\n") + "\n"
 	if got.String() != want {
 		t.Fatalf("explainTemplate() =\n%swant\n%s", got.String(), want)
@@ -307,7 +317,7 @@ func TestExplainTemplateWrapsPathErrors(t *testing.T) {
 	t.Parallel()
 	eng := stubPathEngine{err: errors.New("boom")}
 	req := Request{Explain: Explain{Enabled: true}}
-	err := explainTemplate(&bytes.Buffer{}, eng, req, "app.tmpl", nil, explainRun{tree: values.NewTree()})
+	err := explainTemplate(newExplainEvents(&bytes.Buffer{}), eng, req, "app.tmpl", nil, explainRun{tree: values.NewTree()})
 	if err == nil {
 		t.Fatal("explainTemplate() error = nil, want a wrapped error")
 	}
@@ -352,6 +362,90 @@ func TestObserverRecordsThroughTheInterface(t *testing.T) {
 	}
 	if got := run.sources.env["FROM_PROCESS"]; len(got) != 1 {
 		t.Fatalf("@process origins = %#v, want one", got)
+	}
+}
+
+// TestExplainerSourceAssignmentClosesTheChain pins that an assignment the
+// renderer wrote, which never passes through the loader observer, still ends the
+// lineage as the newest frame.
+func TestExplainerSourceAssignmentClosesTheChain(t *testing.T) {
+	t.Parallel()
+	tree := values.NewTree()
+	tree.RecordMeta(metaSegments(t, "K"), values.Meta{
+		Kind: values.SourceAssign, Method: values.MethodAssign, Source: "app.tmpl", File: "app.tmpl", Line: 3,
+	})
+	sources := explainer{root: map[string][]values.Meta{
+		"K": {{Kind: values.SourceValues, Method: values.MethodFile, Source: "values.yaml", File: "values.yaml"}},
+	}}
+
+	winner, shadowed := sources.source("K", tree)
+	if winner.Kind != string(values.SourceAssign) || winner.Method != string(values.MethodAssign) || winner.Line != 3 {
+		t.Fatalf("winner = %+v, want the assignment frame", winner)
+	}
+	if len(shadowed) != 1 || shadowed[0].Kind != string(values.SourceValues) {
+		t.Fatalf("shadowed = %+v, want the value file it covered", shadowed)
+	}
+}
+
+// TestExplainerSourceFallsBackToAncestorOnlyForExistingValues pins E3's repair:
+// an exact origin always wins, an ancestor's origin is used only when the value
+// itself exists (schema materialization creates such paths without their own
+// meta), and a path that does not exist is missing rather than inheriting its
+// parent's source.
+func TestExplainerSourceFallsBackToAncestorOnlyForExistingValues(t *testing.T) {
+	t.Parallel()
+	tree := values.NewTree()
+	tree.Root["app"] = map[string]any{"port": 8080}
+	tree.RecordMeta(metaSegments(t, "app"), values.Meta{
+		Kind: values.SourceValues, Method: values.MethodFile, Source: "values.yaml", File: "values.yaml",
+	})
+
+	origin, shadowed := (explainer{}).source("app.port", tree)
+	if origin.Kind != string(values.SourceValues) || origin.Source != "values.yaml" {
+		t.Fatalf("source(app.port) = %+v, want the file origin inherited from app", origin)
+	}
+	if len(shadowed) != 0 {
+		t.Fatalf("source(app.port) shadowed = %+v, want none", shadowed)
+	}
+
+	// The exact child origin wins over the ancestor.
+	tree.RecordMeta(metaSegments(t, "app.port"), values.Meta{
+		Kind: values.SourceSet, Method: values.MethodFlag, Source: "app.port",
+	})
+	origin, _ = (explainer{}).source("app.port", tree)
+	if origin.Kind != string(values.SourceSet) {
+		t.Fatalf("source(app.port) = %+v, want the exact set origin", origin)
+	}
+
+	// app.port.x does not exist, so it must not inherit app's or app.port's
+	// origin (the original E3 symptom).
+	origin, _ = (explainer{}).source("app.port.x", tree)
+	if origin.Kind != string(values.SourceMissing) {
+		t.Fatalf("source(app.port.x) = %+v, want missing", origin)
+	}
+}
+
+// TestExplainTemplateSkipsFilteredVariables pins E4: a path the --only-vars /
+// --ignore-vars filters leave unsubstituted never resolves, so the report must
+// not pretend it came from a source.
+func TestExplainTemplateSkipsFilteredVariables(t *testing.T) {
+	t.Parallel()
+	run := explainRun{tree: values.NewTree(), sources: explainer{root: map[string][]values.Meta{
+		"A": {{Kind: values.SourceSet, Method: values.MethodFlag, Source: "A"}},
+		"B": {{Kind: values.SourceSet, Method: values.MethodFlag, Source: "B"}},
+	}}}
+	req := Request{Explain: Explain{Enabled: true}, Policies: Policies{Only: []string{"A"}}}
+	eng := stubPathEngine{paths: []string{"A", "B"}}
+
+	var got bytes.Buffer
+	if err := explainTemplate(newExplainEvents(&got), eng, req, "app.tmpl", nil, run); err != nil {
+		t.Fatalf("explainTemplate() error = %v", err)
+	}
+	if strings.Contains(got.String(), `"variable":"B"`) {
+		t.Fatalf("report = %q, want B omitted because --only-vars excluded it", got.String())
+	}
+	if !strings.Contains(got.String(), `"variable":"A"`) {
+		t.Fatalf("report = %q, want A kept", got.String())
 	}
 }
 

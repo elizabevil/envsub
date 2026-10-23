@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -318,16 +319,71 @@ func execute(t *testing.T, workDir string, env []string, args []string) (stdout,
 	return outBuf.String(), errBuf.String(), exitCode(err)
 }
 
-// assertStderrContains checks the optional expect.err substring.
+// assertStderrContains checks the optional expect.err. A file made only of JSON
+// objects is compared as ordered JSONL events with time/seq normalized, so a
+// protocol event can be asserted without freezing its clock. Anything else stays
+// a plain substring, which is what the human-readable error fixtures use.
 func assertStderrContains(t *testing.T, dir, stderr string) {
 	t.Helper()
 	wantErr, err := readOptionalString(filepath.Join(dir, caseErrorFile))
 	if err != nil || wantErr == "" {
 		return
 	}
+	if wantEvents, ok := parseEventLines(wantErr); ok {
+		gotEvents, ok := parseEventLines(stderr)
+		if !ok {
+			t.Fatalf("stderr is not JSONL:\n%s", stderr)
+		}
+		if len(gotEvents) != len(wantEvents) {
+			t.Fatalf("stderr has %d events, want %d:\n%s", len(gotEvents), len(wantEvents), stderr)
+		}
+		for i := range wantEvents {
+			normalizeEvent(wantEvents[i])
+			normalizeEvent(gotEvents[i])
+			wantJSON, _ := json.Marshal(wantEvents[i])
+			gotJSON, _ := json.Marshal(gotEvents[i])
+			if string(gotJSON) != string(wantJSON) {
+				t.Fatalf("event %d = %s, want %s", i, gotJSON, wantJSON)
+			}
+		}
+		return
+	}
 	if !strings.Contains(stderr, wantErr) {
 		t.Fatalf("stderr = %q, want it to contain %q", stderr, wantErr)
 	}
+}
+
+// parseEventLines decodes a blob that is only JSON objects, one per line. It
+// returns false when the blob is a text expectation, so the caller can fall back
+// to a substring check.
+func parseEventLines(blob string) ([]map[string]any, bool) {
+	lines := strings.Split(strings.TrimSpace(blob), "\n")
+	if len(lines) == 0 {
+		return nil, false
+	}
+	events := make([]map[string]any, 0, len(lines))
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if !strings.HasPrefix(line, "{") {
+			return nil, false
+		}
+		var event map[string]any
+		if err := json.Unmarshal([]byte(line), &event); err != nil {
+			return nil, false
+		}
+		events = append(events, event)
+	}
+	return events, len(events) > 0
+}
+
+// normalizeEvent drops the fields that depend on the wall clock or run order;
+// protocol tests assert their presence separately.
+func normalizeEvent(event map[string]any) {
+	delete(event, "time")
+	delete(event, "seq")
 }
 
 // assertDirectory compares every file under gotDir with wantDir.
@@ -542,9 +598,15 @@ func TestExplainFramesFollowADR005(t *testing.T) {
 		Line   int    `json:"line"`
 	}
 	type record struct {
-		Variable string  `json:"variable"`
-		Origin   frame   `json:"origin"`
-		Shadowed []frame `json:"shadowed"`
+		Schema int    `json:"schema"`
+		Type   string `json:"type"`
+		Time   string `json:"time"`
+		Seq    uint64 `json:"seq"`
+		Data   struct {
+			Variable string  `json:"variable"`
+			Origin   frame   `json:"origin"`
+			Shadowed []frame `json:"shadowed"`
+		} `json:"data"`
 	}
 
 	kinds := map[string]bool{
@@ -554,6 +616,17 @@ func TestExplainFramesFollowADR005(t *testing.T) {
 	methods := map[string]bool{
 		"default": true, "file": true, "flag": true, "json": true,
 		"env": true, "assign": true, "missing": true,
+	}
+	// I2 is a pairing, not two independent closed sets: a method is valid only
+	// for the kinds that accept it (ADR-005 §4.5).
+	allowedMethods := map[string]map[string]bool{
+		"schema":  {"default": true},
+		"values":  {"file": true},
+		"envfile": {"file": true},
+		"set":     {"flag": true, "json": true, "file": true},
+		"process": {"env": true},
+		"assign":  {"assign": true},
+		"missing": {"missing": true},
 	}
 
 	var reports []record
@@ -579,6 +652,9 @@ func TestExplainFramesFollowADR005(t *testing.T) {
 		if !methods[f.Method] {
 			t.Errorf("%s method = %q, want a member of the closed set", where, f.Method)
 		}
+		if !allowedMethods[f.Kind][f.Method] {
+			t.Errorf("%s frame = %s/%s, want a method allowed for that kind", where, f.Kind, f.Method)
+		}
 		// values and envfile frames are located by the file they came from; the
 		// other kinds carry a pointer, a name or a key instead (ADR-005 I3).
 		if f.Kind == "values" || f.Kind == "envfile" {
@@ -589,32 +665,35 @@ func TestExplainFramesFollowADR005(t *testing.T) {
 	}
 
 	for _, report := range reports {
-		check(report.Variable+".origin", report.Origin)
-		for i, f := range report.Shadowed {
-			check(fmt.Sprintf("%s.shadowed[%d]", report.Variable, i), f)
+		if report.Schema != 1 || report.Type != "explain" || report.Time == "" || report.Seq == 0 {
+			t.Errorf("envelope = schema %d type %q time %q seq %d, want a complete explain event", report.Schema, report.Type, report.Time, report.Seq)
+		}
+		check(report.Data.Variable+".origin", report.Data.Origin)
+		for i, f := range report.Data.Shadowed {
+			check(fmt.Sprintf("%s.shadowed[%d]", report.Data.Variable, i), f)
 		}
 	}
 
 	// K: the .env layer wins, and the schema default it covered is still in the
 	// lineage, at the end.
 	k := reports[0]
-	if k.Origin.Kind != "envfile" || k.Origin.Line != 1 {
-		t.Errorf("K origin = %+v, want the envfile line 1", k.Origin)
+	if k.Data.Origin.Kind != "envfile" || k.Data.Origin.Line != 1 {
+		t.Errorf("K origin = %+v, want the envfile line 1", k.Data.Origin)
 	}
-	if len(k.Shadowed) != 1 || k.Shadowed[0].Kind != "schema" {
-		t.Fatalf("K shadowed = %+v, want the schema default", k.Shadowed)
+	if len(k.Data.Shadowed) != 1 || k.Data.Shadowed[0].Kind != "schema" {
+		t.Fatalf("K shadowed = %+v, want the schema default", k.Data.Shadowed)
 	}
-	if want := "#/properties/K/default"; k.Shadowed[0].Source != want {
-		t.Errorf("K shadowed source = %q, want %q", k.Shadowed[0].Source, want)
+	if want := "#/properties/K/default"; k.Data.Shadowed[0].Source != want {
+		t.Errorf("K shadowed source = %q, want %q", k.Data.Shadowed[0].Source, want)
 	}
 
 	// D: only the schema declares it, so the default is the whole lineage.
 	d := reports[1]
-	if d.Origin.Kind != "schema" || d.Origin.Method != "default" || d.Origin.Source != "#/properties/D/default" {
-		t.Errorf("D origin = %+v, want the schema default pointer", d.Origin)
+	if d.Data.Origin.Kind != "schema" || d.Data.Origin.Method != "default" || d.Data.Origin.Source != "#/properties/D/default" {
+		t.Errorf("D origin = %+v, want the schema default pointer", d.Data.Origin)
 	}
-	if len(d.Shadowed) != 0 {
-		t.Errorf("D shadowed = %+v, want none", d.Shadowed)
+	if len(d.Data.Shadowed) != 0 {
+		t.Errorf("D shadowed = %+v, want none", d.Data.Shadowed)
 	}
 }
 
@@ -645,9 +724,15 @@ func TestExplainShadowedOrder(t *testing.T) {
 		Line   int    `json:"line"`
 	}
 	type record struct {
-		Variable string  `json:"variable"`
-		Origin   frame   `json:"origin"`
-		Shadowed []frame `json:"shadowed"`
+		Schema int    `json:"schema"`
+		Type   string `json:"type"`
+		Time   string `json:"time"`
+		Seq    uint64 `json:"seq"`
+		Data   struct {
+			Variable string  `json:"variable"`
+			Origin   frame   `json:"origin"`
+			Shadowed []frame `json:"shadowed"`
+		} `json:"data"`
 	}
 
 	lines := strings.Split(strings.TrimSpace(stderr), "\n")
@@ -658,10 +743,13 @@ func TestExplainShadowedOrder(t *testing.T) {
 	if err := json.Unmarshal([]byte(lines[0]), &report); err != nil {
 		t.Fatalf("decode explain line %q: %v", lines[0], err)
 	}
+	if report.Schema != 1 || report.Type != "explain" || report.Time == "" || report.Seq == 0 {
+		t.Fatalf("envelope = schema %d type %q time %q seq %d, want a complete explain event", report.Schema, report.Type, report.Time, report.Seq)
+	}
 
 	// --set is the highest layer, so it wins.
-	if report.Origin.Kind != "set" || report.Origin.Method != "flag" {
-		t.Fatalf("origin = %+v, want the set frame", report.Origin)
+	if report.Data.Origin.Kind != "set" || report.Data.Origin.Method != "flag" {
+		t.Fatalf("origin = %+v, want the set frame", report.Data.Origin)
 	}
 	// The losers follow in reverse priority order: the closest one first and
 	// the lowest layer last.
@@ -671,12 +759,12 @@ func TestExplainShadowedOrder(t *testing.T) {
 		{Kind: "values", Method: "file", Source: "values.yaml", File: "values.yaml", Line: 0},
 		{Kind: "schema", Method: "default", Source: "#/properties/K/default", File: "schema.json", Line: 0},
 	}
-	if len(report.Shadowed) != len(want) {
-		t.Fatalf("shadowed = %+v, want %d frames", report.Shadowed, len(want))
+	if len(report.Data.Shadowed) != len(want) {
+		t.Fatalf("shadowed = %+v, want %d frames", report.Data.Shadowed, len(want))
 	}
 	for i, expected := range want {
-		if report.Shadowed[i] != expected {
-			t.Errorf("shadowed[%d] = %+v, want %+v", i, report.Shadowed[i], expected)
+		if report.Data.Shadowed[i] != expected {
+			t.Errorf("shadowed[%d] = %+v, want %+v", i, report.Data.Shadowed[i], expected)
 		}
 	}
 }
@@ -793,9 +881,264 @@ func TestLiteralDottedKeyIsDistinctFromNestedPath(t *testing.T) {
 	if status != 0 {
 		t.Fatalf("exit = %d, want 0; stderr=%q", status, stderr)
 	}
+	got := unusedPaths(t, stderr)
 	for _, want := range []string{`["a.b.c"]`, `["d.b.c"]`} {
-		if !strings.Contains(stderr, want) {
+		if !slices.Contains(got, want) {
 			t.Fatalf("unused report = %q, want it to list %q", stderr, want)
 		}
+	}
+}
+
+// unusedPaths decodes the type=unused records of a JSONL stderr stream.
+func unusedPaths(t *testing.T, stderr string) []string {
+	t.Helper()
+	var paths []string
+	for _, line := range strings.Split(strings.TrimSpace(stderr), "\n") {
+		if line == "" {
+			continue
+		}
+		var event struct {
+			Type string `json:"type"`
+			Data struct {
+				Path string `json:"path"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal([]byte(line), &event); err != nil {
+			t.Fatalf("decode stderr line %q: %v", line, err)
+		}
+		if event.Type == "unused" {
+			paths = append(paths, event.Data.Path)
+		}
+	}
+	return paths
+}
+
+// TestExplainReportsAssignmentOverAnEmptySource pins E1 with a value source that
+// is present but empty: := still writes, so the assignment frame must close the
+// chain and the empty source must appear as shadowed.
+func TestExplainReportsAssignmentOverAnEmptySource(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	tmpl := filepath.Join(dir, "input.tmpl")
+	if err := os.WriteFile(tmpl, []byte("first=${K:=written}\n"), 0o600); err != nil {
+		t.Fatalf("write template: %v", err)
+	}
+	stdout, stderr, status := execute(t, dir, nil, []string{
+		"render", "--no-process-env", "--set", "K=", "--explain", tmpl,
+	})
+	if status != 0 {
+		t.Fatalf("exit = %d, want 0; stderr=%q", status, stderr)
+	}
+	if stdout != "first=written\n" {
+		t.Fatalf("stdout = %q, want the assignment to replace the empty source", stdout)
+	}
+	for _, want := range []string{
+		`"variable":"K","origin":{"kind":"assign","method":"assign"`,
+		`"shadowed":[{"kind":"set","method":"flag","source":"K"`,
+	} {
+		if !strings.Contains(stderr, want) {
+			t.Fatalf("report = %q, want it to contain %q", stderr, want)
+		}
+	}
+}
+
+// TestExplainOmitsUnreachableSchemaDefault pins E2: the schema declares
+// app.port, but app does not exist, so ApplyDefaults never fills it and the
+// report must say missing instead of naming the declaration.
+func TestExplainOmitsUnreachableSchemaDefault(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	schema := filepath.Join(dir, "schema.json")
+	if err := os.WriteFile(schema, []byte(
+		`{"type":"object","properties":{"app":{"type":"object","properties":{"port":{"type":"integer","default":8080}}}}}`,
+	), 0o600); err != nil {
+		t.Fatalf("write schema: %v", err)
+	}
+	tmpl := filepath.Join(dir, "input.tmpl")
+	if err := os.WriteFile(tmpl, []byte("${app.port}\n"), 0o600); err != nil {
+		t.Fatalf("write template: %v", err)
+	}
+	stdout, stderr, status := execute(t, dir, nil, []string{
+		"render", "--no-process-env", "--schema", schema, "--on-missing=keep", "--explain", tmpl,
+	})
+	if status != 0 {
+		t.Fatalf("exit = %d, want 0; stderr=%q", status, stderr)
+	}
+	if stdout != "${app.port}\n" {
+		t.Fatalf("stdout = %q, want the unreachable default not to fill the value", stdout)
+	}
+	if strings.Contains(stderr, `"kind":"schema"`) {
+		t.Fatalf("report = %q, want no schema default frame", stderr)
+	}
+	if !strings.Contains(stderr, `"variable":"app.port","origin":{"kind":"missing"`) {
+		t.Fatalf("report = %q, want app.port reported missing", stderr)
+	}
+}
+
+// TestExplainSkipsFilteredVariables pins E4: --only-vars leaves a reference
+// untouched, so it never resolved and must not be reported as a set value.
+func TestExplainSkipsFilteredVariables(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	tmpl := filepath.Join(dir, "input.tmpl")
+	if err := os.WriteFile(tmpl, []byte("${B}\n"), 0o600); err != nil {
+		t.Fatalf("write template: %v", err)
+	}
+	stdout, stderr, status := execute(t, dir, nil, []string{
+		"render", "--no-process-env", "--set", "B=from-set", "--only-vars", "A", "--explain", tmpl,
+	})
+	if status != 0 {
+		t.Fatalf("exit = %d, want 0; stderr=%q", status, stderr)
+	}
+	if stdout != "${B}\n" {
+		t.Fatalf("stdout = %q, want B left unsubstituted", stdout)
+	}
+	if strings.Contains(stderr, `"variable":"B"`) {
+		t.Fatalf("report = %q, want the excluded variable omitted", stderr)
+	}
+}
+
+// TestExplainReportsNestedDefaultWord pins E5: a reference that only appears in
+// an operator's fallback word is rendered as its own template, so it must be
+// enumerated and reported like any other reference.
+func TestExplainReportsNestedDefaultWord(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	tmpl := filepath.Join(dir, "input.tmpl")
+	if err := os.WriteFile(tmpl, []byte("${A:-${B}}\n"), 0o600); err != nil {
+		t.Fatalf("write template: %v", err)
+	}
+	stdout, stderr, status := execute(t, dir, nil, []string{
+		"render", "--no-process-env", "--set", "B=from-set", "--explain", tmpl,
+	})
+	if status != 0 {
+		t.Fatalf("exit = %d, want 0; stderr=%q", status, stderr)
+	}
+	if stdout != "from-set\n" {
+		t.Fatalf("stdout = %q, want the fallback word rendered", stdout)
+	}
+	for _, want := range []string{
+		`"variable":"A","origin":{"kind":"missing"`,
+		`"variable":"B","origin":{"kind":"set","method":"flag"`,
+	} {
+		if !strings.Contains(stderr, want) {
+			t.Fatalf("report = %q, want it to contain %q", stderr, want)
+		}
+	}
+}
+
+// TestExplainKeepsMaterializedChildOrigin pins the E3 repair: schema
+// materialization creates app.port from a JSON string with no meta of its own,
+// so the report must fall back to app's file origin when the value exists.
+func TestExplainKeepsMaterializedChildOrigin(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	schema := filepath.Join(dir, "schema.json")
+	if err := os.WriteFile(schema, []byte(
+		`{"type":"object","properties":{"app":{"type":"object","properties":{"port":{"type":"integer"}}}}}`,
+	), 0o600); err != nil {
+		t.Fatalf("write schema: %v", err)
+	}
+	valuesFile := filepath.Join(dir, "values.yaml")
+	if err := os.WriteFile(valuesFile, []byte("app: '{\"port\": 8080}'\n"), 0o600); err != nil {
+		t.Fatalf("write values: %v", err)
+	}
+	tmpl := filepath.Join(dir, "input.tmpl")
+	if err := os.WriteFile(tmpl, []byte("${app.port}\n"), 0o600); err != nil {
+		t.Fatalf("write template: %v", err)
+	}
+	stdout, stderr, status := execute(t, dir, nil, []string{
+		"render", "--no-process-env", "--schema", schema, "-f", valuesFile, "--explain", tmpl,
+	})
+	if status != 0 {
+		t.Fatalf("exit = %d, want 0; stderr=%q", status, stderr)
+	}
+	if stdout != "8080\n" {
+		t.Fatalf("stdout = %q, want the materialized value", stdout)
+	}
+	if !strings.Contains(stderr, `"origin":{"kind":"values","method":"file","source":"`+valuesFile+`"`) {
+		t.Fatalf("report = %q, want the file origin inherited from app", stderr)
+	}
+}
+
+// TestExplainDoesNotInheritAncestorForMissingChild pins E3's original symptom:
+// app.port exists, app.port.x does not, so the missing child must not borrow its
+// parent's file origin.
+func TestExplainDoesNotInheritAncestorForMissingChild(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	valuesFile := filepath.Join(dir, "values.yaml")
+	if err := os.WriteFile(valuesFile, []byte("app:\n  port: 1\n"), 0o600); err != nil {
+		t.Fatalf("write values: %v", err)
+	}
+	tmpl := filepath.Join(dir, "input.tmpl")
+	if err := os.WriteFile(tmpl, []byte("${app.port.x}\n"), 0o600); err != nil {
+		t.Fatalf("write template: %v", err)
+	}
+	_, stderr, status := execute(t, dir, nil, []string{
+		"render", "--no-process-env", "-f", valuesFile, "--on-missing=keep", "--explain", tmpl,
+	})
+	if status != 0 {
+		t.Fatalf("exit = %d, want 0; stderr=%q", status, stderr)
+	}
+	if !strings.Contains(stderr, `"variable":"app.port.x","origin":{"kind":"missing"`) {
+		t.Fatalf("report = %q, want the missing child reported missing", stderr)
+	}
+}
+
+// TestExplainAttributesParentDefaultObject pins the other half of E2: when an
+// ancestor default supplies an object literal, a child declaration that the
+// traversal never applied must not claim the value.
+func TestExplainAttributesParentDefaultObject(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	schema := filepath.Join(dir, "schema.json")
+	if err := os.WriteFile(schema, []byte(
+		`{"type":"object","properties":{"app":{"type":"object","default":{"port":1},"properties":{"port":{"type":"integer","default":2}}}}}`,
+	), 0o600); err != nil {
+		t.Fatalf("write schema: %v", err)
+	}
+	tmpl := filepath.Join(dir, "input.tmpl")
+	if err := os.WriteFile(tmpl, []byte("${app.port}\n"), 0o600); err != nil {
+		t.Fatalf("write template: %v", err)
+	}
+	stdout, stderr, status := execute(t, dir, nil, []string{
+		"render", "--no-process-env", "--schema", schema, "--explain", tmpl,
+	})
+	if status != 0 {
+		t.Fatalf("exit = %d, want 0; stderr=%q", status, stderr)
+	}
+	if stdout != "1\n" {
+		t.Fatalf("stdout = %q, want the parent default's literal", stdout)
+	}
+	if !strings.Contains(stderr, `"origin":{"kind":"schema","method":"default","source":"#/properties/app/default"`) {
+		t.Fatalf("report = %q, want the parent default declaration", stderr)
+	}
+	if strings.Contains(stderr, `#/properties/app/properties/port/default`) {
+		t.Fatalf("report = %q, want the unapplied child declaration omitted", stderr)
+	}
+}
+
+// TestExplainSkipsNestedReferenceUnderExcludedParent pins the E4/E5 interaction:
+// --ignore-vars A leaves the whole ${A:-${B}} token literal, so B was never
+// substituted either and must not be reported.
+func TestExplainSkipsNestedReferenceUnderExcludedParent(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	tmpl := filepath.Join(dir, "input.tmpl")
+	if err := os.WriteFile(tmpl, []byte("${A:-${B}}\n"), 0o600); err != nil {
+		t.Fatalf("write template: %v", err)
+	}
+	stdout, stderr, status := execute(t, dir, nil, []string{
+		"render", "--no-process-env", "--set", "B=from-set", "--ignore-vars", "A", "--explain", tmpl,
+	})
+	if status != 0 {
+		t.Fatalf("exit = %d, want 0; stderr=%q", status, stderr)
+	}
+	if stdout != "${A:-${B}}\n" {
+		t.Fatalf("stdout = %q, want the whole token left literal", stdout)
+	}
+	if strings.Contains(stderr, `"variable":"B"`) {
+		t.Fatalf("report = %q, want the nested reference omitted", stderr)
 	}
 }

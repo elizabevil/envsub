@@ -208,9 +208,35 @@ func TestExampleUnusedReportMatchesItsExpectation(t *testing.T) {
 		t.Errorf("unused stdout differs from unused.golden")
 	}
 	wantReport := readFile(t, filepath.Join(root, "examples", "templates", "unused.unused"))
-	if stderr != wantReport {
-		t.Errorf("unused report differs\n--- got ---\n%s\n--- want ---\n%s", stderr, wantReport)
+	if got, want := canonicalJSONL(t, stderr), canonicalJSONL(t, wantReport); got != want {
+		t.Errorf("unused report differs\n--- got ---\n%s\n--- want ---\n%s", got, want)
 	}
+}
+
+// canonicalJSONL drops the wall-clock fields so a golden can pin the payload
+// without freezing time or sequence.
+func canonicalJSONL(t *testing.T, blob string) string {
+	t.Helper()
+	var out strings.Builder
+	for _, line := range strings.Split(strings.TrimSpace(blob), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		var event map[string]any
+		if err := json.Unmarshal([]byte(line), &event); err != nil {
+			t.Fatalf("decode JSONL line %q: %v", line, err)
+		}
+		delete(event, "time")
+		delete(event, "seq")
+		encoded, err := json.Marshal(event)
+		if err != nil {
+			t.Fatalf("re-encode event: %v", err)
+		}
+		out.Write(encoded)
+		out.WriteByte('\n')
+	}
+	return out.String()
 }
 
 // TestExampleFailureCasesMatchTheirExitCodes pins the cases/errors contract: each

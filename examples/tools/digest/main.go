@@ -233,6 +233,13 @@ type explainEntry struct {
 	Shadowed []explainFrame `json:"shadowed"`
 }
 
+// explainEvent is the shared JSONL envelope; the provenance lives in data.
+type explainEvent struct {
+	Schema int          `json:"schema"`
+	Type   string       `json:"type"`
+	Data   explainEntry `json:"data"`
+}
+
 // explainFrame is one step of a value's lineage (ADR-005).
 type explainFrame struct {
 	Kind   string `json:"kind"`
@@ -319,11 +326,14 @@ func summariseSources(path string, stdout io.Writer) error {
 		if line == "" {
 			continue
 		}
-		var entry explainEntry
-		if err := json.Unmarshal([]byte(line), &entry); err != nil {
+		var event explainEvent
+		if err := json.Unmarshal([]byte(line), &event); err != nil {
 			return fmt.Errorf("explain line %d: %w", len(entries)+1, err)
 		}
-		entries = append(entries, entry)
+		if event.Type != "explain" {
+			continue
+		}
+		entries = append(entries, event.Data)
 	}
 	if err := scanner.Err(); err != nil {
 		return err

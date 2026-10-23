@@ -14,6 +14,7 @@ import (
 
 	"github.com/elizabevil/envsub/internal/diag"
 	"github.com/elizabevil/envsub/internal/engine"
+	"github.com/elizabevil/envsub/internal/event"
 	"github.com/elizabevil/envsub/internal/load"
 	"github.com/elizabevil/envsub/internal/logging"
 	"github.com/elizabevil/envsub/internal/output"
@@ -42,6 +43,11 @@ func Run(ctx context.Context, eng RenderEngine, req Request) error {
 
 	if err := req.Validate(); err != nil {
 		return err
+	}
+	if req.Events == nil {
+		// A library caller that enabled explain/unused but did not supply a
+		// stream keeps the historical stderr default.
+		req.Events = event.NewWriter(os.Stderr)
 	}
 
 	// The loader reports each contributing source to the observer, which is how
@@ -105,7 +111,10 @@ func Run(ctx context.Context, eng RenderEngine, req Request) error {
 			if len(templates) == 1 {
 				if explainActive {
 					if reportErr := req.reportSources(eng, templates, run); reportErr != nil {
-						return reportErr
+						// Keep the render failure first so its kind and exit code still
+						// describe what went wrong; the report failure is additional
+						// context, not a replacement.
+						return errors.Join(err, reportErr)
 					}
 				}
 				return err
@@ -118,8 +127,11 @@ func Run(ctx context.Context, eng RenderEngine, req Request) error {
 	// The report is written even when a batch had failures: it explains what the
 	// render did manage to resolve, which is what a reader needs to diagnose.
 	if explainActive {
-		if err := req.reportSources(eng, templates, run); err != nil {
-			return err
+		if reportErr := req.reportSources(eng, templates, run); reportErr != nil {
+			if len(failed) > 0 {
+				return errors.Join(append(failed, reportErr)...)
+			}
+			return reportErr
 		}
 	}
 	// A batch fails as a whole, but each failure keeps its own classification, so
@@ -152,29 +164,57 @@ func (req Request) collectReferences(eng RenderEngine, templates []template, ref
 	}
 	for i := range templates {
 		data := templates[i].Text
-		paths, err := pathEngine.Paths(data)
+		paths, err := listPaths(pathEngine, data, req.Policies.replaces)
 		if err != nil {
 			return diag.Wrapf(diag.KindTemplate, "report %s: %w", templates[i].Input, err)
 		}
 		for _, path := range paths {
-			// A path the Only/Ignore filters exclude is not substituted, so it
-			// cannot make a value used.
-			if !req.Policies.replaces(path) {
-				continue
-			}
 			referenced[canonicalPath(path)] = true
 		}
 	}
 	return nil
 }
 
+// listPaths lists the paths a template references under the substitution
+// policy. An engine implementing engine.PathFilterEngine can also drop
+// references nested inside an excluded expression, which a flat filter cannot
+// see; a plain PathEngine falls back to filtering the path list.
+func listPaths(pathEngine engine.PathEngine, src []byte, replaces func(string) bool) ([]string, error) {
+	if filtered, ok := pathEngine.(engine.PathFilterEngine); ok {
+		return filtered.PathsFor(src, replaces)
+	}
+	paths, err := pathEngine.Paths(src)
+	if err != nil {
+		return nil, err
+	}
+	if replaces == nil {
+		return paths, nil
+	}
+	kept := make([]string, 0, len(paths))
+	for _, path := range paths {
+		if replaces(path) {
+			kept = append(kept, path)
+		}
+	}
+	return kept, nil
+}
+
 // reportUnused writes the value-file entries no template referenced.
 func (req Request) reportUnused(tree *values.Tree, referenced rootNames) error {
-	w := req.Report.Writer
-	if w == nil {
-		w = os.Stderr
+	unused := collectUnused(tree, referenced)
+	if !req.Report.JSONL {
+		w := req.Report.Writer
+		if w == nil {
+			w = os.Stderr
+		}
+		return writeUnused(w, unused)
 	}
-	return writeUnused(w, collectUnused(tree, referenced))
+	for _, path := range unused {
+		if err := req.Events.Emit(event.TypeUnused, event.UnusedData{Path: path}); err != nil {
+			return diag.Wrapf(diag.KindIO, "write unused report: %w", err)
+		}
+	}
+	return nil
 }
 
 // rootNames is the set of canonical variable paths one run referenced.
@@ -317,18 +357,14 @@ func (req Request) reportSources(eng RenderEngine, templates []template, explain
 	return nil
 }
 
-// emitExplain writes the --explain report for one template. Explain.Writer
-// defaults to stderr so stdout stays the pure render result.
+// emitExplain writes the --explain report for one template into the shared event
+// stream, so stdout stays the pure render result.
 func (req Request) emitExplain(eng RenderEngine, tmpl string, src []byte, explain explainRun) error {
 	pathEngine, ok := eng.(engine.PathEngine)
 	if !ok {
 		return diag.New(diag.KindInternal, "--explain is not supported by engine %q", eng.Name())
 	}
-	w := req.Explain.Writer
-	if w == nil {
-		w = os.Stderr
-	}
-	return explainTemplate(w, pathEngine, req, tmpl, src, explain)
+	return explainTemplate(req.Events, pathEngine, req, tmpl, src, explain)
 }
 
 // streamReader streams a template from its input source into dst. A file is

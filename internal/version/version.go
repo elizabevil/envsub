@@ -17,9 +17,9 @@ import (
 	"runtime"
 	"runtime/debug"
 	"strings"
-	"time"
 
 	"github.com/elizabevil/envsub/internal/jsonx"
+	"github.com/elizabevil/envsub/internal/timefmt"
 )
 
 // Build settings read from the embedded build info.
@@ -63,7 +63,8 @@ type Info struct {
 	GitCommit string `json:"gitCommit"`
 	// GitTreeState is clean or dirty, depending on uncommitted changes.
 	GitTreeState string `json:"gitTreeState"`
-	// BuildDate is the RFC3339 build time, empty when it cannot be determined.
+	// BuildDate is the build time in the process-wide UTC RFC3339 layout with
+	// milliseconds, empty when it cannot be determined.
 	BuildDate string `json:"buildDate"`
 	// GoVersion is the toolchain that produced the binary.
 	GoVersion string `json:"goVersion"`
@@ -174,7 +175,7 @@ func currentBuildDate() string {
 	if err != nil {
 		return ""
 	}
-	return info.ModTime().UTC().Format(time.RFC3339)
+	return timefmt.Format(info.ModTime())
 }
 
 // JSON renders the current build information as an indented JSON object.

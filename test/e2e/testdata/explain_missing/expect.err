@@ -1,1 +1,1 @@
-{"template":"input.tmpl","variable":"EXPLAIN_MISSING_VAR","origin":{"kind":"missing","method":"missing","source":"","file":"","line":0},"shadowed":[]}
+{"schema":1,"type":"explain","time":"1970-01-01T00:00:00.000Z","seq":0,"data":{"template":"input.tmpl","variable":"EXPLAIN_MISSING_VAR","origin":{"kind":"missing","method":"missing","source":"","file":"","line":0},"shadowed":[]}}

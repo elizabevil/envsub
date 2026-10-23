@@ -1,51 +1,17 @@
 package render
 
 import (
-	"io"
 	"strings"
 
 	"github.com/elizabevil/envsub/internal/diag"
 	"github.com/elizabevil/envsub/internal/engine"
-	"github.com/elizabevil/envsub/internal/jsonx"
+	"github.com/elizabevil/envsub/internal/event"
 	"github.com/elizabevil/envsub/internal/values"
 )
 
-// explainFrame is one step of a value's lineage: which layering stage it came
-// through, how it entered that stage, the address within the stage, and where
-// that is on disk. Every field is always emitted, so a consumer needs no
-// presence checks (ADR-005 I4). The four fields answer four different questions;
-// for a file-backed frame Source and File hold the same path on purpose.
-type explainFrame struct {
-	// Kind is the layering stage: schema, values, envfile, set, process,
-	// assign or missing.
-	Kind string `json:"kind"`
-	// Method is how the value entered that stage: default, file, flag, json,
-	// env, assign or missing.
-	Method string `json:"method"`
-	// Source is the address within the stage: a file path, a schema pointer, an
-	// environment variable name, or the key itself.
-	Source string `json:"source"`
-	// File is the file the frame lives in, empty when it has none.
-	File string `json:"file"`
-	// Line is the 1-based line, 0 when unknown or not applicable.
-	Line int `json:"line"`
-}
-
-// explainRecord is one JSON line of the --explain report: where a referenced
-// variable resolved, never its value, because values may be secrets.
-type explainRecord struct {
-	// Template is the template the variable is referenced from.
-	Template string `json:"template"`
-	// Variable is the referenced path in its canonical spelling, so it can be
-	// pasted back into a template or used as an --explain=PATH filter.
-	Variable string `json:"variable"`
-	// Origin is the winning frame: the last step of the lineage.
-	Origin explainFrame `json:"origin"`
-	// Shadowed lists the frames the winner covered, closest first, so that
-	// Shadowed followed by Origin is the whole lineage, lowest priority last.
-	// It is always present, empty when nothing was covered.
-	Shadowed []explainFrame `json:"shadowed"`
-}
+// explainFrame is the shared origin-frame schema. It is an alias so the report
+// and the event protocol cannot drift apart.
+type explainFrame = event.OriginFrame
 
 // explainRun collects origins for one render run. It is the load.Observer the
 // loader reports through, so the loader does not depend on how origins are
@@ -92,6 +58,8 @@ func frameFor(meta values.Meta) explainFrame {
 			method = values.MethodDefault
 		case values.SourceProcess:
 			method = values.MethodEnv
+		case values.SourceAssign:
+			method = values.MethodAssign
 		default:
 			method = values.MethodMissing
 		}
@@ -158,6 +126,13 @@ func (e explainer) source(path string, tree *values.Tree) (winner explainFrame, 
 	}
 	if rootKey != "" {
 		candidates = append(candidates, e.root[rootKey]...)
+		// A value a template assignment wrote is the newest origin there is:
+		// the layering ran before the render, so the assignment frame closes
+		// the chain. The layering did not report it, so it comes from the tree.
+		if meta, ok := treeMeta(tree, rootKey); ok &&
+			(meta.Kind == values.SourceAssign || meta.Method == values.MethodAssign) {
+			candidates = append(candidates, meta)
+		}
 	}
 	if len(candidates) > 0 {
 		winner = frameFor(candidates[len(candidates)-1])
@@ -166,11 +141,35 @@ func (e explainer) source(path string, tree *values.Tree) (winner explainFrame, 
 		}
 		return winner, shadowed
 	}
-	// A value the layering did not record still carries meta on the tree.
-	if ref := tree.MetaFor(path); ref.Found {
-		return frameFor(ref.Meta), nil
+	if rootKey == "" {
+		return frameFor(values.Meta{Kind: values.SourceMissing, Method: values.MethodMissing}), nil
+	}
+	// A value the layering did not record still carries meta on the tree. The
+	// lookup is exact first: an ancestor's origin says where the parent came
+	// from, not where this name came from. The ancestor is still the best answer
+	// when the value really exists without meta of its own, which is what schema
+	// materialization produces (a JSON object parsed out of a string).
+	if meta, ok := treeMeta(tree, rootKey); ok {
+		return frameFor(meta), nil
+	}
+	if tree != nil {
+		if _, exists, err := tree.Resolve(rootKey); err == nil && exists {
+			if ref := tree.MetaFor(rootKey); ref.Found {
+				return frameFor(ref.Meta), nil
+			}
+		}
 	}
 	return frameFor(values.Meta{Kind: values.SourceMissing, Method: values.MethodMissing}), nil
+}
+
+// treeMeta returns the origin recorded exactly for path, tolerating a tree that
+// was never attached (a zero explainRun): the report then simply has no tree
+// fallback.
+func treeMeta(tree *values.Tree, path string) (values.Meta, bool) {
+	if tree == nil {
+		return values.Meta{}, false
+	}
+	return tree.MetaAt(path)
 }
 
 // matches reports whether a reported name is selected by the --explain path
@@ -187,19 +186,25 @@ func (e Explain) matches(name string) bool {
 	return false
 }
 
-// explainTemplate writes one JSON object per referenced variable, in
+// explainTemplate emits one explain event per referenced variable, in
 // first-appearance order. It only reads names and recorded origins, so it cannot
 // change the rendered output.
-func explainTemplate(w io.Writer, pathEngine engine.PathEngine, req Request, tmpl string, src []byte, run explainRun) error {
-	paths, err := pathEngine.Paths(src)
+func explainTemplate(events *event.Writer, pathEngine engine.PathEngine, req Request, tmpl string, src []byte, run explainRun) error {
+	paths, err := listPaths(pathEngine, src, req.Policies.replaces)
 	if err != nil {
 		return diag.Wrapf(diag.KindTemplate, "explain %s: %w", tmpl, err)
 	}
-	var b strings.Builder
 	seen := make(map[string]bool, len(paths))
 	for _, path := range paths {
 		name := explainName(path)
 		if name == "" || seen[name] || !req.Explain.matches(name) {
+			continue
+		}
+		// A path the Only/Ignore filters exclude is not substituted, so it
+		// never resolved to anything and must not be reported as if it had.
+		// listPaths already applies the same rule; this also covers a plain
+		// PathEngine that returned the full flat list.
+		if !req.Policies.replaces(path) {
 			continue
 		}
 		seen[name] = true
@@ -207,20 +212,14 @@ func explainTemplate(w io.Writer, pathEngine engine.PathEngine, req Request, tmp
 		if shadowed == nil {
 			shadowed = []explainFrame{}
 		}
-		encoded, err := jsonx.Marshal(explainRecord{
+		if err := events.Emit(event.TypeExplain, event.ExplainData{
 			Template: tmpl,
 			Variable: name,
 			Origin:   origin,
 			Shadowed: shadowed,
-		})
-		if err != nil {
-			return diag.Wrapf(diag.KindInternal, "encode explain record: %w", err)
+		}); err != nil {
+			return diag.Wrapf(diag.KindIO, "write explain: %w", err)
 		}
-		b.Write(encoded)
-		b.WriteByte('\n')
-	}
-	if _, err := io.WriteString(w, b.String()); err != nil {
-		return diag.Wrapf(diag.KindIO, "write explain: %w", err)
 	}
 	return nil
 }

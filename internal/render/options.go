@@ -5,6 +5,7 @@ import (
 
 	"github.com/elizabevil/envsub/internal/diag"
 	"github.com/elizabevil/envsub/internal/engine"
+	"github.com/elizabevil/envsub/internal/event"
 	"github.com/elizabevil/envsub/internal/utils"
 )
 
@@ -30,7 +31,10 @@ type Request struct {
 	Policies Policies
 	Explain  Explain
 	// Report selects an extra report about the render.
-	Report       Report
+	Report Report
+	// Events is the shared JSONL stream for explain, unused and error records.
+	// It is nil only for a library caller that never enabled a machine report.
+	Events       *event.Writer
 	ValidateOnly bool
 	// Stdin is the reader behind a template named "-". Nil means os.Stdin. It is
 	// a field so a caller (and a test) can supply its own stream instead of
@@ -105,8 +109,6 @@ type Explain struct {
 	// Paths limits the report to these exact paths; empty reports every
 	// referenced variable.
 	Paths []string
-	// Writer receives the report; nil means os.Stderr.
-	Writer io.Writer
 }
 
 // Active reports whether an explain report should be produced. Listing paths
@@ -115,12 +117,16 @@ func (e Explain) Active() bool {
 	return e.Enabled || len(e.Paths) > 0
 }
 
-// Report selects an extra report about the render, written to Writer.
+// Report selects an extra report about the render. JSONL reports go through
+// Request.Events; the text form writes to Writer.
 type Report struct {
 	// Name is the report the user asked for: empty or unused.
 	Name string
-	// Writer receives the report; nil means os.Stderr.
+	// Writer receives the text report; nil means os.Stderr.
 	Writer io.Writer
+	// JSONL writes each report entry as an event instead of plain text. The CLI
+	// sets it when stderr is the machine event stream.
+	JSONL bool
 }
 
 // Unused reports whether the unused-value report was selected.

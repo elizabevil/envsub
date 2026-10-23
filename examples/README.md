@@ -29,6 +29,7 @@ just --justfile examples/justfile precedence
 just --justfile examples/justfile realworld
 just --justfile examples/justfile failures      # one case per exit code
 just --justfile examples/justfile unused        # --report=unused
+just --justfile examples/justfile jsonl         # --explain --jsonl, one typed JSON per stderr line
 just --justfile examples/justfile auxiliary-check   # compare out/ with --check (exit 7 = outdated)
 just --justfile examples/justfile acceptance        # whole out/ tree, file by file
 just --justfile examples/justfile demo              # every recipe in sequence
@@ -92,7 +93,7 @@ step 1 are, so a broken example is caught by `just check` even without running t
 |------|---------|
 | **golden** | The **final expected output** of a template, checked in and compared **byte for byte**. A golden is not a sample: it is the contract. `digest-update` rewrites it, and `git diff` is how you review that rewrite. |
 | `.parse` | The format the golden claims to be (`json` or `yaml`). **The single source of truth for that claim**: `test/examples` and the recipes read this same file, so a real parser proves it on both sides. |
-| `.unused` | The expected `--report=unused` output for that template (the report goes to stderr). |
+| `.unused` | The expected typed JSONL `--report=unused` output for that template (the report goes to stderr). |
 | `expect.out` | Expected stdout of a **failure case** (`cases/errors/`), byte for byte. |
 | `expect.err` | A fragment that **must appear** in stderr (substring, not the whole text: messages may carry paths). |
 | `expect.exit` | The exit code that case must produce. |
@@ -158,6 +159,7 @@ whole difference: data is what the flags read, templates are what the command re
 | `precedence-two-dotenv` | a later `--dotenv-file` wins |
 | `realworld` | one realistic service configuration |
 | `unused` | which dataset keys no template referenced |
+| `jsonl` | the typed JSONL stderr stream (`type=explain/error/log/unused`) |
 | `auxiliary-validate` | the same dataset with `--validate-only` (nothing written) |
 | `auxiliary-check` | the same dataset with `--check` (exit 7 when outdated) |
 | `auxiliary-explain` | where every value came from |

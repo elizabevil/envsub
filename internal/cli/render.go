@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/elizabevil/envsub/internal/engine"
+	"github.com/elizabevil/envsub/internal/event"
 	"github.com/elizabevil/envsub/internal/render"
 )
 
@@ -70,7 +71,7 @@ type explainFlags struct {
 // request assembles the parsed flags and the positional template arguments into
 // a render request. It performs no validation: render.Request does that, so the
 // CLI and any other caller share one rule set.
-func (f renderFlags) request(args []string, stderr io.Writer) render.Request {
+func (f renderFlags) request(args []string, stderr io.Writer, events *event.Writer, jsonl bool) render.Request {
 	req := render.Request{
 		Input: render.Input{Templates: args, Recursive: f.input.recursive},
 		Values: render.Values{
@@ -97,8 +98,9 @@ func (f renderFlags) request(args []string, stderr io.Writer) render.Request {
 			Only:            f.policies.onlyVars,
 			Ignore:          f.policies.ignoreVars,
 		},
-		Explain:      render.Explain{Writer: stderr},
-		Report:       render.Report{Name: f.report, Writer: stderr},
+		Explain:      render.Explain{},
+		Report:       render.Report{Name: f.report, Writer: stderr, JSONL: jsonl},
+		Events:       events,
 		ValidateOnly: f.validateOnly,
 	}
 	if paths := f.explain.paths; len(paths) > 0 {
@@ -121,7 +123,8 @@ func newRenderCommand(eng RenderEngine, run Runner) *cobra.Command {
 		Use:   commandRender + " [template...]",
 		Short: "Render templates",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return run(cmd.Context(), eng, flags.request(args, cmd.ErrOrStderr()))
+			events := event.FromContext(cmd.Context())
+			return run(cmd.Context(), eng, flags.request(args, cmd.ErrOrStderr(), events, JSONLFrom(cmd)))
 		},
 	}
 

@@ -1,2 +1,2 @@
-{"template":"a.tmpl","variable":"K","origin":{"kind":"envfile","method":"file","source":".env","file":".env","line":1},"shadowed":[]}
-{"template":"b.tmpl","variable":"K","origin":{"kind":"envfile","method":"file","source":".env","file":".env","line":1},"shadowed":[]}
+{"schema":1,"type":"explain","time":"1970-01-01T00:00:00.000Z","seq":0,"data":{"template":"a.tmpl","variable":"K","origin":{"kind":"envfile","method":"file","source":".env","file":".env","line":1},"shadowed":[]}}
+{"schema":1,"type":"explain","time":"1970-01-01T00:00:00.000Z","seq":0,"data":{"template":"b.tmpl","variable":"K","origin":{"kind":"envfile","method":"file","source":".env","file":".env","line":1},"shadowed":[]}}

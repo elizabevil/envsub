@@ -108,6 +108,13 @@ unused: ensure-binary
     @echo "== unused keys (the dataset is deliberately larger than this template)"
     @cat {{ work }}/unused.report
 
+# Machine-readable stderr: one typed JSON object per line, for CI and log pipelines.
+jsonl: ensure-binary
+    @mkdir -p {{ work }}
+    @env {{ process }} {{ bin }} render {{ sources }} --explain --jsonl {{ justfile_directory() }}/templates/unused.tmpl > {{ work }}/jsonl.out 2> {{ work }}/jsonl.events
+    @echo "== stderr is pure JSONL (type=explain/error/log/unused)"
+    @cat {{ work }}/jsonl.events
+
 # --- auxiliary commands on the same dataset -----------------------------------
 
 # Validate only: no output is written.
@@ -250,7 +257,7 @@ digest-update: ensure-binary
     @env {{ process }} {{ bin }} render {{ sources }} --output-dir {{ expected_out }} {{ justfile_directory() }}/templates/realworld.tmpl {{ justfile_directory() }}/templates/scenarios-yaml.tmpl
     @echo "updated templates/*.golden and out/"
 
-demo: scenarios-json scenarios-yaml explain-sources filters unknown-keywords on-empty scenarios-with-prefix scenarios-no-process values-long-flag precedence precedence-two-dotenv realworld unused auxiliary-validate auxiliary-check auxiliary-explain auxiliary-stdin auxiliary-error-json auxiliary-batch auxiliary-strip-suffix auxiliary-in-place failures acceptance
+demo: scenarios-json scenarios-yaml explain-sources filters unknown-keywords on-empty scenarios-with-prefix scenarios-no-process values-long-flag precedence precedence-two-dotenv realworld unused jsonl auxiliary-validate auxiliary-check auxiliary-explain auxiliary-stdin auxiliary-error-json auxiliary-batch auxiliary-strip-suffix auxiliary-in-place failures acceptance
 
 clean:
     @rm -rf {{ work }}

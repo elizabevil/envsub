@@ -5,11 +5,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/elizabevil/envsub/internal/diag"
+	"github.com/elizabevil/envsub/internal/event"
 	"github.com/elizabevil/envsub/internal/logging"
 	"github.com/elizabevil/envsub/internal/render"
 )
@@ -30,6 +32,7 @@ type Runner func(ctx context.Context, eng RenderEngine, req render.Request) erro
 func NewRootCommand(eng RenderEngine, run Runner) *cobra.Command {
 	var logLevel string
 	var errorFormat string
+	var jsonl bool
 	cmd := &cobra.Command{
 		Use:           "envsub",
 		Short:         "Extended configuration renderer",
@@ -49,13 +52,30 @@ func NewRootCommand(eng RenderEngine, run Runner) *cobra.Command {
 			return cmd.Help()
 		},
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
+			// Resolve the mode before any validation can fail: app.Run needs it
+			// after Execute returns, and it only holds the root command.
+			events := event.FromContext(cmd.Context())
+			if events == nil {
+				events = event.NewWriter(cmd.ErrOrStderr())
+			}
+			jsonl := JSONLFrom(cmd)
+			ctx := event.WithWriter(WithJSONL(cmd.Context(), jsonl), events)
+			cmd.SetContext(ctx)
+			cmd.Root().SetContext(ctx)
+
 			// The error format is checked before anything else runs, so an
 			// invalid value is reported in the requested (default) format
 			// rather than producing an unparseable error stream.
 			if err := ValidateErrorFormat(errorFormat); err != nil {
 				return err
 			}
-			logger, err := logging.New(logLevel, cmd.ErrOrStderr())
+			var logger *slog.Logger
+			var err error
+			if jsonl {
+				logger, err = logging.NewEvent(logLevel, events)
+			} else {
+				logger, err = logging.New(logLevel, cmd.ErrOrStderr())
+			}
 			if err != nil {
 				return diag.Wrap(diag.KindUsage, err)
 			}
@@ -65,6 +85,7 @@ func NewRootCommand(eng RenderEngine, run Runner) *cobra.Command {
 	}
 	cmd.PersistentFlags().StringVar(&logLevel, flagLogLevel, logging.LevelWarnName, "log level `LEVEL`: debug|info|warn|error")
 	cmd.PersistentFlags().StringVar(&errorFormat, flagErrorFormat, ErrorFormatText, "error output `FORMAT`: text|json")
+	cmd.PersistentFlags().BoolVar(&jsonl, flagJSONL, false, "write all stderr diagnostics and reports as JSONL (one object per line; implied by --explain/--report)")
 	cmd.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {
 		return diag.Wrap(diag.KindUsage, err)
 	})
