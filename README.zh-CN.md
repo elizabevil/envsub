@@ -440,6 +440,9 @@ YAML 走 `internal/yamlx`，只用 `go.yaml.in/yaml/v3` 一个库：解码遍历
 
 ## 文档
 
+从 GNU `envsubst` 过来？先读[迁移指南](docs/migration.md)——最需要知道的一条是：
+裸名 `${NAME}` 读的是 envsub 的值树，不是你的 shell 环境变量。
+
 规范性的行为定义在 [`docs/07-serialization/`](docs/07-serialization/00-index.md)——
 每条规则都有编号、可复制的例子与对应测试。完整地图见
 [`docs/README.md`](docs/README.md)；被取代的材料在

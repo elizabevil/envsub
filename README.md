@@ -463,6 +463,10 @@ keys and merge keys are handled) and `toYaml` encodes the same tree.
 
 ## Documentation
 
+Coming from GNU `envsubst`? Read the
+[migration guide](docs/migration.md) first — the one thing to know is that a
+bare `${NAME}` reads envsub's value tree, not your shell environment.
+
 The normative behaviour lives in
 [`docs/07-serialization/`](docs/07-serialization/00-index.md) — every rule has
 an ID, a worked example and a test. Start at

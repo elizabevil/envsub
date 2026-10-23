@@ -15,6 +15,7 @@ last-updated: 2026-10-22
 | 某个需求实现了没有、还能不能做 | [`02-product/02-05-requirements-registry.md`](02-product/02-05-requirements-registry.md) |
 | 为什么这么定（已生效的决策） | [`04-decisions/`](04-decisions/04-00-index.md) —— ADR |
 | 本轮在做什么、做到哪一步 | [`05-tasks/`](05-tasks/05-00-index.md) |
+| 从 `envsubst` 迁过来 | [`migration.md`](migration.md) —— 迁移指南、语法对照与错误提示 |
 | 设计是怎么展开的 | [`03-design/`](03-design/03-00-index.md) |
 | 性能门禁的规格与基线 | [`reference/REF-04-gnu-envsubst-performance-baseline.md`](reference/REF-04-gnu-envsubst-performance-baseline.md) |
 | 这个仓库怎么干活、写文档写代码的规矩 | [`prompts/_common.md`](prompts/_common.md) |
