@@ -26,6 +26,16 @@ lintTool := "bash " + (justfile_directory() / "tools" / "lint" / "golangci-lint.
 exe := "dist/envsub"
 ldflags := "-s -w"
 
+# The git tag the build sits on, or the branch it came from. The toolchain
+# stamps the module version, which carries a "+dirty" suffix and a
+# pseudo-version instead of the branch name, so the ref is injected here.
+# Empty when git cannot tell, for example in a source archive.
+git-ref := `git describe --tags --exact-match 2>/dev/null || git rev-parse --abbrev-ref HEAD 2>/dev/null || echo ""`
+
+# Injects the ref into the version package, so `envsub version` names the tag
+# or branch and the commit instead of a pseudo-version.
+version-ldflags := "-X github.com/elizabevil/envsub/internal/version.gitRef=" + git-ref
+
 # Scratch directory for recipes that write intermediate files (.tmp is ignored).
 [private]
 caches:
@@ -33,9 +43,11 @@ caches:
 
 # --- build ------------------------------------------------------------------
 
-# Version, commit, tree state, compiler and platform come from the build info the
+# Commit, tree state, compiler and platform come from the build info the
 # toolchain embeds, and the build date from the binary's modification time
-# (internal/version), so no -X injection is needed.
+# (internal/version). The tag or branch is the one piece the toolchain does not
+# embed, so it is injected above; without the injection the version falls back to
+# the module version.
 #
 # The default build uses the standard-library JSON backend (encoding/json/v2) and
 # is ~3.5 MiB smaller; build-sonic swaps in sonic via a build tag, which decodes
@@ -47,7 +59,7 @@ build-sonic: (build-with "sonic")
 
 # build-with builds the local binary, optionally with a build tag.
 build-with tag="": caches
-    go build -trimpath -ldflags "{{ ldflags }}" {{ if tag != "" { "-tags=" + tag } else { "" } }} -o {{ exe }}{{ if tag != "" { "-" + tag } else { "" } }} ./cmd/envsub
+    go build -trimpath -ldflags "{{ ldflags }} {{ version-ldflags }}" {{ if tag != "" { "-tags=" + tag } else { "" } }} -o {{ exe }}{{ if tag != "" { "-" + tag } else { "" } }} ./cmd/envsub
 
 # size reports the total size and the biggest sections of the local binary;
 # `just size sonic` reports the sonic backend instead of the default.
@@ -72,7 +84,7 @@ size-deps: caches
 # The default JSON backend is the standard library; add -tags=sonic for sonic.
 build-target os arch:
     @mkdir -p dist
-    CGO_ENABLED=0 GOOS={{ os }} GOARCH={{ arch }} go build -trimpath -ldflags "{{ ldflags }}" -o dist/envsub-{{ os }}-{{ arch }}{{ if os == "windows" { ".exe" } else { "" } }} ./cmd/envsub
+    CGO_ENABLED=0 GOOS={{ os }} GOARCH={{ arch }} go build -trimpath -ldflags "{{ ldflags }} {{ version-ldflags }}" -o dist/envsub-{{ os }}-{{ arch }}{{ if os == "windows" { ".exe" } else { "" } }} ./cmd/envsub
 
 # build-release cross-compiles the matrix the release workflow uses.
 build-release:

@@ -195,21 +195,18 @@ TASK-017 → TASK-019 → TASK-020 → TASK-021 → TASK-022 → TASK-024 → TA
 
 > 优化与规则差异的待办清单见 [05-03 待办工作交接](05-03-pending-work.md)（自包含，可冷启动接手）。
 
-## 本轮核实发现的缺口（状态：2 项待办、4 项已闭环）
+## 本轮核实发现的缺口（状态：1 项待办、5 项已闭环）
 
 **仍待办**（各有 owner 与触发条件）：
 
-1. **`gitVersion` 与 `gitTreeState` 可能语义重复**：`internal/version/version.go` 只输出
-   `GitVersion`（`debug.ReadBuildInfo` 的模块版本）与 `GitTreeState`（clean/dirty），**未做 `+dirty` 后缀剥离**；
-   是否剥离待定。owner：技术负责人。
-2. **`sonic` 后端实机运行未验证**：交叉编译已覆盖 linux/amd64、linux/arm64、darwin/arm64、windows/amd64，
+1. **`sonic` 后端实机运行未验证**：交叉编译已覆盖 linux/amd64、linux/arm64、darwin/arm64、windows/amd64，
    但 Windows/macOS 实机运行仍未验证（ADR-004 §7）。触发条件：有实机或 CI 矩阵 runner；owner：技术负责人。
 
 **已闭环**（保留结论，避免重复排查）：
 
 1. **Fuzz 已落地**（2026-10-22 补齐）：`test/fuzz/fuzz_test.go` 有 6 个 `func Fuzz` 目标
-   （扫描器/流式 span/路径文法/表达式路径/数值/`.env`），表达式解析器那 1 个在
-   `internal/engine/extended/expression_fuzz_test.go`（`parseExpression` 未导出），共 7 个；
+   （扫描器/流式 span/路径文法/表达式路径/数值/`.env`），表达式解析器与窗口读取器那 2 个在
+   `internal/engine/extended/`（`parseExpression` 与 `streamWindow` 未导出），共 8 个；
    `test/justfile` 的 `test` 目标含 `test-fuzz`，CI job `fuzz` 跑短时版本。
 2. **TASK-026 试用发布已完成**：tag `v0.1.0` 已打，发布后的验证补齐见
    [`05-06-verification-todo.md`](05-06-verification-todo.md)。
@@ -218,6 +215,9 @@ TASK-017 → TASK-019 → TASK-020 → TASK-021 → TASK-022 → TASK-024 → TA
 4. **序列化规则收尾完成**：第 7 步 `NaN`/`±Inf` 拒绝已实现（`09-gaps` G5：解码拒绝 + `codec.RejectNonFinite`
    的编码侧拒绝）；第 8 步 §3 类型表逐行测试——`01-types.md` 的 8 条规则行全部带证据列与 ✅；
    第 9 步 `uint` 类型名已定为**不提供**并从落地步骤中删除（`00-index` 变更记录）。
+5. **`gitVersion` 不再带 `+dirty`**（2026-10-22）：版本号改为"git tag 或分支 + 短 commit id"
+   （`v0.1.0-a215676` / `main-a215676`），脏状态由 `gitTreeState` 单独报；tag/分支由构建
+   配方注入，工具链只嵌模块版本、不嵌分支名。
 
 （原"TASK-023 缺门禁"已解决：`test/perf/` + CI job `perf`，见 TASK-023 行与"性能实测"。
 原"TASK-024 供应链空白"已解决：CI job `security` + release job `supply-chain`，见"供应链基础"。）

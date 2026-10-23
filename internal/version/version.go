@@ -4,12 +4,19 @@
 // compiler and platform, so those need no build flags. It deliberately does not
 // embed a build timestamp, so BuildDate comes from the modification time of the
 // executable instead of a build-time -ldflags injection.
+//
+// The version identifies the build by the git tag or branch it came from plus
+// the commit id. The toolchain only stamps the module version, which carries a
+// "+dirty" suffix and a pseudo-version instead of the branch name, so the ref
+// is injected at build time; a build without the injection falls back to what
+// the embedded build info carries.
 package version
 
 import (
 	"os"
 	"runtime"
 	"runtime/debug"
+	"strings"
 	"time"
 
 	"github.com/elizabevil/envsub/internal/jsonx"
@@ -34,11 +41,23 @@ const (
 // version, for example a plain `go build` from a checkout.
 const develVersion = "(devel)"
 
+// shortCommitLength is the number of characters a shortened commit keeps.
+const shortCommitLength = 7
+
+// gitRef is the git tag or branch the binary was built from. The build recipes
+// inject it with -ldflags; it is empty in a build that did not.
+//
+// It is a variable rather than a constant so the linker can set it: the ref is
+// the only piece of build information the toolchain does not embed.
+var gitRef = ""
+
 // Info is the build information `envsub version` reports. The field set follows
 // the conventional Go build-info shape used by Kubernetes and GoReleaser.
 type Info struct {
-	// GitVersion is the module version; it carries the commit for a checkout
-	// build and is "(devel)" when no version is embedded.
+	// GitVersion identifies the build: the git tag or branch it came from
+	// joined with the short commit id, for example "v0.1.0-a215676" or
+	// "main-a215676". The dirty state is reported separately, so the version
+	// string never carries a "+dirty" suffix.
 	GitVersion string `json:"gitVersion"`
 	// GitCommit is the full VCS revision the binary was built from.
 	GitCommit string `json:"gitCommit"`
@@ -68,14 +87,13 @@ func Current() Info {
 	if !ok {
 		return info
 	}
-	return applyBuildInfo(info, built)
+	return applyBuildInfo(info, built, gitRef)
 }
 
 // applyBuildInfo copies the values the toolchain embedded over the fallbacks.
-func applyBuildInfo(info Info, built *debug.BuildInfo) Info {
-	if built.Main.Version != "" {
-		info.GitVersion = built.Main.Version
-	}
+// The ref is the tag or branch the build came from; it is empty when the build
+// did not inject one.
+func applyBuildInfo(info Info, built *debug.BuildInfo, ref string) Info {
 	if built.GoVersion != "" {
 		info.GoVersion = built.GoVersion
 	}
@@ -103,7 +121,46 @@ func applyBuildInfo(info Info, built *debug.BuildInfo) Info {
 		}
 	}
 	info.Platform = goos + "/" + goarch
+	info.GitVersion = buildVersion(ref, built.Main.Version, info.GitCommit)
 	return info
+}
+
+// buildVersion composes the version string from the ref and the commit.
+//
+// The ref is the injected tag or branch, falling back to the module version
+// the toolchain embedded. The commit is appended so the version names one
+// exact build; a module version that already carries the commit (a
+// pseudo-version) is used as it is.
+func buildVersion(ref, moduleVersion, commit string) string {
+	if ref == "" {
+		// The module version carries a "+dirty" suffix when the tree had
+		// uncommitted changes. The dirty state is reported on its own, so the
+		// suffix is dropped here.
+		ref = strings.TrimSuffix(moduleVersion, "+dirty")
+	}
+	short := shortCommit(commit)
+	switch {
+	case ref == "" || ref == develVersion:
+		if short == "" {
+			return develVersion
+		}
+		return short
+	case short == "":
+		return ref
+	case strings.Contains(ref, short):
+		// A pseudo-version already names the commit.
+		return ref
+	default:
+		return ref + "-" + short
+	}
+}
+
+// shortCommit shortens a full revision to the customary seven characters.
+func shortCommit(commit string) string {
+	if len(commit) <= shortCommitLength {
+		return commit
+	}
+	return commit[:shortCommitLength]
 }
 
 // currentBuildDate returns the modification time of the running binary, the

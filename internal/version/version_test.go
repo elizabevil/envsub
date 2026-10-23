@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"reflect"
 	"runtime/debug"
+	"strings"
 	"testing"
 	"time"
 )
@@ -21,6 +22,7 @@ func TestApplyBuildInfo(t *testing.T) {
 
 	tests := []struct {
 		name  string
+		ref   string
 		built *debug.BuildInfo
 		want  Info
 	}{
@@ -41,7 +43,7 @@ func TestApplyBuildInfo(t *testing.T) {
 		{
 			name: "checkout build reports the revision, dirty state and settings",
 			built: &debug.BuildInfo{
-				Main:      debug.Module{Version: "v0.0.0-20261008071740-fe076be703b6"},
+				Main:      debug.Module{Version: "v0.0.0-20261008071740-50ebe6d88e9d"},
 				GoVersion: "go1.27.1",
 				Settings: []debug.BuildSetting{
 					{Key: settingRevision, Value: revision},
@@ -52,7 +54,7 @@ func TestApplyBuildInfo(t *testing.T) {
 				},
 			},
 			want: Info{
-				GitVersion:   "v0.0.0-20261008071740-fe076be703b6",
+				GitVersion:   "v0.0.0-20261008071740-50ebe6d88e9d",
 				GitCommit:    revision,
 				GitTreeState: TreeStateDirty,
 				GoVersion:    "go1.27.1",
@@ -71,12 +73,89 @@ func TestApplyBuildInfo(t *testing.T) {
 				Platform:     "linux/amd64",
 			},
 		},
+		{
+			name: "an injected tag names the tag and the commit",
+			ref:  "v0.1.0",
+			built: &debug.BuildInfo{
+				Main: debug.Module{Version: "v0.1.0"},
+				Settings: []debug.BuildSetting{
+					{Key: settingRevision, Value: revision},
+				},
+			},
+			want: Info{
+				GitVersion:   "v0.1.0-50ebe6d",
+				GitCommit:    revision,
+				GitTreeState: TreeStateClean,
+				GoVersion:    "go1.26",
+				Compiler:     "gc",
+				Platform:     "linux/amd64",
+			},
+		},
+		{
+			name: "an injected branch names the branch and the commit",
+			ref:  "main",
+			built: &debug.BuildInfo{
+				Main: debug.Module{Version: "v0.1.1-0.20261022111730-50ebe6d88e9d"},
+				Settings: []debug.BuildSetting{
+					{Key: settingRevision, Value: revision},
+				},
+			},
+			want: Info{
+				GitVersion:   "main-50ebe6d",
+				GitCommit:    revision,
+				GitTreeState: TreeStateClean,
+				GoVersion:    "go1.26",
+				Compiler:     "gc",
+				Platform:     "linux/amd64",
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			if got := applyBuildInfo(base, tt.built); !reflect.DeepEqual(got, tt.want) {
+			if got := applyBuildInfo(base, tt.built, tt.ref); !reflect.DeepEqual(got, tt.want) {
 				t.Fatalf("applyBuildInfo() = %+v, want %+v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestBuildVersion pins how the version string is composed: the ref and the
+// commit, never a "+dirty" suffix.
+func TestBuildVersion(t *testing.T) {
+	t.Parallel()
+	const commit = "50ebe6d88e9d1a2b3c4d5e6f7a8b9c0d1e2f3a4b"
+	tests := []struct {
+		name          string
+		ref           string
+		moduleVersion string
+		commit        string
+		want          string
+	}{
+		{name: "tag and commit", ref: "v0.1.0", commit: commit, want: "v0.1.0-50ebe6d"},
+		{name: "branch and commit", ref: "main", commit: commit, want: "main-50ebe6d"},
+		{name: "ref without a commit", ref: "v0.1.0", want: "v0.1.0"},
+		{
+			name:          "the dirty suffix is dropped from the module version",
+			moduleVersion: "v0.1.0+dirty",
+			commit:        commit,
+			want:          "v0.1.0-50ebe6d",
+		},
+		{
+			name:          "a pseudo-version already names the commit",
+			moduleVersion: "v0.1.1-0.20261022111730-50ebe6d88e9d",
+			commit:        commit,
+			want:          "v0.1.1-0.20261022111730-50ebe6d88e9d",
+		},
+		{name: "nothing is known", want: develVersion},
+		{name: "only a commit is known", commit: commit, want: "50ebe6d"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := buildVersion(tt.ref, tt.moduleVersion, tt.commit); got != tt.want {
+				t.Fatalf("buildVersion(%q, %q, %q) = %q, want %q",
+					tt.ref, tt.moduleVersion, tt.commit, got, tt.want)
 			}
 		})
 	}
@@ -103,6 +182,16 @@ func TestCurrentIsComplete(t *testing.T) {
 	}
 	if _, err := time.Parse(time.RFC3339, info.BuildDate); err != nil {
 		t.Fatalf("BuildDate = %q, want RFC3339: %v", info.BuildDate, err)
+	}
+}
+
+// TestCurrentVersionHasNoDirtySuffix pins that the version string identifies
+// the build by ref and commit, and leaves the dirty state to its own field.
+func TestCurrentVersionHasNoDirtySuffix(t *testing.T) {
+	t.Parallel()
+	info := Current()
+	if strings.Contains(info.GitVersion, "+dirty") {
+		t.Fatalf("GitVersion = %q, want no dirty suffix", info.GitVersion)
 	}
 }
 
