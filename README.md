@@ -15,25 +15,27 @@ server:
   tags: web, prod
 ```
 
-> **Coming from `envsubst`?** A bare `${NAME}` reads envsub's **value tree** —
-> values files, `.env` files and `--set` — not your shell environment. The
-> process environment is a separate, read-only namespace you reach with
-> `${@process.NAME}`. That is the one thing to know before you start; see
-> [Where values come from](#where-values-come-from).
+> **Migrating from `envsubst`?** A bare `${NAME}` resolves against envsub's
+> **value tree** (values files, `.env` files, and `--set`), not the shell
+> environment. The process environment is a separate, read-only namespace
+> accessed through `${@process.NAME}`. See
+> [Process environment](#process-environment).
 
-## Why not just `envsubst`?
+## Why we recommend envsub
 
-`envsubst` substitutes strings. Real configuration needs more:
+`envsubst` is appropriate for single-layer `${VAR}` substitution. envsub is
+intended for configurations that require typed values, multiple sources, schema
+validation, and atomic write-back:
 
-| | GNU `envsubst` | envsub |
+| | Classic `${VAR}` substitution | envsub |
 |---|---|---|
-| Values | strings only | typed: int, float, bool, list, map, null |
-| Sources | process environment | env, `.env` files, YAML/JSON files, `--set`, JSON Schema defaults |
+| Values | strings | typed: int, float, bool, list, map, null |
+| Sources | the process environment | env, `.env` files, YAML/JSON files, `--set`, JSON Schema defaults |
 | Layering | one source | deterministic precedence, later files win |
-| Validation | none | JSON Schema Draft 2020-12, with a friendly error location |
-| Writing back | none | atomic in-place replacement, batch output, staleness check |
-| Formatting | none | `toJson`, `toYaml`, `join`, `quote`, `indent` |
-| Missing value | empty string | error, empty, keep, or zero — you choose |
+| Validation | — | JSON Schema Draft 2020-12, with a friendly error location |
+| Writing back | — | atomic in-place replacement, batch output, staleness check |
+| Formatting | — | `toJson`, `toYaml`, `join`, `quote`, `indent` |
+| Missing value | empty string | configurable: error, empty, keep, or zero |
 
 ## Install
 
@@ -46,11 +48,11 @@ git clone https://github.com/elizabevil/envsub && cd envsub
 just build        # → dist/envsub
 ```
 
-Requires Go 1.27 to build. The released binaries are static and need nothing else.
+Building requires Go 1.27. Released binaries are statically linked and have no runtime dependencies.
 
 ## Quick start
 
-Create a template and some values:
+Create a template and a values file:
 
 ```bash
 cat > app.tmpl <<'EOF'
@@ -67,7 +69,7 @@ TAGS: [web, prod]
 EOF
 ```
 
-Render it:
+Render the template:
 
 ```console
 $ envsub render -f values.yaml app.tmpl
@@ -77,214 +79,63 @@ server:
   tags: web, prod
 ```
 
-`PORT` stays `8080` as an integer — no quoting, no type coercion. To make it a
-string, say so: `${PORT | type string}`.
+`PORT` is rendered as the integer `8080` without quoting or explicit coercion.
+To force a string, use `${PORT | type string}`.
 
-## Use cases
+## Complete example
 
-### Substitute environment variables
+The repository includes a runnable dataset and templates:
 
-The process environment is reached explicitly, through the `@process`
-namespace:
-
-```bash
-cat > config.tmpl <<'EOF'
-host: ${@process.HOST}
-EOF
-
-HOST=10.0.0.1 envsub render config.tmpl
-# host: 10.0.0.1
-```
-
-Or expose a whole prefix at once — the variables keep their original names,
-the prefix is only a gate:
-
-```bash
-cat > prefixed.tmpl <<'EOF'
-host: ${@process.APP_HOST}
-EOF
-
-APP_HOST=10.0.0.1 envsub render --process-env-prefix APP_ prefixed.tmpl
-# host: 10.0.0.1
-```
-
-Templates and their output go wherever you point them:
-
-```bash
-envsub render config.tmpl                 # template on stdout
-envsub render -o out.yaml config.tmpl     # …or to a file
-cat config.tmpl | envsub render -         # …or from stdin
-```
-
-### Read typed values from a file
-
-```bash
-cat > deploy-values.yaml <<'EOF'
-replicas: 3
-enabled: true
-limits: {cpu: 500m, memory: 1Gi}
-EOF
-
-cat > deploy.tmpl <<'EOF'
-replicas: ${replicas}
-enabled: ${enabled}
-limits: ${limits | toJson}
-EOF
-
-$ envsub render -f deploy-values.yaml deploy.tmpl
-replicas: 3
-enabled: true
-limits: {"cpu":"500m","memory":"1Gi"}
-```
-
-### Layer several sources
-
-Later sources win. The full order is
-`--set` > `.env` files > value files > schema `default`.
-
-```bash
-envsub render \
-  -f values.yaml \
-  --dotenv-file .env \
-  --set PORT=9090 \
-  app.tmpl
-```
-
-### Validate against a JSON Schema
-
-```bash
-cat > schema.yaml <<'EOF'
-type: object
-properties:
-  port: {type: integer, minimum: 1}
-EOF
-
-cat > port.tmpl <<'EOF'
-port: ${port}
-EOF
-
-envsub render --schema schema.yaml -f good-values.yaml port.tmpl
-```
-
-A value that violates the schema fails with the path that broke it and exit
-code 4:
-
-```bash
-cat > bad-values.yaml <<'EOF'
-port: 0
-EOF
-```
-
-```console
-$ envsub render --schema schema.yaml -f bad-values.yaml port.tmpl
-schema validation failed: at /port: minimum: got 0, want 1
-$ echo $?
-4
-```
-
-### Decide what a missing value does
-
-```bash
-envsub render --on-missing=error   app.tmpl   # fail (default)
-envsub render --on-missing=empty   app.tmpl   # render as empty
-envsub render --on-missing=keep    app.tmpl   # leave ${VAR} as written
-envsub render --on-missing=zero    app.tmpl   # the type's zero value
-```
-
-`keep` is what you want when a template mixes required and optional values.
-`zero` needs to know the type — give it one with a schema or an inline
-`| type`, otherwise it cannot tell what "zero" means:
-
-```bash
-envsub render --on-missing=zero app.tmpl                  # error: no type
-echo 'port: ${PORT | type int}' | envsub render --on-missing=zero -
-# port: 0
-```
-
-### Render a whole directory
-
-```bash
-envsub render -f values.yaml --output-dir rendered/ --recursive templates/
-```
-
-The directory layout is mirrored. Add `--strip-suffix .tmpl` to drop the
-template suffix from the output names.
-
-### Edit a file in place, safely
-
-```bash
-envsub render --in-place config.yaml
-```
-
-The file is replaced atomically: the new content is written to a temporary file
-and renamed over the original, so an interrupted run never leaves a half-written
-file. Permissions are preserved.
-
-### Format a value
-
-```bash
-envsub render -f values.yaml -o - <<'EOF'
-${config | toYaml}
-${config | toJson}
-${hosts | join ", "}
-${name | quote}
-${config | toYaml 4}
-EOF
-```
-
-### Check in CI whether a generated file is stale
-
-`--check` compares the target against what the current values would produce
-and writes nothing. It needs to know the target, so pair it with the output
-option that names it:
-
-```bash
-cat > check.tmpl <<'EOF'
-port: ${port}
-EOF
-
-cat > check-values.yaml <<'EOF'
-port: 8080
-EOF
-
-envsub render -f check-values.yaml -o config.yaml check.tmpl   # generate it
-envsub render --check -f check-values.yaml -o config.yaml check.tmpl
-```
-
-The command exits 7 when the target differs, which is what you want in a
-pipeline:
-
-```bash
-envsub render --check -f check-values.yaml -o config.yaml check.tmpl || exit 1
+```text
+examples/
+├── data/
+│   ├── values-base.yaml
+│   ├── values-prod.yaml
+│   ├── values-extra.json
+│   ├── app.env
+│   └── schema.yaml
+├── templates/
+│   ├── realworld.tmpl
+│   └── scenarios-*.tmpl
+├── out/                 # checked-in expected output
+└── justfile             # one recipe per scenario
 ```
 
 ```bash
-cat > other-values.yaml <<'EOF'
-port: 9090
-EOF
+ENVSUB_STRING=from-process envsub render \
+  -f examples/data/values-base.yaml \
+  -f examples/data/values-prod.yaml \
+  -f examples/data/values-extra.json \
+  --dotenv-file examples/data/app.env \
+  --schema examples/data/schema.yaml \
+  --on-missing=empty \
+  examples/templates/realworld.tmpl
 ```
 
-```console
-$ envsub render --check -f other-values.yaml -o config.yaml check.tmpl
-1 of 1 outputs are outdated: config.yaml
-$ echo $?
-7
+`>` means the left side has higher priority than the right side:
+
+```text
+--dotenv-file examples/data/app.env > -f examples/data/values-extra.json > -f examples/data/values-prod.yaml > -f examples/data/values-base.yaml > schema default
 ```
 
-### See where a value came from
+`ENVSUB_STRING` belongs to the process environment (`@process`) and is not part
+of this precedence order.
 
-```bash
-envsub render --explain --no-process-env \
-  -f values.yaml --dotenv-file .env --set PORT=9090 app.tmpl
+Output:
+
+```yaml
+service:
+  name: prod-string
+  replicas: 7
+  enabled: true
+  region: prod
+  endpoints: ["prod","a","c"]
+  labels: {"a":2,"m":3,"z":9}
+  started_by: from-process
 ```
 
-Each referenced variable gets a JSON line on stderr naming the layer that won
-and the layers it shadowed — never the value itself, so it is safe to paste into
-a ticket.
-
-```console
-{"schema":1,"type":"explain","time":"2026-10-22T23:43:37.041Z","seq":1,"data":{"template":"app.tmpl","variable":"PORT","origin":{"kind":"set","method":"flag","source":"PORT","file":"","line":0},"shadowed":[{"kind":"envfile","method":"file","source":".env","file":".env","line":1}]}}
-```
+[`examples/README.md`](examples/README.md) maps every recipe, golden and failure
+case.
 
 ## Template syntax
 
@@ -329,171 +180,224 @@ An inline `| type` assertion is combined with the schema: a value that
 satisfies either is accepted, a value that satisfies neither is an error.
 When a type is given it must be the first step of the pipeline.
 
-## Where values come from
+## Usage
 
-```text
---set / --set-json / --set-file
-  >  .env files (--dotenv-file)
-  >  YAML/JSON value files (-f/--values-file)
-  >  schema default
-```
-
-Later files win within each kind, and a schema `default` only fills a key no
-source provides.
-
-The process environment is a **separate, read-only namespace**. It never fills
-a bare name — reaching it is always explicit:
-
-```bash
-envsub render --no-process-env app.tmpl          # ignore it entirely
-envsub render --process-env-prefix APP_ app.tmpl # expose only APP_* variables
-```
-
-`.env` files are always loaded as dotenv, whatever the file is called, and
-their keys land in the root namespace.
-
-## CLI reference
+### Render command template
 
 ```text
 envsub render [flags] [template...]
-envsub version                                      build information as JSON
-envsub completion bash|zsh|fish|powershell         shell completion script
-
-value sources
-  -f, --values-file FILE      YAML/JSON value files, repeatable
-      --dotenv-file FILE      dotenv files (parsed as dotenv, any name), repeatable
-      --schema FILE           JSON Schema (Draft 2020-12), JSON or YAML
-      --set KEY=VALUE         raw string value (typed by the schema or an inline | type)
-      --set-json KEY=JSON      native JSON value
-      --set-file KEY=FILE      value read from a file, kept as a string
-      --no-process-env         ignore the process environment
-      --process-env-prefix P   expose only process variables with this prefix
-
-rendering
-  -o, --output FILE           single output file
-  -i, --in-place              atomic replace of each template
-      --output-dir DIR        batch output directory (mirrors the input layout)
-      --strip-suffix EXT      drop this suffix from batch output names, repeatable
-      --recursive             walk template directories recursively
-      --validate-only         load, materialize and validate; write nothing
-      --check                 report targets that are out of date; write nothing
-      --explain[=PATH]        JSON source report on stderr (PATH limits it, repeatable)
-      --report=unused         list value-file entries no template referenced, on stderr
-
-policies
-      --on-missing=error|empty|keep|zero    default: error
-      --on-empty=ok|error                   default: ok
-      --unknown-keywords=ignore|warn|error  default: ignore
-      --only-vars VAR...                    only substitute these variables
-      --ignore-vars VAR...                  never substitute these variables
-
-global
-      --log-level=debug|info|warn|error     default: warn
-      --error-format=text|json              default: text
-      --jsonl                               all stderr output as typed JSONL events
 ```
 
-`--jsonl` makes stderr a single JSONL event stream for CI. Every line has the
-same envelope — `schema`, `type`, `time`, `seq`, `data` — and the payload is
-specialized by `type` (`explain`, `unused`, `error`, `log`). `time` is always
-UTC RFC3339 with fixed milliseconds, from one shared formatter. `--explain` and
-`--report` enable it automatically; use `--jsonl=false` to keep human-readable
-diagnostics. `--error-format=json` is a legacy alias and emits the same error
-event.
+`[template...]` accepts files, directories, or `-` for stdin. When it is empty,
+stdin is read.
+
+A single-template example:
 
 ```bash
-envsub render --explain -f values.yaml app.tmpl >out.txt 2>events.jsonl
-jq -c 'select(.type=="error")' events.jsonl
-jq -c 'select(.type=="explain" and .variable=="app.port")' events.jsonl
+envsub render -f values/base.yaml app.yaml.tmpl
 ```
 
-## Exit codes
+Write to a file:
 
-| Code | Meaning |
+```bash
+envsub render -f values/base.yaml -o rendered/app.yaml app.yaml.tmpl
+```
+
+### Parameters
+
+Parameters are grouped by purpose; value sources and precedence are defined
+below.
+
+| Group | Flags |
 |---|---|
-| 0 | success |
-| 1 | internal or unclassified error |
-| 2 | usage error |
-| 3 | template syntax error |
-| 4 | type or schema validation error |
-| 5 | file or I/O error |
-| 6 | missing value or value policy error |
-| 7 | target is out of date (`--check`) |
+| Value sources | `-f/--values-file`, `--dotenv-file`, `--schema`, `--set`, `--set-json`, `--set-file` |
+| Output | `-o/--output`, `--output-dir`, `--strip-suffix`, `--recursive` |
+| Write-back and check | `-i/--in-place`, `--check` |
+| Policies | `--on-missing`, `--on-empty`, `--only-vars`, `--ignore-vars`, `--unknown-keywords` |
+| Reports | `--explain`, `--report`, `--jsonl`, `--error-format` |
 
-Every usage problem is a 2, including a mistyped subcommand:
+Run `envsub render --help` for the complete flag list.
 
-```console
-$ envsub rendr
-unknown command "rendr" for "envsub"
+### Value sources
 
-Did you mean this?
-	render
-$ echo $?
-2
+| Flag | Input | Processing |
+|---|---|---|
+| `-f/--values-file FILE` | YAML or JSON value file | Merged into the root; repeatable, later > earlier |
+| `--dotenv-file FILE` | dotenv file | Loaded into the root; repeatable, later > earlier; > `-f/--values-file` |
+| `--schema FILE` | JSON Schema | Fills defaults, materializes declared types, validates the final tree |
+| `--set KEY=VALUE` | Raw string | Stored as a string; schema or `\| type` may convert it |
+| `--set-json KEY=JSON` | JSON literal | Parsed as JSON: numbers, booleans, arrays, objects, null |
+| `--set-file KEY=FILE` | File content | Stored as a string; BOM and one trailing newline are removed |
+
+`--set`, `--set-json` and `--set-file` all write to the root namespace. A dotted
+key creates nested objects. A repeated key within the same flag uses the later value, and the
+three flags apply in this fixed order regardless of their order on the command
+line:
+
+```text
+--set  →  --set-json  →  --set-file
 ```
 
-A 1 is reserved for the tool's own defects: an internal error, or an error that
-carries no classification at all.
+If the same key is supplied through all three, the `--set-file` value takes
+precedence.
 
-## Development
+Examples:
 
 ```bash
-just check      # gofmt + vet + lint + unit/fixture tests + e2e + examples
-just fmt
-just lint       # golangci-lint v2, see .golangci.yml
-just test
-just test-race
-just test-fuzz  # fuzz every parser (8 targets, 30s each)
-just test-perf  # performance gate, needs GNU envsubst (gettext-base)
-just bench
-just size       # binary size report
-just build-sonic  # same binary with the sonic JSON backend (faster, larger)
+# A plain string override
+envsub render --set image.tag=2026.10 app.yaml.tmpl
+
+# A typed JSON value: array
+envsub render --set-json 'app.hosts=["a","b"]' app.yaml.tmpl
+
+# A multi-line secret from a file
+envsub render --set-file tls.crt=secrets/tls.crt app.yaml.tmpl
 ```
 
-`just` points `GOCACHE`/`GOTMPDIR` at a workspace-local `.tmp/` directory
-because some shared toolchains mount the default caches read-only.
+`--set-json` rejects invalid JSON as a type error (exit 4). `--set-file` reports
+an unreadable file as an IO error (exit 5); it preserves inner newlines and only
+drops one trailing newline and a leading BOM.
 
-### JSON backend
+### Value priority
 
-JSON goes through `internal/jsonx`, which has two build-time implementations:
+`>` means the left side has higher priority than the right side:
 
-| | default (stdlib `encoding/json/v2`) | `-tags=sonic` |
-|---|---|---|
-| linux/amd64 binary | 5.03 MiB | 8.55 MiB |
-| startup | 4.6 ms | 9.5 ms |
-| REF-04 peak RSS | 1.30× GNU | 1.80–2.25× GNU |
-| JSON decode (364 KB) | 12.04 ms | 2.45 ms |
+```text
+--set-file > --set-json > --set > --dotenv-file (later > earlier) > -f/--values-file (later > earlier) > schema default
+```
 
-The default keeps the binary 41% smaller with better startup and memory; use
-`-tags=sonic` when JSON throughput matters more than size. The binary sizes
-are measured with the Go release named in `go.mod`; a newer Go release shifts
-them by a few hundred KiB, so compare within one toolchain.
+Priority example: `--set image.tag=2026.10` > `values/prod.yaml (2026.09)` > `values/base.yaml (canary)` > `schema default`.
 
-YAML goes through `internal/yamlx` and uses one library,
-`go.yaml.in/yaml/v3`: decoding walks nodes (integers stay integers, duplicate
-keys and merge keys are handled) and `toYaml` encodes the same tree.
+`@process.*` is a separate read-only namespace and does not participate in this
+precedence order. `--only-vars` and `--ignore-vars` decide whether a reference
+is substituted; they do not change source priority.
+
+### Process environment
+
+`${@process.NAME}` reads one process environment variable. A bare `${NAME}`
+never reads the process environment; it reads the value tree.
+
+| Flag | Effect |
+|---|---|
+| `--no-process-env` | Leaves the `@process` namespace empty |
+| `--process-env-prefix PREFIX` | Exposes only process variables whose names start with `PREFIX`; names are kept as-is and the prefix is not stripped |
+
+`--process-env-prefix` only filters the `@process` namespace. It does not read,
+rename, or filter `.env` files or the value tree. An empty prefix keeps every
+process variable. `--no-process-env` and `--process-env-prefix` are mutually
+exclusive.
+
+### Single template
+
+Without output options, the rendered template is written to stdout:
+
+```bash
+envsub render -f values/base.yaml app.yaml.tmpl
+```
+
+`-o/--output FILE` writes one rendered file:
+
+```bash
+envsub render -f values/base.yaml -o rendered/app.yaml app.yaml.tmpl
+```
+
+Read the template from stdin with `-`:
+
+```bash
+envsub render -f values/base.yaml - < app.yaml.tmpl
+```
+
+### Batch rendering
+
+Batch output is a separate mode. It writes a directory tree and does not use
+`-o` or `-i`:
+
+```bash
+envsub render \
+  -f values/base.yaml \
+  --output-dir rendered \
+  --strip-suffix .tmpl \
+  --recursive templates/
+```
+
+| Flag | Meaning |
+|---|---|
+| `--output-dir DIR` | Write one output file per template under `DIR` |
+| `--recursive` | Walk template directories recursively |
+| `--strip-suffix EXT` | Remove `EXT` from output names; requires `--output-dir` |
+
+The input layout is mirrored under `--output-dir`. Batch rendering and
+`-o/--output` are mutually exclusive, as are batch rendering and `-i/--in-place`.
+
+### Write-back and check
+
+`-i/--in-place` replaces each input file atomically: the new content is written
+to a temporary file and renamed over the target, so an interrupted run never
+leaves a half-written file. Permissions are preserved.
+
+```bash
+envsub render -i -f values/base.yaml app.yaml
+```
+
+`--check` renders in memory and compares the result with the existing output; it
+writes nothing. It requires an output target and must be combined with `-o`, `--output-dir`, or
+`-i`. It exits 7 when at least one output is stale.
+
+```bash
+envsub render --check -f values/base.yaml -o rendered/app.yaml app.yaml.tmpl
+```
+
+### Validation, missing values and exit codes
+
+`--schema` fills defaults, materializes declared types, and validates the final
+tree. `--validate-only` performs the same load and validation without rendering.
+
+`--on-missing` controls a missing value:
+
+| Value | Effect |
+|---|---|
+| `error` | Fail (default) |
+| `empty` | Render an empty string |
+| `keep` | Leave the reference as written |
+| `zero` | Render the type's zero value; needs a schema or inline type |
+
+`--on-empty=error` fails when a plain reference resolves to an empty value;
+`0` and `false` are not empty. The default is `ok`.
+
+| Exit | Meaning |
+|---|---|
+| 0 | Success |
+| 2 | Usage or syntax error |
+| 3 | Template error |
+| 4 | Type or schema validation error |
+| 5 | IO error |
+| 6 | Missing or empty value policy error |
+| 7 | Stale output with `--check` |
+
+### Reports
+
+`--explain[=PATH]` writes one JSON line per referenced variable to stderr,
+naming the winning origin and the layers it shadowed. The value itself is not emitted.
+
+```bash
+envsub render --explain -f values/base.yaml app.yaml.tmpl
+```
+
+`--report=unused` reports variables defined in the value tree but not referenced
+by the template. `--jsonl` emits the unified event stream for CI; it is enabled
+automatically for `--explain` and `--report`. `--error-format=json` renders
+errors as JSON.
+
+See [`docs/07-serialization/04-cli.md`](docs/07-serialization/04-cli.md) for the
+event envelope and the complete flag reference.
 
 ## Documentation
 
-Coming from GNU `envsubst`? Read the
-[migration guide](docs/migration.md) first — the one thing to know is that a
-bare `${NAME}` reads envsub's value tree, not your shell environment.
-
-The normative behaviour lives in
-[`docs/07-serialization/`](docs/07-serialization/00-index.md) — every rule has
-an ID, a worked example and a test. Start at
-[`docs/README.md`](docs/README.md) for the full map; superseded material is in
-[`docs/99-archive/`](docs/99-archive/README.md).
-
-`examples/` holds runnable cases for every rule family:
-
-```bash
-cd examples
-just            # list the cases
-just demo       # run all of them
-just full       # every type, source, operator and formatter
-```
+- [`examples/README.md`](examples/README.md) — runnable dataset, recipes, goldens
+- [`docs/migration.md`](docs/migration.md) — migration from GNU `envsubst`
+- [`docs/07-serialization/04-cli.md`](docs/07-serialization/04-cli.md) — CLI and protocol reference
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — build, test, lint and development notes
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT. See [`LICENSE`](LICENSE).

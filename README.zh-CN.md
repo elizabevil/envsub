@@ -2,7 +2,7 @@
 
 # envsub
 
-**扩展配置渲染器。** GNU `envsubst` 的超集：保留你熟悉的 `${VAR}` 模板语法，同时补上类型化取值、
+**扩展配置渲染器。** GNU `envsubst` 的超集：保留 `${VAR}` 模板语法，同时补上类型化取值、
 多来源分层、JSON Schema 校验、安全原地写回，以及适合 CI 的过期检测。
 
 ```console
@@ -13,24 +13,24 @@ server:
   tags: web, prod
 ```
 
-> **从 `envsubst` 过来？** 裸名 `${NAME}` 读的是 envsub 的**值树**——值文件、`.env` 文件与
-> `--set`——而不是你的 shell 环境变量。进程环境是一个独立的只读命名空间，要用
-> `${@process.NAME}` 显式访问。这是上手前唯一需要知道的事，详见
-> [值从哪来](#值从哪来)。
+> **从 `envsubst` 迁移？** 裸名 `${NAME}` 从 envsub 的**值树**（值文件、`.env` 文件与
+> `--set`）取值，不读取 shell 环境变量。进程环境是独立的只读命名空间，通过
+> `${@process.NAME}` 访问。见[进程环境](#进程环境)。
 
-## 为什么不用 `envsubst`
+## 为什么我们更推荐 envsub
 
-`envsubst` 只做字符串替换。真实配置需要更多：
+若仅需单层 `${VAR}` 替换，`envsubst` 是合适的选择。当配置需要类型化、多来源、Schema
+校验和安全写回时，我们更推荐 envsub：
 
-| | GNU `envsubst` | envsub |
+| | 经典 `${VAR}` 替换 | envsub |
 |---|---|---|
-| 取值 | 只有字符串 | 类型化：int、float、bool、list、map、null |
+| 取值 | 字符串 | 类型化：int、float、bool、list、map、null |
 | 来源 | 进程环境 | 环境变量、`.env` 文件、YAML/JSON 文件、`--set`、JSON Schema 默认值 |
-| 分层 | 单一来源 | 确定的优先级，后来的来源胜出 |
-| 校验 | 无 | JSON Schema Draft 2020-12，报错带具体路径 |
-| 写回 | 无 | 原子替换原地写回、批量输出、过期检测 |
-| 格式化 | 无 | `toJson`、`toYaml`、`join`、`quote`、`indent` |
-| 缺值 | 变成空串 | 报错、留空、保留原样、写零值——由你选 |
+| 分层 | 单一来源 | 确定的优先级，后指定的文件优先级更高 |
+| 校验 | — | JSON Schema Draft 2020-12，报错带具体路径 |
+| 写回 | — | 原子替换原地写回、批量输出、过期检测 |
+| 格式化 | — | `toJson`、`toYaml`、`join`、`quote`、`indent` |
+| 缺值 | 空串 | 报错、留空、保留原样、写零值——可选 |
 
 ## 安装
 
@@ -43,11 +43,11 @@ git clone https://github.com/elizabevil/envsub && cd envsub
 just build        # → dist/envsub
 ```
 
-构建需要 Go 1.27。发布的二进制是静态链接的，除此之外不依赖任何东西。
+构建需要 Go 1.27。发布的二进制为静态链接，无其它运行时依赖。
 
 ## 快速上手
 
-写一个模板和一份取值：
+创建模板与值文件：
 
 ```bash
 cat > app.tmpl <<'EOF'
@@ -64,7 +64,7 @@ TAGS: [web, prod]
 EOF
 ```
 
-渲染：
+渲染模板：
 
 ```console
 $ envsub render -f values.yaml app.tmpl
@@ -74,398 +74,305 @@ server:
   tags: web, prod
 ```
 
-`PORT` 保持整数 `8080`——不会自动加引号，也不会做类型转换。想要字符串就明说：
+`PORT` 以整数 `8080` 输出，无需引号或额外类型转换。强制为字符串时使用
 `${PORT | type string}`。
 
-## 用例
+## 完整案例
 
-### 替换环境变量
+仓库提供可运行的数据集与模板：
 
-进程环境要显式通过 `@process` 命名空间访问：
-
-```bash
-cat > config.tmpl <<'EOF'
-host: ${@process.HOST}
-EOF
-
-HOST=10.0.0.1 envsub render config.tmpl
-# host: 10.0.0.1
-```
-
-也可以一次放开整个前缀——变量名保持原样，前缀只是一道闸门：
-
-```bash
-cat > prefixed.tmpl <<'EOF'
-host: ${@process.APP_HOST}
-EOF
-
-APP_HOST=10.0.0.1 envsub render --process-env-prefix APP_ prefixed.tmpl
-# host: 10.0.0.1
-```
-
-模板和输出都随你指定：
-
-```bash
-envsub render config.tmpl                 # 模板输出到 stdout
-envsub render -o out.yaml config.tmpl     # …或写到文件
-cat config.tmpl | envsub render -         # …或从 stdin 读模板
-```
-
-### 从文件读类型化的值
-
-```bash
-cat > deploy-values.yaml <<'EOF'
-replicas: 3
-enabled: true
-limits: {cpu: 500m, memory: 1Gi}
-EOF
-
-cat > deploy.tmpl <<'EOF'
-replicas: ${replicas}
-enabled: ${enabled}
-limits: ${limits | toJson}
-EOF
-
-$ envsub render -f deploy-values.yaml deploy.tmpl
-replicas: 3
-enabled: true
-limits: {"cpu":"500m","memory":"1Gi"}
-```
-
-### 叠加多个来源
-
-后来的来源胜出。完整层序是 `--set` > `.env` 文件 > 值文件 > schema `default`。
-
-```bash
-envsub render \
-  -f values.yaml \
-  --dotenv-file .env \
-  --set PORT=9090 \
-  app.tmpl
-```
-
-### 用 JSON Schema 校验
-
-```bash
-cat > schema.yaml <<'EOF'
-type: object
-properties:
-  port: {type: integer, minimum: 1}
-EOF
-
-cat > port.tmpl <<'EOF'
-port: ${port}
-EOF
-
-envsub render --schema schema.yaml -f good-values.yaml port.tmpl
-```
-
-违反 schema 的值会带着出错的路径失败，退出码 4：
-
-```bash
-cat > bad-values.yaml <<'EOF'
-port: 0
-EOF
-```
-
-```console
-$ envsub render --schema schema.yaml -f bad-values.yaml port.tmpl
-schema validation failed: at /port: minimum: got 0, want 1
-$ echo $?
-4
-```
-
-### 决定缺值时怎么办
-
-```bash
-envsub render --on-missing=error   app.tmpl   # 报错（默认）
-envsub render --on-missing=empty   app.tmpl   # 渲染成空
-envsub render --on-missing=keep    app.tmpl   # 保留 ${VAR} 原样
-envsub render --on-missing=zero    app.tmpl   # 类型的零值
-```
-
-模板里有的必填、有的可选时，用 `keep`。`zero` 需要知道类型——用 schema 或内联
-`| type` 给一个，否则它不知道"零"是什么：
-
-```bash
-envsub render --on-missing=zero app.tmpl                  # 报错：没有类型
-echo 'port: ${PORT | type int}' | envsub render --on-missing=zero -
-# port: 0
-```
-
-### 渲染整个目录
-
-```bash
-envsub render -f values.yaml --output-dir rendered/ --recursive templates/
-```
-
-目录结构会被镜像。加 `--strip-suffix .tmpl` 可以去掉输出名上的模板后缀。
-
-### 安全地原地写回
-
-```bash
-envsub render --in-place config.yaml
-```
-
-替换是原子的：新内容先写进临时文件，再 rename 覆盖原文件，所以中途失败不会留下半个文件。
-文件权限会保留。
-
-### 格式化一个值
-
-```bash
-envsub render -f values.yaml -o - <<'EOF'
-${config | toYaml}
-${config | toJson}
-${hosts | join ", "}
-${name | quote}
-${config | toYaml 4}
-EOF
-```
-
-### 在 CI 里检查生成物是否过期
-
-`--check` 拿目标文件和"当前取值本该渲染出的内容"比对，不写任何东西。它需要知道目标文件，
-所以要配合指明目标的输出选项：
-
-```bash
-cat > check.tmpl <<'EOF'
-port: ${port}
-EOF
-
-cat > check-values.yaml <<'EOF'
-port: 8080
-EOF
-
-envsub render -f check-values.yaml -o config.yaml check.tmpl   # 先生成
-envsub render --check -f check-values.yaml -o config.yaml check.tmpl
-```
-
-目标文件不一致时退出码是 7，这正适合放进流水线：
-
-```bash
-envsub render --check -f check-values.yaml -o config.yaml check.tmpl || exit 1
+```text
+examples/
+├── data/
+│   ├── values-base.yaml
+│   ├── values-prod.yaml
+│   ├── values-extra.json
+│   ├── app.env
+│   └── schema.yaml
+├── templates/
+│   ├── realworld.tmpl
+│   └── scenarios-*.tmpl
+├── out/                 # 已提交的期望产物
+└── justfile             # 每个场景一个 recipe
 ```
 
 ```bash
-cat > other-values.yaml <<'EOF'
-port: 9090
-EOF
+ENVSUB_STRING=from-process envsub render \
+  -f examples/data/values-base.yaml \
+  -f examples/data/values-prod.yaml \
+  -f examples/data/values-extra.json \
+  --dotenv-file examples/data/app.env \
+  --schema examples/data/schema.yaml \
+  --on-missing=empty \
+  examples/templates/realworld.tmpl
 ```
 
-```console
-$ envsub render --check -f other-values.yaml -o config.yaml check.tmpl
-1 of 1 outputs are outdated: config.yaml
-$ echo $?
-7
+`>` 表示左侧优先级高于右侧：
+
+```text
+--dotenv-file examples/data/app.env > -f examples/data/values-extra.json > -f examples/data/values-prod.yaml > -f examples/data/values-base.yaml > schema default
 ```
 
-### 看清一个值是从哪来的
+`ENVSUB_STRING` 属于进程环境（`@process`），不属于该优先级顺序。
 
-```bash
-envsub render --explain --no-process-env \
-  -f values.yaml --dotenv-file .env --set PORT=9090 app.tmpl
+输出：
+
+```yaml
+service:
+  name: prod-string
+  replicas: 7
+  enabled: true
+  region: prod
+  endpoints: ["prod","a","c"]
+  labels: {"a":2,"m":3,"z":9}
+  started_by: from-process
 ```
 
-每个被引用的变量在 stderr 上得到一行 JSON，说明哪一层胜出、遮蔽了哪些层——**不包含值本身**，
-所以可以直接贴进工单。
-
-```console
-{"schema":1,"type":"explain","time":"2026-10-22T23:43:37.041Z","seq":1,"data":{"template":"app.tmpl","variable":"PORT","origin":{"kind":"set","method":"flag","source":"PORT","file":"","line":0},"shadowed":[{"kind":"envfile","method":"file","source":".env","file":".env","line":1}]}}
-```
+每个 recipe、golden 和失败案例的对应关系见
+[`examples/README.md`](examples/README.md)。
 
 ## 模板语法
 
 ```text
-$NAME ${NAME}                     变量引用
-${app.port}                       嵌套路径
-${app["my-key"]}                  带连字符的键
-${hosts[0]}                       数组元素
-${["a.b"].k}                      顶层带点的键
-${@process.PORT}                  进程环境（只读）
+$NAME ${NAME}                    变量引用
+${app.port}                      嵌套路径
+${app["my-key"]}                 带连字符的键
+${hosts[0]}                      数组元素
+${["a.b"].k}                     带点号的顶层键
+${@process.PORT}                 进程环境（只读）
 
-${path:-default}                  未设置或为空时用默认值
-${path-default}                   未设置时用默认值
-${path:+alt}                      有值且非空时用备选值
-${path+alt}                       有值时用备选值
-${path:?message}                  未设置或为空时带消息失败
-${path?message}                   未设置时带消息失败
-${path:=default}                  把默认值写回值树
-${path=default}                   未设置时把默认值写回值树
+${path:-default}                 未设置或为空时用 default
+${path-default}                  仅未设置时用 default
+${path:+alt}                     有值且非空时用 alt
+${path+alt}                      仅已设置时用 alt
+${path:?message}                 未设置或为空时报错
+${path?message}                  仅未设置时报错
+${path:=default}                 把 default 写入值树
+${path=default}                  仅未设置时写入 default
 
-$$                                字面量 $
-$1                                保持字面量
+$$                               字面量 $
+$1                               保持原样
 
-${hosts | join ", "}              formatter 管道
-${PORT | type int}                内联类型断言
-${name | quote}                   给字符串加引号
-${app | toJson}                   JSON
-${app | toYaml}                   YAML
-${app | toYaml 4}                 指定嵌套宽度的 YAML
-${app | toYaml align}             对齐到表达式所在列的 YAML
+${hosts | join ", "}             formatter 管道
+${PORT | type int}               内联类型断言
+${name | quote}                  给字符串加引号
+${app | toJson}                  JSON
+${app | toYaml}                  YAML
+${app | toYaml 4}                指定缩进宽度的 YAML
+${app | toYaml align}            与表达式所在列对齐的 YAML
 ${app | toYaml 4 align}
-${app | toJson | indent 2}        链式 formatter
+${app | toJson | indent 2}       链式 formatter
 ```
 
-`toYaml` 可选地接受嵌套宽度和/或 `align`；`toJson` 接受 `align`。`align` 会让结果的每一行
-都从表达式所在的那一列开始，这正是让一块内容缩进在父键下面的做法。不加 `align` 时，多行值
-按原样插入，后续行保持自己的位置。
+`toYaml` 可带缩进宽度和/或 `align`；`toJson` 可带 `align`。`align` 让结果的每一行
+从表达式所在列继续，适合嵌在父键下面。不带 `align` 时，多行值原样插入，后续行保持
+自己的位置。
 
-内联 `| type` 断言与 schema 取并集：满足其中之一即可，两个都不满足才报错。给了类型时，
+内联 `| type` 与 schema 是“任一满足即可”的关系：两者都不满足才报错。给类型时，
 它必须是管道的第一个步骤。
 
-## 值从哪来
+## 使用说明
 
-```text
---set / --set-json / --set-file
-  >  .env 文件（--dotenv-file）
-  >  YAML/JSON 值文件（-f/--values-file）
-  >  schema default
-```
-
-同一类里后写的文件胜出；schema 的 `default` 只填补没有任何来源提供的键。
-
-进程环境是一个**独立的只读命名空间**。它永远不会填进裸名——要用就显式用：
-
-```bash
-envsub render --no-process-env app.tmpl          # 完全忽略它
-envsub render --process-env-prefix APP_ app.tmpl # 只放开 APP_* 变量
-```
-
-`.env` 文件一律按 dotenv 解析，跟文件名无关；它们的键落在根命名空间。
-
-## CLI 参考
+### render 命令模板
 
 ```text
 envsub render [flags] [template...]
-envsub version                                      以 JSON 输出构建信息
-envsub completion bash|zsh|fish|powershell         生成 shell 补全脚本
-
-值来源
-  -f, --values-file FILE      YAML/JSON 值文件，可重复
-      --dotenv-file FILE      dotenv 文件（按 dotenv 解析，文件名随意），可重复
-      --schema FILE           JSON Schema（Draft 2020-12），JSON 或 YAML
-      --set KEY=VALUE         原始字符串值（由 schema 或内联 | type 定型）
-      --set-json KEY=JSON      原生 JSON 值
-      --set-file KEY=FILE      从文件读入的值，保持字符串
-      --no-process-env         忽略进程环境
-      --process-env-prefix P   只放开带此前缀的进程变量
-
-渲染
-  -o, --output FILE           单个输出文件
-  -i, --in-place              原子替换每个模板
-      --output-dir DIR        批量输出目录（镜像输入布局）
-      --strip-suffix EXT      去掉批量输出名上的这个后缀，可重复
-      --recursive             递归遍历模板目录
-      --validate-only         装载、物化、校验；不写任何东西
-      --check                 报告已过期的目标；不写任何东西
-      --explain[=PATH]        在 stderr 上输出 JSON 来源报告（PATH 可限定范围，可重复）
-      --report=unused         在 stderr 上列出模板没引用到的值文件条目
-
-策略
-      --on-missing=error|empty|keep|zero    默认 error
-      --on-empty=ok|error                   默认 ok
-      --unknown-keywords=ignore|warn|error  默认 ignore
-      --only-vars VAR...                    只替换这些变量
-      --ignore-vars VAR...                  绝不替换这些变量
-
-全局
-      --log-level=debug|info|warn|error     默认 warn
-      --error-format=text|json              默认 text
-      --jsonl                               把 stderr 统一成带 type 的 JSONL 事件流
 ```
 
-`--jsonl` 让 stderr 成为单一 JSONL 事件流，适合 CI。每行都有同一信封
-`schema`/`type`/`time`/`seq`/`data`，载荷按 `type`（`explain`、`unused`、`error`、`log`）特化。
-`time` 统一为 UTC RFC3339 固定毫秒，只有一个格式化实现。`--explain` 与 `--report` 会自动开启；
-要保留人类可读诊断，显式加 `--jsonl=false`。`--error-format=json` 是兼容别名，也输出同一错误事件。
+`[template...]` 接受文件、目录或 `-`（stdin）；为空时读取 stdin。
+
+单模板示例：
 
 ```bash
-envsub render --explain -f values.yaml app.tmpl >out.txt 2>events.jsonl
-jq -c 'select(.type=="error")' events.jsonl
-jq -c 'select(.type=="explain" and .variable=="app.port")' events.jsonl
+envsub render -f values/base.yaml app.yaml.tmpl
 ```
 
-## 退出码
+写入单个文件：
 
-| 码 | 含义 |
+```bash
+envsub render -f values/base.yaml -o rendered/app.yaml app.yaml.tmpl
+```
+
+### 参数
+
+按用途分组。值来源和优先级规则见后面的表。
+
+| 分组 | 参数 |
+|---|---|
+| 值来源 | `-f/--values-file`、`--dotenv-file`、`--schema`、`--set`、`--set-json`、`--set-file` |
+| 输出 | `-o/--output`、`--output-dir`、`--strip-suffix`、`--recursive` |
+| 写回与检查 | `-i/--in-place`、`--check` |
+| 策略 | `--on-missing`、`--on-empty`、`--only-vars`、`--ignore-vars`、`--unknown-keywords` |
+| 报告 | `--explain`、`--report`、`--jsonl`、`--error-format` |
+
+完整参数列表见 `envsub render --help`。
+
+### 值来源
+
+| 参数 | 输入 | 处理方式 |
+|---|---|---|
+| `-f/--values-file FILE` | YAML 或 JSON 值文件 | 合并进根命名空间；可重复，后 > 前 |
+| `--dotenv-file FILE` | dotenv 文件 | 载入根命名空间；可重复，后 > 前；> `-f/--values-file` |
+| `--schema FILE` | JSON Schema | 填充默认值、物化声明的类型、校验最终值树 |
+| `--set KEY=VALUE` | 原始字符串 | 按字符串保存；可由 schema 或 `\| type` 转换 |
+| `--set-json KEY=JSON` | JSON 字面量 | 解析为 JSON：数字、布尔、数组、对象、null |
+| `--set-file KEY=FILE` | 文件内容 | 按字符串保存；去掉 BOM 和一个结尾换行 |
+
+`--set`、`--set-json`、`--set-file` 都写入根命名空间；带点号的 key 会创建嵌套对象。
+同一参数内重复指定 key 时，后指定的值优先。三个参数之间的顺序固定，与命令行出现顺序无关：
+
+```text
+--set  →  --set-json  →  --set-file
+```
+
+同一 key 由三者同时提供时，`--set-file` 的值最终生效。
+
+示例：
+
+```bash
+# 普通字符串覆盖
+envsub render --set image.tag=2026.10 app.yaml.tmpl
+
+# JSON 类型：数组
+envsub render --set-json 'app.hosts=["a","b"]' app.yaml.tmpl
+
+# 从文件读多行密钥
+envsub render --set-file tls.crt=secrets/tls.crt app.yaml.tmpl
+```
+
+`--set-json` 遇到非法 JSON 按类型错误处理（exit 4）。`--set-file` 无法读取文件时按 IO
+错误处理（exit 5）；它保留内部换行，只去掉一个结尾换行和开头的 BOM。
+
+### 值的优先级
+
+`>` 表示左侧优先级高于右侧：
+
+```text
+--set-file > --set-json > --set > --dotenv-file (后 > 前) > -f/--values-file (后 > 前) > schema default
+```
+
+优先级示例：`--set image.tag=2026.10` > `values/prod.yaml (2026.09)` > `values/base.yaml (canary)` > `schema default`。
+
+`@process.*` 是独立的只读命名空间，不参与该优先级顺序。`--only-vars` 和
+`--ignore-vars` 只决定是否替换引用，不改变来源优先级。
+
+### 进程环境
+
+`${@process.NAME}` 读取一个进程环境变量。裸名 `${NAME}` 永远不读进程环境，只读值树。
+
+| 参数 | 作用 |
+|---|---|
+| `--no-process-env` | 让 `@process` 命名空间为空 |
+| `--process-env-prefix PREFIX` | 只暴露名称以 `PREFIX` 开头的进程变量；变量名保持原样，不剥离前缀 |
+
+`--process-env-prefix` 只过滤 `@process` 命名空间，不读取、不重命名、也不过滤
+`.env` 文件或值树。空前缀表示保留全部进程变量。`--no-process-env` 与
+`--process-env-prefix` 互斥。
+
+### 单模板
+
+未指定输出选项时，渲染结果写入 stdout：
+
+```bash
+envsub render -f values/base.yaml app.yaml.tmpl
+```
+
+`-o/--output FILE` 写入单个文件：
+
+```bash
+envsub render -f values/base.yaml -o rendered/app.yaml app.yaml.tmpl
+```
+
+用 `-` 从 stdin 读模板：
+
+```bash
+envsub render -f values/base.yaml - < app.yaml.tmpl
+```
+
+### 批量渲染
+
+批量输出为独立模式，生成输出目录树，不与 `-o` 或 `-i` 混用。
+
+```bash
+envsub render \
+  -f values/base.yaml \
+  --output-dir rendered \
+  --strip-suffix .tmpl \
+  --recursive templates/
+```
+
+| 参数 | 含义 |
+|---|---|
+| `--output-dir DIR` | 每个模板在 `DIR` 下写一个产物 |
+| `--recursive` | 递归遍历模板目录 |
+| `--strip-suffix EXT` | 输出名去掉 `EXT`；需要配合 `--output-dir` |
+
+输入目录布局会镜像到 `--output-dir` 下。批量渲染与 `-o/--output` 互斥，也与
+`-i/--in-place` 互斥。
+
+### 写回与检查
+
+`-i/--in-place` 原子替换每个输入文件：新内容先写入临时文件，再 rename 覆盖目标；
+中断时不会留下部分写入的文件，权限位保留。
+
+```bash
+envsub render -i -f values/base.yaml app.yaml
+```
+
+`--check` 在内存中渲染并与现有产物比较，不写任何文件。该选项需要输出目标，必须与
+`-o`、`--output-dir` 或 `-i` 组合使用。至少有一个产物过期时 exit 7。
+
+```bash
+envsub render --check -f values/base.yaml -o rendered/app.yaml app.yaml.tmpl
+```
+
+### 校验、缺值与退出码
+
+`--schema` 填充默认值、物化声明类型并校验最终值树。`--validate-only` 做同样的加载和
+校验，但不渲染。
+
+`--on-missing` 控制缺值：
+
+| 值 | 效果 |
+|---|---|
+| `error` | 报错（默认） |
+| `empty` | 渲染为空串 |
+| `keep` | 保留原引用 |
+| `zero` | 渲染该类型的零值；需要 schema 或内联类型 |
+
+`--on-empty=error` 在普通引用解析为空值时失败；`0` 和 `false` 不算空。默认是 `ok`。
+
+| 退出码 | 含义 |
 |---|---|
 | 0 | 成功 |
-| 1 | 内部错误或未分类错误 |
-| 2 | 用法错误 |
-| 3 | 模板语法错误 |
+| 2 | 用法或语法错误 |
+| 3 | 模板错误 |
 | 4 | 类型或 schema 校验错误 |
-| 5 | 文件或 I/O 错误 |
-| 6 | 缺值或取值策略错误 |
-| 7 | 目标已过期（`--check`） |
+| 5 | IO 错误 |
+| 6 | 缺值/空值策略错误 |
+| 7 | `--check` 发现产物过期 |
 
-所有"用法"问题都是 2，包括子命令名拼错：
+### 报告
 
-```console
-$ envsub rendr
-unknown command "rendr" for "envsub"
-
-Did you mean this?
-	render
-$ echo $?
-2
-```
-
-1 只留给工具自身的缺陷：内部错误，或完全没有分类的错误。
-
-## 开发
+`--explain[=PATH]` 按变量向 stderr 写 JSON 行，说明最终来源和被它覆盖的层，不输出值本身。
 
 ```bash
-just check      # gofmt + vet + lint + 单测/fixture + e2e + 示例
-just fmt
-just lint       # golangci-lint v2，见 .golangci.yml
-just test
-just test-race
-just test-fuzz  # fuzz 每个解析器（8 个目标，各 30s）
-just test-perf  # 性能门禁，需要 GNU envsubst（gettext-base）
-just bench
-just size       # 二进制体积报告
-just build-sonic  # 换成 sonic JSON 后端的同一个二进制（更快、更大）
+envsub render --explain -f values/base.yaml app.yaml.tmpl
 ```
 
-有些共享工具链把默认缓存挂成只读，所以 `just` 把 `GOCACHE`/`GOTMPDIR` 指向仓库内的
-`.tmp/` 目录。
+`--report=unused` 报告值树中定义、但模板未引用的变量。`--jsonl` 输出统一的 CI 事件流；
+`--explain` 和 `--report` 会自动启用。`--error-format=json` 把错误输出为 JSON。
 
-### JSON 后端
-
-JSON 走 `internal/jsonx`，有两种编译期实现：
-
-| | 默认（标准库 `encoding/json/v2`） | `-tags=sonic` |
-|---|---|---|
-| linux/amd64 二进制 | 5.03 MiB | 8.55 MiB |
-| 启动 | 4.6 ms | 9.5 ms |
-| REF-04 峰值 RSS | 1.30× GNU | 1.80–2.25× GNU |
-| JSON 解码（364 KB） | 12.04 ms | 2.45 ms |
-
-默认后端让二进制小 41%，启动与内存也更好；当 JSON 吞吐比体积更重要时用 `-tags=sonic`。
-体积数字是在 `go.mod` 指定的 Go 版本上测的，换一个 Go 版本会差几百 KiB，所以要在同一工具链内比较。
-
-YAML 走 `internal/yamlx`，只用 `go.yaml.in/yaml/v3` 一个库：解码遍历节点（整数保持整数、
-重复键与合并键都有处理），`toYaml` 编码同一棵树。
+事件封装和完整参数参考见
+[`docs/07-serialization/04-cli.md`](docs/07-serialization/04-cli.md)。
 
 ## 文档
 
-从 GNU `envsubst` 过来？先读[迁移指南](docs/migration.md)——最需要知道的一条是：
-裸名 `${NAME}` 读的是 envsub 的值树，不是你的 shell 环境变量。
-
-规范性的行为定义在 [`docs/07-serialization/`](docs/07-serialization/00-index.md)——
-每条规则都有编号、可复制的例子与对应测试。完整地图见
-[`docs/README.md`](docs/README.md)；被取代的材料在
-[`docs/99-archive/`](docs/99-archive/README.md)。
-
-`examples/` 里有覆盖每类规则的可运行案例：
-
-```bash
-cd examples
-just            # 列出所有案例
-just demo       # 全部跑一遍
-just full       # 全部类型、来源、操作符与 formatter
-```
+- [`examples/README.md`](examples/README.md) — 可运行数据集、recipe、golden
+- [`docs/migration.md`](docs/migration.md) — 从 GNU `envsubst` 迁移
+- [`docs/07-serialization/04-cli.md`](docs/07-serialization/04-cli.md) — CLI 与协议参考
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — 构建、测试、lint 与开发说明
 
 ## 许可证
 
-MIT，见 [LICENSE](LICENSE)。
+MIT，见 [`LICENSE`](LICENSE)。
