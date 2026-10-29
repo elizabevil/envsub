@@ -358,8 +358,8 @@ CI 想按行解析，只能猜哪一行是报告、哪一行是错误，`grep '{
 信封字段，差异只在 `data`：
 
 ```json
-{"schema":1,"type":"explain","time":"2026-10-22T23:43:37.041Z","seq":1,"data":{"template":"input.tmpl","variable":"MISSING","origin":{"kind":"missing"},"shadowed":[]}}
-{"schema":1,"type":"error","time":"2026-10-22T23:43:37.041Z","seq":2,"data":{"kind":"missing","exitCode":6,"message":"variable \"MISSING\" is not set"}}
+{"schema":1,"type":"explain","time":"2026-10-22T23:43:37Z","seq":1,"data":{"template":"input.tmpl","variable":"MISSING","origin":{"kind":"missing"},"shadowed":[]}}
+{"schema":1,"type":"error","time":"2026-10-22T23:43:37Z","seq":2,"data":{"kind":"missing","exitCode":6,"message":"variable \"MISSING\" is not set"}}
 ```
 
 | `type` | `data` 内容 |
@@ -369,7 +369,7 @@ CI 想按行解析，只能猜哪一行是报告、哪一行是错误，`grep '{
 | `error` | `kind`、`exitCode`、`message`；批量失败一条错误一行 |
 | `log` | `level`、`message`、`attrs` |
 
-时间只有一个来源：`internal/timefmt` 统一生成 UTC、固定毫秒、`Z`；`seq` 解决同毫秒排序。
+时间只有一个来源：`internal/timefmt` 统一生成 UTC、秒级、`Z`；`seq` 解决事件排序。
 文本日志和 `version.buildDate` 也走同一个格式化函数，不再各写一套。
 
 CI 可以直接过滤：
@@ -408,7 +408,7 @@ jq -c 'select(.type=="explain" and .data.variable=="app.port")' events.jsonl
 2. 父对象不存在的 schema default 不再出现在报告里；
 3. `--report=unused` 也会排除被 `--only-vars`/`--ignore-vars` 排除的引用（含嵌套引用）；
 4. `--explain`/`--report=unused` 自动开启 `--jsonl`：stderr 每行统一为
-   `schema`/`type`/`time`/`seq`/`data` 信封，载荷按类型特化；时间统一为 UTC 固定毫秒；
+   `schema`/`type`/`time`/`seq`/`data` 信封，载荷按类型特化；时间统一为 UTC RFC3339 秒级；
    `--jsonl=false` 可退回人类可读诊断；`--jsonl` 优先于 `--error-format`。
 
 ## 自己验证

@@ -35,9 +35,9 @@ func New(level string, w io.Writer) (*slog.Logger, error) {
 }
 
 // formatTextTime makes the human-readable text log use the same timestamp as the
-// JSONL events: UTC with fixed milliseconds. Without it slog's TextHandler would
-// format time itself (local zone, millisecond truncation) while JSON used
-// RFC3339Nano, which is exactly the drift timefmt exists to prevent.
+// JSONL events: UTC RFC3339 at second precision. Without it slog's TextHandler
+// would format time itself (local zone, variable precision), which is exactly
+// the drift timefmt exists to prevent.
 func formatTextTime(groups []string, attr slog.Attr) slog.Attr {
 	if len(groups) == 0 && attr.Key == slog.TimeKey {
 		return slog.String(slog.TimeKey, timefmt.Format(attr.Value.Time()))

@@ -302,7 +302,7 @@ _列：ID | 规则 | 证据。_
 |------|------|------|
 | C16 | `--jsonl` 打开后 stderr 每行都是一个事件信封：`schema`/`type`/`time`/`seq`/`data`；`type` 为 `explain`/`unused`/`error`/`log` 之一；stdout 不变 | `internal/event`；`internal/cli/root.go` |
 | C16 | `--explain`/`--report` 自动开启 `--jsonl`；显式 `--jsonl=false` 可退回混合流 | `cli.JSONLFrom` |
-| C16 | 所有事件共用 `internal/timefmt` 的 UTC 固定毫秒时间；`seq` 从 1 单调递增。`--jsonl` 优先于 `--error-format`；错误事件逐条输出（`errors.Join` 被展开） | `internal/timefmt`；`internal/app/app.go` |
+| C16 | 所有事件共用 `internal/timefmt` 的 UTC RFC3339 秒级时间；`seq` 从 1 单调递增。`--jsonl` 优先于 `--error-format`；错误事件逐条输出（`errors.Join` 被展开） | `internal/timefmt`；`internal/app/app.go` |
 | C16 | 退出码与错误分类不变；usage 错误也走同一出口 | `internal/diag`；`internal/app` |
 | C16 | 日志事件为 `type:"log"`，`data` 含 `level`/`message`/`attrs`；属性统一收进 `attrs` 对象 | `internal/logging.NewEvent` |
 

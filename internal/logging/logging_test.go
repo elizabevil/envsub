@@ -53,9 +53,9 @@ func TestLoggerRoundTrip(t *testing.T) {
 	if !strings.Contains(buf.String(), "hello") {
 		t.Fatalf("logger output = %q, want it to contain hello", buf.String())
 	}
-	// Text logs use the same UTC millisecond layout as the event stream.
-	if !regexp.MustCompile(`time=\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z`).MatchString(buf.String()) {
-		t.Fatalf("logger output = %q, want the shared UTC millisecond timestamp", buf.String())
+	// Text logs use the same UTC second layout as the event stream.
+	if !regexp.MustCompile(`time=\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ`).MatchString(buf.String()) {
+		t.Fatalf("logger output = %q, want the shared UTC second timestamp", buf.String())
 	}
 }
 

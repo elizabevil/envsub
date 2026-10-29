@@ -2,7 +2,7 @@
 // the single writer that produces it. Every line has the same envelope; the
 // payload is specialized by type:
 //
-//	{"schema":1,"type":"explain","time":"2026-10-22T23:43:37.041Z","seq":1,"data":{...}}
+//	{"schema":1,"type":"explain","time":"2026-10-22T23:43:37Z","seq":1,"data":{...}}
 //
 // Keeping one writer means one encoder, one timestamp format and one sequence
 // across logs, explain records, unused records and errors.
@@ -37,11 +37,11 @@ type Event struct {
 	Schema int `json:"schema"`
 	// Type discriminates the payload: explain, unused, error or log.
 	Type string `json:"type"`
-	// Time is the event time in UTC, RFC3339 with exactly three fractional
-	// digits. It is produced by event/timefmt, never by a caller.
+	// Time is the event time in UTC, RFC3339 at second precision. It is produced
+	// by timefmt, never by a caller.
 	Time string `json:"time"`
 	// Seq is monotonic within one writer, starting at 1. It orders events that
-	// share a millisecond and makes a merged CI stream deterministic.
+	// share a second and makes a merged CI stream deterministic.
 	Seq uint64 `json:"seq"`
 	// Data is the type-specific payload. It is always an object.
 	Data any `json:"data"`

@@ -97,7 +97,7 @@ envsub
 - 默认 stderr 是**混合诊断流**；`--error-format=json` 是机器模式的兼容别名，会输出统一事件信封。
 - `--jsonl`（`--explain`/`--report` 自动开启）时，stderr 是**纯 JSONL 事件流**：每行固定为
   `schema`/`type`/`time`/`seq`/`data` 信封，`data` 按 `explain`/`unused`/`error`/`log` 特化；
-  stdout 不变。`time` 统一由 `internal/timefmt` 生成（UTC、固定毫秒、`Z`）。
+  stdout 不变。`time` 统一由 `internal/timefmt` 生成（UTC、秒级、`Z`）。
 - `--jsonl` 优先于 `--error-format`；`--error-format=json` 是兼容别名；`--jsonl=false` 显式退回混合流。
 - 默认不打印 bundle/进度信息。
 

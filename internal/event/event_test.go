@@ -43,7 +43,7 @@ func TestWriterEmitsEnvelope(t *testing.T) {
 		if decoded.Schema != event.Schema {
 			t.Fatalf("schema = %d, want %d", decoded.Schema, event.Schema)
 		}
-		if decoded.Time != "2026-10-22T23:43:37.041Z" {
+		if decoded.Time != "2026-10-22T23:43:37Z" {
 			t.Fatalf("time = %q, want the shared format", decoded.Time)
 		}
 		if decoded.Seq != uint64(i+1) {
@@ -65,7 +65,7 @@ func TestWriterUsesExplicitLogTime(t *testing.T) {
 	if err := writer.EmitAt(at, event.TypeLog, event.LogData{Level: "WARN", Message: "hello", Attrs: map[string]any{}}); err != nil {
 		t.Fatalf("EmitAt() error = %v", err)
 	}
-	if !bytes.Contains(buf.Bytes(), []byte(`"time":"2026-01-02T03:04:05.006Z"`)) {
+	if !bytes.Contains(buf.Bytes(), []byte(`"time":"2026-01-02T03:04:05Z"`)) {
 		t.Fatalf("output = %q, want the explicit record time", buf.String())
 	}
 }

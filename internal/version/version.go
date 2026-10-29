@@ -63,8 +63,8 @@ type Info struct {
 	GitCommit string `json:"gitCommit"`
 	// GitTreeState is clean or dirty, depending on uncommitted changes.
 	GitTreeState string `json:"gitTreeState"`
-	// BuildDate is the build time in the process-wide UTC RFC3339 layout with
-	// milliseconds, empty when it cannot be determined.
+	// BuildDate is the build time in the process-wide UTC RFC3339 layout at
+	// second precision, empty when it cannot be determined.
 	BuildDate string `json:"buildDate"`
 	// GoVersion is the toolchain that produced the binary.
 	GoVersion string `json:"goVersion"`

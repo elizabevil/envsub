@@ -87,7 +87,7 @@ schema default → yaml/json 值文件 → .env → --set/--set-json/--set-file 
 每行是统一信封 `schema`/`type`/`time`/`seq`/`data`；`explain` 的载荷在 `data` 里：
 
 ```json
-{"schema":1,"type":"explain","time":"2026-10-22T23:43:37.041Z","seq":1,
+{"schema":1,"type":"explain","time":"2026-10-22T23:43:37Z","seq":1,
  "data":{
    "template":"examples/templates/scenarios-json.tmpl","variable":"string_type_root",
    "origin":{"kind":"values","method":"file","source":"examples/data/values-prod.yaml",
@@ -103,7 +103,7 @@ schema default → yaml/json 值文件 → .env → --set/--set-json/--set-file 
 `--set-file` 的键：
 
 ```json
-{"schema":1,"type":"explain","time":"2026-10-22T23:43:37.041Z","seq":2,
+{"schema":1,"type":"explain","time":"2026-10-22T23:43:37Z","seq":2,
  "data":{"template":"a.tmpl","variable":"string_setfile_from_file",
          "origin":{"kind":"set","method":"file","source":"string_setfile_from_file",
                    "file":"examples/secrets/tls.key","line":0},
@@ -111,7 +111,7 @@ schema default → yaml/json 值文件 → .env → --set/--set-json/--set-file 
 ```
 
 `shadowed` 恒输出，无被覆盖帧时为 `[]`；`origin` 恒为链尾。不输出值（值可能是密钥）。
-`time` 由 `internal/timefmt` 统一生成（UTC、固定毫秒、`Z`），`seq` 在同一进程内单调递增。
+`time` 由 `internal/timefmt` 统一生成（UTC、秒级、`Z`），`seq` 在同一进程内单调递增。
 
 ### 4.5 不变式（可直接写成断言）
 

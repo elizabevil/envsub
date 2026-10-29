@@ -73,10 +73,10 @@ func TestExplainTemplateWritesJSONL(t *testing.T) {
 		t.Fatalf("explainTemplate() error = %v", err)
 	}
 	want := strings.Join([]string{
-		`{"schema":1,"type":"explain","time":"2026-10-22T23:43:37.041Z","seq":1,"data":{"template":"app.tmpl","variable":"@process.K","origin":{"kind":"process","method":"env","source":"K","file":"","line":0},"shadowed":[]}}`,
-		`{"schema":1,"type":"explain","time":"2026-10-22T23:43:37.041Z","seq":2,"data":{"template":"app.tmpl","variable":"A","origin":{"kind":"set","method":"flag","source":"A","file":"","line":0},"shadowed":[]}}`,
-		`{"schema":1,"type":"explain","time":"2026-10-22T23:43:37.041Z","seq":3,"data":{"template":"app.tmpl","variable":"K","origin":{"kind":"envfile","method":"file","source":".env","file":".env","line":1},"shadowed":[{"kind":"values","method":"file","source":"values.yaml","file":"values.yaml","line":0}]}}`,
-		`{"schema":1,"type":"explain","time":"2026-10-22T23:43:37.041Z","seq":4,"data":{"template":"app.tmpl","variable":"NOPE","origin":{"kind":"missing","method":"missing","source":"","file":"","line":0},"shadowed":[]}}`,
+		`{"schema":1,"type":"explain","time":"2026-10-22T23:43:37Z","seq":1,"data":{"template":"app.tmpl","variable":"@process.K","origin":{"kind":"process","method":"env","source":"K","file":"","line":0},"shadowed":[]}}`,
+		`{"schema":1,"type":"explain","time":"2026-10-22T23:43:37Z","seq":2,"data":{"template":"app.tmpl","variable":"A","origin":{"kind":"set","method":"flag","source":"A","file":"","line":0},"shadowed":[]}}`,
+		`{"schema":1,"type":"explain","time":"2026-10-22T23:43:37Z","seq":3,"data":{"template":"app.tmpl","variable":"K","origin":{"kind":"envfile","method":"file","source":".env","file":".env","line":1},"shadowed":[{"kind":"values","method":"file","source":"values.yaml","file":"values.yaml","line":0}]}}`,
+		`{"schema":1,"type":"explain","time":"2026-10-22T23:43:37Z","seq":4,"data":{"template":"app.tmpl","variable":"NOPE","origin":{"kind":"missing","method":"missing","source":"","file":"","line":0},"shadowed":[]}}`,
 	}, "\n") + "\n"
 	if got.String() != want {
 		t.Fatalf("explainTemplate() =\n%swant\n%s", got.String(), want)
@@ -113,7 +113,7 @@ func TestExplainTemplateShadowedOrder(t *testing.T) {
 	if err := explainTemplate(newExplainEvents(&got), eng, req, "app.tmpl", nil, run); err != nil {
 		t.Fatalf("explainTemplate() error = %v", err)
 	}
-	want := `{"schema":1,"type":"explain","time":"2026-10-22T23:43:37.041Z","seq":1,"data":{"template":"app.tmpl","variable":"K","origin":{"kind":"set","method":"flag","source":"K","file":"","line":0},"shadowed":[` +
+	want := `{"schema":1,"type":"explain","time":"2026-10-22T23:43:37Z","seq":1,"data":{"template":"app.tmpl","variable":"K","origin":{"kind":"set","method":"flag","source":"K","file":"","line":0},"shadowed":[` +
 		`{"kind":"envfile","method":"file","source":"debug.env","file":"debug.env","line":2},` +
 		`{"kind":"envfile","method":"file","source":"base.env","file":"base.env","line":1},` +
 		`{"kind":"values","method":"file","source":"values.yaml","file":"values.yaml","line":0},` +
@@ -143,8 +143,8 @@ func TestExplainTemplateFiltersByExactPath(t *testing.T) {
 		t.Fatalf("explainTemplate() error = %v", err)
 	}
 	want := strings.Join([]string{
-		`{"schema":1,"type":"explain","time":"2026-10-22T23:43:37.041Z","seq":1,"data":{"template":"app.tmpl","variable":"app.port","origin":{"kind":"values","method":"file","source":"values.yaml","file":"values.yaml","line":0},"shadowed":[]}}`,
-		`{"schema":1,"type":"explain","time":"2026-10-22T23:43:37.041Z","seq":2,"data":{"template":"app.tmpl","variable":"app.port.x","origin":{"kind":"missing","method":"missing","source":"","file":"","line":0},"shadowed":[]}}`,
+		`{"schema":1,"type":"explain","time":"2026-10-22T23:43:37Z","seq":1,"data":{"template":"app.tmpl","variable":"app.port","origin":{"kind":"values","method":"file","source":"values.yaml","file":"values.yaml","line":0},"shadowed":[]}}`,
+		`{"schema":1,"type":"explain","time":"2026-10-22T23:43:37Z","seq":2,"data":{"template":"app.tmpl","variable":"app.port.x","origin":{"kind":"missing","method":"missing","source":"","file":"","line":0},"shadowed":[]}}`,
 	}, "\n") + "\n"
 	if got.String() != want {
 		t.Fatalf("explainTemplate() =\n%swant\n%s", got.String(), want)

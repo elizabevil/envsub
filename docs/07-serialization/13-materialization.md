@@ -407,8 +407,8 @@ JSON 对象，CI 可按 `type` 过滤。显式 `--jsonl=false` 可退回混合�
 `file`/`line` 是**物理位置**。
 
 ```json
-{"schema":1,"type":"explain","time":"2026-10-22T23:43:37.041Z","seq":1,"data":{"template":"a.tmpl","variable":"K","origin":{"kind":"envfile","method":"file","source":".env","file":".env","line":1},"shadowed":[{"kind":"schema","method":"default","source":"#/properties/K/default","file":"schema.json","line":0}]}}
-{"schema":1,"type":"explain","time":"2026-10-22T23:43:37.041Z","seq":2,"data":{"template":"a.tmpl","variable":"@process.PORT","origin":{"kind":"process","method":"env","source":"PORT","file":"","line":0},"shadowed":[]}}
+{"schema":1,"type":"explain","time":"2026-10-22T23:43:37Z","seq":1,"data":{"template":"a.tmpl","variable":"K","origin":{"kind":"envfile","method":"file","source":".env","file":".env","line":1},"shadowed":[{"kind":"schema","method":"default","source":"#/properties/K/default","file":"schema.json","line":0}]}}
+{"schema":1,"type":"explain","time":"2026-10-22T23:43:37Z","seq":2,"data":{"template":"a.tmpl","variable":"@process.PORT","origin":{"kind":"process","method":"env","source":"PORT","file":"","line":0},"shadowed":[]}}
 ```
 
 信封字段：
@@ -417,8 +417,8 @@ JSON 对象，CI 可按 `type` 过滤。显式 `--jsonl=false` 可退回混合�
 |------|------|
 | `schema` | 协议版本，当前为 `1`；字段语义变更时递增 |
 | `type` | 事件类型：`explain` / `unused` / `error` / `log` |
-| `time` | 事件时间，**UTC、RFC3339、固定 3 位毫秒、`Z` 后缀**，由 `internal/timefmt` 统一生成 |
-| `seq` | 同一进程内从 1 开始单调递增，用于同毫秒排序 |
+| `time` | 事件时间，**UTC、RFC3339 秒级、`Z` 后缀**，由 `internal/timefmt` 统一生成 |
+| `seq` | 同一进程内从 1 开始单调递增，用于事件排序 |
 | `data` | 类型特化载荷，恒为对象 |
 
 `explain` 的 `data` 字段：
@@ -487,16 +487,16 @@ JSON 对象，CI 可按 `type` 过滤。显式 `--jsonl=false` 可退回混合�
 示例：
 
 ```text
-{"schema":1,"type":"explain","time":"2026-10-22T23:43:37.041Z","seq":1,"data":{"template":"a.tmpl","variable":"K","origin":{...},"shadowed":[]}}
-{"schema":1,"type":"error","time":"2026-10-22T23:43:37.041Z","seq":2,"data":{"kind":"missing","exitCode":6,"message":"variable \"MISSING\" is not set"}}
-{"schema":1,"type":"log","time":"2026-10-22T23:43:37.041Z","seq":3,"data":{"level":"WARN","message":"unknown schema keyword","attrs":{"keyword":"properties.K.bogus"}}}
+{"schema":1,"type":"explain","time":"2026-10-22T23:43:37Z","seq":1,"data":{"template":"a.tmpl","variable":"K","origin":{...},"shadowed":[]}}
+{"schema":1,"type":"error","time":"2026-10-22T23:43:37Z","seq":2,"data":{"kind":"missing","exitCode":6,"message":"variable \"MISSING\" is not set"}}
+{"schema":1,"type":"log","time":"2026-10-22T23:43:37Z","seq":3,"data":{"level":"WARN","message":"unknown schema keyword","attrs":{"keyword":"properties.K.bogus"}}}
 ```
 
 规则：
 
 - **stdout 不变**：仍然只放渲染结果；`--jsonl` 只影响 stderr。
-- **时间只有一个来源**：`internal/timefmt` 统一生成 UTC、固定毫秒、`Z`；文本日志、事件流和
-  `version.buildDate` 都调用它，不再各自格式化；`seq` 解决同毫秒排序。
+- **时间只有一个来源**：`internal/timefmt` 统一生成 UTC、RFC3339 秒级、`Z`；文本日志、事件流和
+  `version.buildDate` 都调用它，不再各自格式化；`seq` 解决事件排序。
 - **每个失败一条**：批量失败不会把多个错误塞进一个对象的 `message`，便于日志系统逐条索引。
 - **退出码不变**：`error.data.exitCode` 与进程退出码一致，仍按 2/3/4/5/6/7 分类。
 - **优先级**：`--jsonl` 高于 `--error-format`；`--error-format=json` 是机器模式的兼容别名，
