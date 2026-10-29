@@ -78,7 +78,7 @@ var missingLineage = lineage{winner: missingFrame, shadowed: []explainFrame{}}
 //  4. an ancestor origin is used only when the value itself exists, which is what
 //     schema materialization creates;
 //  5. anything else is missing, never an inherited parent source.
-func (run *explainRun) resolve(key explainKey) lineage {
+func (run explainRun) resolve(key explainKey) lineage {
 	if key.EnvName != "" {
 		if candidates := run.env[key.EnvName]; len(candidates) > 0 {
 			return lineageFrom(candidates)
