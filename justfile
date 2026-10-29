@@ -113,13 +113,15 @@ lint: caches
 tidy: caches
     go mod tidy
 
-# check is the local gate: formatting (Go and just), vet, unit/fixture tests,
-# the end-to-end suite and the runnable examples.
-check: caches fmt-check fmt-just vet lint test test-e2e test-examples
+# check is the local gate: formatting (Go and just), lint, unit/fixture tests
+# (which run vet first), the end-to-end suite and the runnable examples.
+check: caches fmt-check fmt-just lint test test-e2e test-examples
 
 # --- tests ------------------------------------------------------------------
 
-test: caches
+# test runs vet before the suite so type-checking failures surface locally,
+# not only in the GitHub Actions vet step.
+test: vet caches
     go test -count=1 ./...
 
 test-race: caches
